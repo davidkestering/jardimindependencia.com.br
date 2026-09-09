@@ -77,7 +77,7 @@ def moradores(request: Request, status: str = "", q: str = "", admin: AdminUser 
         stmt = stmt.where(Morador.status == status)
     if q:
         stmt = stmt.where(Morador.nome.ilike(f"%{q}%") | Morador.cpf.contains(auth.so_digitos(q) or "§"))
-    blocos = sorted({u.bloco for u in db.scalars(select(Unidade).where(Unidade.apto != ""))})
+    blocos = sorted({u.bloco for u in db.scalars(select(Unidade).where(Unidade.apto != ""))}) + ["PORTARIA", "ADMINISTRACAO"]
     return render(request, "admin/moradores.html", moradores=db.scalars(stmt).all(), status=status, q=q, blocos=blocos)
 
 
@@ -86,7 +86,7 @@ def morador_criar(request: Request, nome: str = Form(...), cpf: str = Form(...),
                   bloco: str = Form(...), apto: str = Form(...), email: str = Form(""), telefone: str = Form(""),
                   admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     cpf_d, nasc = auth.so_digitos(cpf), auth.parse_data(nascimento)
-    apto = auth.so_digitos(apto).zfill(3)[-3:]
+    apto = "" if bloco in ("PORTARIA", "ADMINISTRACAO") else auth.so_digitos(apto).zfill(3)[-3:]
     u = db.scalar(select(Unidade).where(Unidade.bloco == bloco, Unidade.apto == apto))
     if not auth.cpf_valido(cpf_d) or not nasc or not u:
         raise HTTPException(400, "CPF, data ou unidade inválidos")

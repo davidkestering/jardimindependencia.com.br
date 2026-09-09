@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}{{ a.titulo }} · Administração{% endblock %}
+{% block head %}<style>.barra{background:var(--bege-claro);border-radius:6px;height:10px;overflow:hidden}.barra i{display:block;height:100%;background:var(--terracota)}.op{display:grid;grid-template-columns:1fr 60px;gap:8px;align-items:center;margin:6px 0;font-variant-numeric:tabular-nums}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "admin/_menu.html" %}
+  <div class="eyebrow">{% if a.abre_em <= agora <= a.fecha_em %}Votação aberta{% elif agora < a.abre_em %}Agendada{% else %}Encerrada{% endif %} · {{ unidades_ativas }} unidades aptas</div>
+  <h1>{{ a.titulo }}</h1>
+  <p>{{ a.abre_em.strftime('%d/%m/%Y %H:%M') }} até {{ a.fecha_em.strftime('%d/%m/%Y %H:%M') }} (horário de Brasília)</p>
+  {% for p in a.pautas %}
+  <div class="item" style="margin:14px 0">
+    <div class="eyebrow">Pauta {{ p.ordem }}</div>
+    <h3>{{ p.texto }}</h3>
+    {% set r = res[p.id] %}
+    {% for o in p.opcoes %}{% set n = r.validos[o.id] %}
+    <div class="op"><div>{{ o.texto }}<div class="barra"><i style="width:{{ (100 * n / r.total_validos) if r.total_validos else 0 }}%"></i></div></div><strong>{{ n }}</strong></div>
+    {% endfor %}
+    <p style="font-size:14px;color:#6b5a4c">Votos válidos: {{ r.total_validos }} · Votos apresentados por unidades inadimplentes (não computados): {{ r.nao_computados }}</p>
+    <form method="post" action="/admin/assembleias/{{ a.id }}/pautas/{{ p.id }}/excluir" onsubmit="return confirm('Excluir a pauta e seus votos?')"><button class="btn sec" type="submit">Excluir pauta</button></form>
+  </div>
+  {% else %}<p>Nenhuma pauta ainda.</p>{% endfor %}
+  <h2 style="margin-top:32px;font-size:22px">Adicionar pauta</h2>
+  <form class="card" method="post" action="/admin/assembleias/{{ a.id }}/pautas">
+    <label>Texto da pauta<textarea name="texto" rows="3" required maxlength="2000" placeholder="Ex.: Aprovação da reforma da quadra"></textarea></label>
+    <label>Opções (uma por linha)<textarea name="opcoes" rows="4" required placeholder="Aprovo&#10;Não aprovo&#10;Abstenção"></textarea></label>
+    <button class="btn" type="submit">Adicionar</button>
+  </form>
+  <form method="post" action="/admin/assembleias/{{ a.id }}/excluir" onsubmit="return confirm('Excluir a assembleia inteira?')" style="margin-top:20px"><button class="btn sec" type="submit">Excluir assembleia</button></form>
+</div></section>
+{% endblock %}

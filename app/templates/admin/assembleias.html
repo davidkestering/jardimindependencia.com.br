@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titulo %}Assembleias · Administração{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "admin/_menu.html" %}
+  <h1>Assembleias</h1>
+  <div class="grade">
+    {% for a in assembleias %}<div class="item"><div class="eyebrow">{% if a.abre_em <= agora <= a.fecha_em %}Votação aberta{% elif agora < a.abre_em %}Agendada{% else %}Encerrada{% endif %}</div>
+      <h3>{{ a.titulo }}</h3><p>{{ a.abre_em.strftime('%d/%m/%Y %H:%M') }} até {{ a.fecha_em.strftime('%d/%m/%Y %H:%M') }}</p>
+      <p style="margin-top:10px"><a class="btn sec" href="/admin/assembleias/{{ a.id }}">Pautas e resultados</a></p></div>
+    {% else %}<p>Nenhuma assembleia cadastrada.</p>{% endfor %}
+  </div>
+  <h2 style="margin-top:36px;font-size:22px">Nova assembleia</h2>
+  <form class="card" method="post" action="/admin/assembleias">
+    <label>Título<input name="titulo" required maxlength="200" placeholder="Ex.: Assembleia Geral Ordinária 2026"></label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <label>Abre a votação em<input name="abre_em" type="datetime-local" required></label>
+      <label>Fecha a votação em<input name="fecha_em" type="datetime-local" required></label>
+    </div>
+    <button class="btn" type="submit">Criar e adicionar pautas</button>
+  </form>
+</div></section>
+{% endblock %}
