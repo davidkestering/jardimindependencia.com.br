@@ -16,8 +16,10 @@ def enviar(para: str, assunto: str, corpo: str, responder_para: str | None = Non
         msg["Reply-To"] = responder_para
     msg.set_content(corpo)
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as s:
-            s.starttls()
+        cliente = smtplib.SMTP_SSL if SMTP_PORT == 465 else smtplib.SMTP
+        with cliente(SMTP_HOST, SMTP_PORT, timeout=15) as s:
+            if SMTP_PORT != 465:
+                s.starttls()
             if SMTP_USER:
                 s.login(SMTP_USER, SMTP_PASS)
             s.send_message(msg)
