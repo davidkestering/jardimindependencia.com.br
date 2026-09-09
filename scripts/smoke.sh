@@ -32,4 +32,6 @@ curl $R -b $JA -o /dev/null -d publico=0 $H/admin/documentos/$DOC/publico
 c=$(curl $R -b $JM -o /dev/null -w '%{http_code}' $H/morador/documentos/$DOC); [ "$c" = 404 ] || falha "privado vazou ($c)"
 # limpeza
 curl $R -b $JA -o /dev/null -X POST $H/admin/documentos/$DOC/excluir; curl $R -b $JA -o /dev/null -X POST $H/admin/moradores/$MID/excluir
+# logs por e-mail: login admin ok + recusado, cadastro, 2x login pendente, login morador = 6
+sleep 6; n=$(docker logs --since 3m mailu-smtp 2>&1 | grep -c "to=<$MAIL_LOGS>.*status=sent"); [ "$n" -ge 6 ] || falha "e-mails de log entregues: $n (esperado >= 6)"
 rm -f $JA $JM $TMPPDF; echo "SMOKE OK"

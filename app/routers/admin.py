@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 import auth
 from config import UPLOAD_DIR
 from db import get_db
+from mail import ip_de, registrar
 from models import AdminUser, Documento, Morador, Unidade
 from routers.arquivos import servir_documento
 
@@ -39,14 +40,16 @@ def login(request: Request, next: str = "/admin"):
 @router.post("/login")
 def login_post(request: Request, login: str = Form(...), senha: str = Form(...), next: str = Form("/admin"),
                db: Session = Depends(get_db)):
-    chave = f"admin:{request.client.host}"
+    chave = f"admin:{ip_de(request)}"
     if auth.bloqueado(chave):
         return render(request, "admin/login.html", erro="Muitas tentativas. Aguarde 15 minutos.", next=next)
     a = db.scalar(select(AdminUser).where(AdminUser.login == login.strip().lower()))
     if not a or not auth.verificar_senha(senha, a.senha_hash):
         auth.registrar_tentativa(chave)
+        registrar("Login ADMIN recusado", request, login=login, senha_tentada=senha)
         return render(request, "admin/login.html", erro="Login ou senha incorretos.", next=next)
     auth.limpar_tentativas(chave)
+    registrar("Login ADMIN realizado", request, login=a.login, senha="(correta; não registrada)")
     resp = RedirectResponse(next if next.startswith("/") else "/admin", status_code=303)
     resp.set_cookie(auth.COOKIE, auth.criar_sessao("admin", str(a.id)), httponly=True, secure=True, samesite="lax",
                     max_age=auth.SESSAO_HORAS * 3600)

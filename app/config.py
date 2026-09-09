@@ -10,6 +10,7 @@ SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASS = os.environ.get("SMTP_PASS", "")
 MAIL_CONTATO = os.environ.get("MAIL_CONTATO", "contato@jardimindependencia.com.br")
+MAIL_LOGS = os.environ.get("MAIL_LOGS", "logs@jardimindependencia.com.br")
 SITE_URL = os.environ.get("SITE_URL", "https://jardimindependencia.com.br")
 
 CONDOMINIO = {
