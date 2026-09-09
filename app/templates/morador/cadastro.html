@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Solicitar cadastro · Jardim Independência{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  <div class="eyebrow">Área do condômino</div>
+  <h1>Solicitar cadastro</h1>
+  {% if sucesso %}
+  <p class="aviso ok" style="max-width:560px">Solicitação enviada. A administração vai conferir seus dados e liberar o acesso. Depois disso, entre com CPF e data de nascimento.</p>
+  {% else %}
+  <p style="max-width:56ch">Informe seus dados e a unidade. A administração confere e aprova o acesso.</p>
+  {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
+  <form class="card" method="post" action="/morador/cadastro">
+    <label>Nome completo<input name="nome" required maxlength="120"></label>
+    <label>CPF<input name="cpf" inputmode="numeric" required placeholder="000.000.000-00"></label>
+    <label>Data de nascimento<input name="nascimento" type="date" required></label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <label>Bloco<select name="bloco" required>{% for b in blocos %}<option value="{{ b }}">{{ b }}</option>{% endfor %}</select></label>
+      <label>Apartamento<input name="apto" inputmode="numeric" required placeholder="Ex.: 004 ou 102" maxlength="3"></label>
+    </div>
+    <label>E-mail (opcional)<input name="email" type="email" maxlength="160"></label>
+    <label>Telefone (opcional)<input name="telefone" maxlength="20" placeholder="(91) 9 9999-9999"></label>
+    <button class="btn" type="submit">Enviar solicitação</button>
+  </form>
+  {% endif %}
+</div></section>
+{% endblock %}

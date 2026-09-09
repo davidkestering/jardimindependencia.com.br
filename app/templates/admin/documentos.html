@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block titulo %}Documentos · Administração{% endblock %}
+{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}form.inline{display:inline}form.inline button{padding:5px 10px;font-size:13px}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "admin/_menu.html" %}
+  <h1>Documentos</h1>
+  <p style="max-width:60ch">Documentos digitalizados do condomínio. Só os marcados como <strong>públicos</strong> aparecem na área do condômino.</p>
+  <div style="overflow-x:auto"><table>
+    <tr><th>Data</th><th>Categoria</th><th>Título</th><th>Arquivo</th><th>Visível aos condôminos</th><th>Ações</th></tr>
+    {% for d in documentos %}<tr>
+      <td>{{ d.criado_em.strftime('%d/%m/%Y') }}</td><td>{{ d.categoria }}</td><td>{{ d.titulo }}</td><td><a href="/admin/documentos/{{ d.id }}">{{ d.nome_original }}</a></td>
+      <td>{% if d.publico %}Sim{% else %}Não{% endif %}</td>
+      <td><form class="inline" method="post" action="/admin/documentos/{{ d.id }}/publico"><input type="hidden" name="publico" value="{{ '0' if d.publico else '1' }}"><button class="btn sec" type="submit">{{ 'Tornar privado' if d.publico else 'Publicar' }}</button></form>
+      <form class="inline" method="post" action="/admin/documentos/{{ d.id }}/excluir" onsubmit="return confirm('Excluir este documento?')"><button class="btn sec" type="submit">Excluir</button></form></td>
+    </tr>{% else %}<tr><td colspan="6">Nenhum documento enviado.</td></tr>{% endfor %}
+  </table></div>
+  <h2 style="margin-top:36px">Enviar documento</h2>
+  <form class="card" method="post" action="/admin/documentos" enctype="multipart/form-data">
+    <label>Título<input name="titulo" required maxlength="200"></label>
+    <label>Categoria<select name="categoria">{% for c in categorias %}<option>{{ c }}</option>{% endfor %}</select></label>
+    <label>Arquivo (PDF, JPG ou PNG, até 25 MB)<input name="arquivo" type="file" accept=".pdf,.jpg,.jpeg,.png" required></label>
+    <label style="grid-template-columns:auto 1fr;align-items:center;gap:10px;display:grid"><input type="checkbox" name="publico" value="1" style="width:auto">Publicar para os condôminos agora</label>
+    <button class="btn" type="submit">Enviar</button>
+  </form>
+</div></section>
+{% endblock %}

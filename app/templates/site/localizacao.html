@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block titulo %}Localização · Jardim Independência{% endblock %}
+{% block conteudo %}
+<section>
+  <div class="container">
+    <div class="eyebrow">Como chegar</div>
+    <h1>Localização</h1>
+    <div class="grade" style="grid-template-columns:1fr 2fr;align-items:start">
+      <div class="item info"><dl>
+        <dt>Endereço</dt><dd>{{ condominio.endereco }}</dd>
+        <dt>Cidade</dt><dd>{{ condominio.cidade }}</dd>
+        <dt>CEP</dt><dd>{{ condominio.cep }}</dd>
+        <dt>Referência</dt><dd>{{ condominio.referencia }}</dd>
+      </dl><p style="margin:16px 0 0"><a class="btn sec" href="https://www.google.com/maps/search/?api=1&query=Av.+Governador+H%C3%A9lio+Gueiros%2C+48%2C+Ananindeua+PA+67120-370" target="_blank" rel="noopener">Abrir no Google Maps</a></p></div>
+      <iframe class="mapa" title="Mapa do condomínio" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.google.com/maps?q=Av.+Governador+H%C3%A9lio+Gueiros%2C+48%2C+Ananindeua+PA+67120-370&output=embed"></iframe>
+    </div>
+  </div>
+</section>
+{% endblock %}

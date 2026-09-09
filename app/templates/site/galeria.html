@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block titulo %}Galeria · Jardim Independência{% endblock %}
+{% block head %}
+<style>
+.filtros{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 20px}
+.filtros button{border:1px solid var(--bege-claro);background:var(--branco);color:var(--marrom-escuro);padding:7px 14px;border-radius:999px;font:600 14px "Nunito Sans",sans-serif;cursor:pointer}
+.filtros button[aria-pressed="true"]{background:var(--terracota);border-color:var(--terracota);color:#fff}
+.gcard{border:0;padding:0;background:var(--branco);border-radius:8px;overflow:hidden;cursor:zoom-in;text-align:left;font:inherit;color:inherit;box-shadow:0 6px 18px rgba(59,47,36,.10)}
+.gcard img{aspect-ratio:4/3;object-fit:cover;width:100%}
+.gcard figcaption{padding:8px 12px 10px;display:flex;justify-content:space-between;gap:8px;font-size:14px}
+.gcard small{color:#8a7565;white-space:nowrap}
+[hidden]{display:none!important}
+.lb{position:fixed;inset:0;background:rgba(30,22,16,.93);display:grid;grid-template-rows:auto 1fr auto;z-index:20;color:#efe4d8}
+.lb .top,.lb .bottom{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;gap:12px;flex-wrap:wrap}
+.lb .stage{position:relative;display:grid;place-items:center;padding:0 64px;min-height:0}
+.lb img{max-width:100%;max-height:100%;object-fit:contain}
+.lb button{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#efe4d8;border-radius:999px;width:44px;height:44px;font-size:22px;cursor:pointer}
+.lb .prev,.lb .next{position:absolute;top:50%;transform:translateY(-50%)}
+.lb .prev{left:12px}.lb .next{right:12px}
+.lb .leg{font:500 20px Fraunces,Georgia,serif}
+@media (max-width:600px){.lb .stage{padding:0 8px}}
+</style>
+{% endblock %}
+{% block conteudo %}
+<section>
+  <div class="container">
+    <div class="eyebrow">Imagens</div>
+    <h1>Galeria do condomínio</h1>
+    <p style="max-width:60ch">Clique em uma foto para ampliar. Use as setas do teclado ou deslize no celular para navegar e Esc para fechar.</p>
+    <div class="filtros" id="filtros" aria-label="Filtrar por área"></div>
+    <div class="galeria" id="grid" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))"></div>
+  </div>
+</section>
+<div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Foto ampliada">
+  <div class="top"><span id="contador"></span><button type="button" id="fechar" aria-label="Fechar">×</button></div>
+  <div class="stage"><button type="button" class="prev" id="prev" aria-label="Anterior">‹</button><img id="lbimg" alt=""><button type="button" class="next" id="next" aria-label="Próxima">›</button></div>
+  <div class="bottom"><span class="leg" id="leg"></span><span id="meta" style="font-size:13px;opacity:.75"></span></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const FOTOS = {{ fotos|tojson }};
+const cats = ['Todas', ...new Set(FOTOS.map(f => f.cat))];
+const grid = document.getElementById('grid'), filtros = document.getElementById('filtros');
+let ativa = 'Todas', visiveis = [], idx = 0;
+cats.forEach(c => { const b = document.createElement('button'); b.type = 'button'; b.textContent = c; b.setAttribute('aria-pressed', c === ativa);
+  b.onclick = () => { ativa = c; [...filtros.children].forEach(x => x.setAttribute('aria-pressed', x.textContent === c)); render(); }; filtros.appendChild(b); });
+FOTOS.forEach((f, i) => { const card = document.createElement('button'); card.className = 'gcard'; card.type = 'button'; card.dataset.i = i;
+  card.innerHTML = `<figure style="margin:0"><img src="/static/img/condominio/${f.arq}" alt="${f.leg}" loading="lazy"><figcaption><b>${f.leg}</b><small>${f.cat}</small></figcaption></figure>`;
+  card.onclick = () => abrir(i); grid.appendChild(card); });
+function render() { visiveis = []; [...grid.children].forEach(card => { const f = FOTOS[card.dataset.i]; const ok = ativa === 'Todas' || f.cat === ativa; card.hidden = !ok; if (ok) visiveis.push(+card.dataset.i); }); }
+render();
+const lb = document.getElementById('lb'), lbimg = document.getElementById('lbimg');
+function abrir(i) { idx = visiveis.indexOf(i); mostrar(); lb.hidden = false; document.body.style.overflow = 'hidden'; document.getElementById('fechar').focus(); }
+function fechar() { lb.hidden = true; document.body.style.overflow = ''; grid.children[visiveis[idx]].focus(); }
+function mostrar() { const f = FOTOS[visiveis[idx]]; lbimg.src = '/static/img/condominio/' + f.arq; lbimg.alt = f.leg; document.getElementById('leg').textContent = f.leg; document.getElementById('meta').textContent = f.cat; document.getElementById('contador').textContent = `${idx + 1} / ${visiveis.length}`; }
+function passo(d) { idx = (idx + d + visiveis.length) % visiveis.length; mostrar(); }
+document.getElementById('prev').onclick = () => passo(-1); document.getElementById('next').onclick = () => passo(1); document.getElementById('fechar').onclick = fechar;
+lb.addEventListener('click', e => { if (e.target === lb || e.target.classList.contains('stage')) fechar(); });
+document.addEventListener('keydown', e => { if (lb.hidden) return; if (e.key === 'Escape') fechar(); else if (e.key === 'ArrowLeft') passo(-1); else if (e.key === 'ArrowRight') passo(1); });
+let x0 = null; lb.addEventListener('touchstart', e => x0 = e.touches[0].clientX, { passive: true });
+lb.addEventListener('touchend', e => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 50) passo(dx < 0 ? 1 : -1); x0 = null; });
+</script>
+{% endblock %}

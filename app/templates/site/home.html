@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<section class="hero" style="padding:0">
+  {% for arq, leg in fotos[:6] %}<div class="slide{% if loop.first %} ativo{% endif %}" style="background-image:url('/static/img/condominio/{{ arq }}')" data-legenda="{{ leg }}" role="img" aria-label="{{ leg }}"></div>{% endfor %}
+  <div class="container conteudo">
+    <div class="eyebrow" style="color:#e8c3ad">Bem-vindo ao</div>
+    <h1>Condomínio Jardim Independência</h1>
+    <p>Residencial com 27 blocos, piscina, salão de festas, quadra e áreas de convivência, na Av. Governador Hélio Gueiros, em Ananindeua.</p>
+    <div class="legenda"></div>
+  </div>
+  <div class="pontos" aria-label="Escolher foto"></div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="eyebrow">Para moradores</div>
+    <h2>Serviços on-line</h2>
+    <div class="acessos">
+      <div class="acesso"><h3>Área do condômino</h3><p>Documentos do condomínio, boletos e PIX, situação financeira da unidade e votações das assembleias.</p><a href="/morador/login">Entrar com CPF</a></div>
+      <div class="acesso claro"><h3>Ainda não tem acesso?</h3><p>Moradores podem solicitar o cadastro informando bloco, apartamento e CPF. A administração aprova em seguida.</p><a href="/morador/cadastro">Solicitar cadastro</a></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="container">
+    <div class="eyebrow">Estrutura</div>
+    <h2>Áreas comuns</h2>
+    <div class="grade">
+      {% for titulo, desc in areas %}<div class="item"><h3>{{ titulo }}</h3><p>{{ desc }}</p></div>{% endfor %}
+    </div>
+    <p style="margin-top:20px"><a class="btn sec" href="/condominio">Ver tudo sobre o condomínio</a></p>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block titulo %}Administração · Jardim Independência{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  <div class="eyebrow">Administração</div>
+  <h1>Entrar</h1>
+  {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
+  <form class="card" method="post" action="/admin/login">
+    <input type="hidden" name="next" value="{{ next }}">
+    <label>Login<input name="login" required autocomplete="username"></label>
+    <label>Senha<input name="senha" type="password" required autocomplete="current-password"></label>
+    <button class="btn" type="submit">Entrar</button>
+  </form>
+</div></section>
+{% endblock %}

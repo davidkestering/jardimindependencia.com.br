@@ -1,0 +1,6 @@
+.env
+data/
+tmp_galeria/
+uploads/
+__pycache__/
+*.pyc
