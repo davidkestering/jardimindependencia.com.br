@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 import auth
 from db import get_db
-from mail import enviar
+from mail import enviar, ip_de, registrar
 from config import MAIL_CONTATO, SITE_URL
 from models import Documento, Morador, Unidade
 
@@ -35,19 +35,23 @@ def login(request: Request, next: str = "/morador"):
 def login_post(request: Request, cpf: str = Form(...), nascimento: str = Form(...), next: str = Form("/morador"),
                db: Session = Depends(get_db)):
     cpf_d = auth.so_digitos(cpf)
-    chave = f"morador:{request.client.host}:{cpf_d}"
+    chave = f"morador:{ip_de(request)}:{cpf_d}"
     if auth.bloqueado(chave):
         return render(request, "morador/login.html", erro="Muitas tentativas. Aguarde 15 minutos.", next=next)
     nasc = auth.parse_data(nascimento)
     m = db.scalar(select(Morador).where(Morador.cpf == cpf_d)) if auth.cpf_valido(cpf_d) and nasc else None
     if not m or m.nascimento != nasc:
         auth.registrar_tentativa(chave)
+        registrar("Login CONDÔMINO recusado", request, cpf=cpf, nascimento=nascimento, motivo="CPF ou data não conferem")
         return render(request, "morador/login.html", erro="CPF ou data de nascimento não conferem.", next=next)
+    if m.status != "aprovado":
+        registrar(f"Login CONDÔMINO recusado ({m.status})", request, nome=m.nome, unidade=m.unidade.rotulo, cpf=cpf, nascimento=nascimento)
     if m.status == "pendente":
         return render(request, "morador/login.html", erro="Seu cadastro ainda aguarda aprovação da administração.", next=next)
     if m.status == "bloqueado":
         return render(request, "morador/login.html", erro="Acesso bloqueado. Procure a administração.", next=next)
     auth.limpar_tentativas(chave)
+    registrar("Login CONDÔMINO realizado", request, nome=m.nome, unidade=m.unidade.rotulo, cpf=cpf, nascimento=nascimento)
     resp = RedirectResponse(next if next.startswith("/") else "/morador", status_code=303)
     resp.set_cookie(auth.COOKIE, auth.criar_sessao("morador", str(m.id)), httponly=True, secure=True, samesite="lax",
                     max_age=auth.SESSAO_HORAS * 3600)
@@ -84,11 +88,13 @@ def cadastro_post(request: Request, nome: str = Form(...), cpf: str = Form(...),
     elif db.scalar(select(Morador).where(Morador.cpf == cpf_d)):
         erro = "Já existe um cadastro com este CPF. Se ainda não foi aprovado, aguarde a administração."
     if erro:
+        registrar("Cadastro no site RECUSADO", request, motivo=erro, nome=nome, cpf=cpf, nascimento=nascimento, bloco=bloco, apto=apto, email=email, telefone=telefone)
         return render(request, "morador/cadastro.html", erro=erro, blocos=blocos, form=locals())
     m = Morador(unidade_id=u.id, nome=nome.strip()[:120], cpf=cpf_d, nascimento=nasc,
                 email=email.strip()[:160] or None, telefone=telefone.strip()[:20] or None, status="pendente")
     db.add(m)
     db.commit()
+    registrar("Cadastro no site (pendente)", request, nome=m.nome, cpf=cpf_d, nascimento=nasc, unidade=u.rotulo, email=email, telefone=telefone)
     enviar(MAIL_CONTATO, f"[Site] Novo cadastro pendente: {m.nome} ({u.rotulo})",
            f"Morador {m.nome} solicitou acesso para {u.rotulo}.\nAprove em {SITE_URL}/admin/moradores?status=pendente")
     return render(request, "morador/cadastro.html", sucesso=True, blocos=blocos)
