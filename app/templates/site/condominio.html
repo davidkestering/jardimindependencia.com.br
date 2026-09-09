@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block titulo %}O condomínio · Jardim Independência{% endblock %}
+{% block conteudo %}
+<section>
+  <div class="container">
+    <div class="eyebrow">Sobre</div>
+    <h1>O condomínio</h1>
+    <p style="max-width:65ch">O Residencial Jardim Independência fica no bairro Quarenta Horas (Coqueiro), em Ananindeua, próximo à rotatória do 40 Horas, ao Mix Matheus e a escolas e comércios. São 27 blocos: os blocos 01 a 12 têm térreo e primeiro andar; os blocos 13 a 27 têm térreo e quatro andares.</p>
+  </div>
+</section>
+<section class="alt">
+  <div class="container">
+    <h2>Áreas comuns</h2>
+    <div class="grade">{% for titulo, desc in areas %}<div class="item"><h3>{{ titulo }}</h3><p>{{ desc }}</p></div>{% endfor %}</div>
+  </div>
+</section>
+<section>
+  <div class="container">
+    <h2>Fotos</h2>
+    <p><a class="btn sec" href="/galeria">Abrir galeria com visualizador</a></p>
+    <div class="galeria">{% for arq, leg in fotos %}<figure><img src="/static/img/condominio/{{ arq }}" alt="{{ leg }}" loading="lazy"><figcaption>{{ leg }}</figcaption></figure>{% endfor %}</div>
+  </div>
+</section>
+{% endblock %}

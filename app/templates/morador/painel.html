@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block titulo %}Minha área · Jardim Independência{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  <div class="eyebrow">Área do condômino</div>
+  <h1>Olá, {{ morador.nome.split()[0] }}</h1>
+  <p>{{ morador.unidade.rotulo }} · <a href="/morador/sair">Sair</a></p>
+  <div class="grade" style="margin:24px 0">
+    <div class="item"><h3>Documentos</h3><p>{{ documentos|length }} documento(s) publicado(s) pela administração.</p></div>
+    <div class="item"><h3>Financeiro</h3><p>Boletos, PIX e situação da unidade. Disponível em breve.</p></div>
+    <div class="item"><h3>Assembleias</h3><p>Votações abertas e resultados. Disponível em breve.</p></div>
+  </div>
+  <h2>Documentos do condomínio</h2>
+  {% if not documentos %}<p>Nenhum documento publicado até o momento.</p>{% else %}
+  <div class="grade">{% for d in documentos %}<div class="item"><div class="eyebrow">{{ d.categoria }}</div><h3>{{ d.titulo }}</h3><p>{{ d.criado_em.strftime('%d/%m/%Y') }}</p><p style="margin-top:10px"><a class="btn sec" href="/morador/documentos/{{ d.id }}">Abrir</a></p></div>{% endfor %}</div>
+  {% endif %}
+</div></section>
+{% endblock %}

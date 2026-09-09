@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titulo %}{{ condominio.nome }}{% endblock %}</title>
+<meta name="description" content="{% block descricao %}Site oficial do {{ condominio.nome }}, em Ananindeua, Pará. Informações, área do condômino e administração.{% endblock %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Nunito+Sans:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="/static/css/site.css">
+<link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
+{% block head %}{% endblock %}
+</head>
+<body>
+<header class="topo">
+  <div class="container">
+    <a class="marca" href="/">Jardim Independência<small>Condomínio residencial · Ananindeua, PA</small></a>
+    <button class="hamb" aria-label="Abrir menu">☰</button>
+    <nav class="menu">
+      <a href="/condominio">O condomínio</a>
+      <a href="/galeria">Galeria</a>
+      <a href="/localizacao">Localização</a>
+      <a href="/contato">Contato</a>
+      {% if sessao and sessao.t == 'morador' %}<a class="btn" href="/morador">Minha área</a>
+      {% elif sessao and sessao.t == 'admin' %}<a class="btn" href="/admin">Administração</a>
+      {% else %}<a class="btn sec" href="/admin/login">Administração</a><a class="btn" href="/morador/login">Área do condômino</a>{% endif %}
+    </nav>
+  </div>
+</header>
+<main>{% block conteudo %}{% endblock %}</main>
+<footer>
+  <div class="container">
+    <div><strong>{{ condominio.nome }}</strong><br>CNPJ {{ condominio.cnpj }}</div>
+    <div>{{ condominio.endereco }}<br>{{ condominio.cidade }} · CEP {{ condominio.cep }}<br>{{ condominio.referencia }}</div>
+    <div><a href="mailto:contato@jardimindependencia.com.br">contato@jardimindependencia.com.br</a><br><a href="/contato">Fale com a administração</a></div>
+  </div>
+</footer>
+<script src="/static/js/site.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

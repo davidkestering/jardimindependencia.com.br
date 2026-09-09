@@ -1,0 +1,11 @@
+/* Paleta extraída das fotos reais do condomínio (fachadas, portaria, piscina) — set/2026 */
+:root {
+  --bege-claro:   #d9c0ae; /* paredes claras / rebocos */
+  --bege-medio:   #af9479; /* faixas e detalhes das fachadas */
+  --pessego:      #d4b29f; /* blocos em tom salmão claro */
+  --terracota:    #a26d54; /* telhados e molduras */
+  --marrom-escuro:#3b2f24; /* texto, esquadrias */
+  --azul-piscina: #6a9ac7; /* acento (links, botões secundários) */
+  --creme-fundo:  #f6efe7; /* fundo de página (bege-claro clareado) */
+  --branco:       #ffffff;
+}
