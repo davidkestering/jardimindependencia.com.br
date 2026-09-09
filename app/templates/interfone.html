@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block titulo %}Interfone virtual · Jardim Independência{% endblock %}
+{% block head %}
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#a26d54">
+<style>
+.ifone{display:grid;gap:16px;max-width:640px}
+.status{padding:14px 16px;border-radius:10px;background:var(--branco);border:1px solid var(--bege-claro);font-weight:600}
+.status.on{border-color:#bcd7c2;background:#e6f0e8;color:#1d4d2a}
+.status.off{border-color:#efc4b5;background:#fbe9e3;color:#7a2e12}
+.atalhos{display:flex;gap:8px;flex-wrap:wrap}
+.chamada{display:none;position:fixed;inset:0;background:rgba(30,22,16,.92);z-index:30;place-items:center;color:#efe4d8;text-align:center;padding:20px}
+.chamada.ativa{display:grid}
+.chamada h2{color:#fff;font-size:30px}
+.chamada .acoes{display:flex;gap:14px;justify-content:center;margin-top:20px}
+.chamada button{font:700 16px "Nunito Sans",sans-serif;border:0;border-radius:999px;padding:14px 26px;cursor:pointer}
+.chamada .atender{background:#2e8b57;color:#fff}.chamada .recusar{background:#b23a2a;color:#fff}
+.pulsa{animation:pulsa 1.2s infinite}@keyframes pulsa{50%{transform:scale(1.06)}}
+@media (prefers-reduced-motion:reduce){.pulsa{animation:none}}
+</style>
+{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% if menu == 'admin' %}{% include "admin/_menu.html" %}{% else %}{% include "morador/_menu.html" %}{% endif %}
+  <div class="eyebrow">Interfone virtual</div>
+  <h1>Chamar uma unidade</h1>
+  <p>Você está falando como <strong>{{ unidade.rotulo }}</strong>. A chamada usa o microfone do seu aparelho.</p>
+  <div class="ifone">
+    <div class="status" id="ifone-status">Conectando…</div>
+    <div class="atalhos">
+      {% if unidade.bloco != 'PORTARIA' %}<button class="btn" type="button" data-chamar="PORTARIA">Portaria</button>{% endif %}
+      {% if unidade.bloco != 'ADMINISTRACAO' %}<button class="btn" type="button" data-chamar="ADMINISTRACAO">Administração</button>{% endif %}
+    </div>
+    <form class="card" id="form-chamar">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <label>Bloco<select name="bloco" required>{% for b in blocos %}<option>{{ b }}</option>{% endfor %}</select></label>
+        <label>Apartamento<input name="apto" required maxlength="3" inputmode="numeric" placeholder="004"></label>
+      </div>
+      <button class="btn" type="submit">Chamar apartamento</button>
+    </form>
+    {% if vapid %}
+    <div class="item"><h3>Receber chamadas com o app fechado</h3>
+      <p>Instale o site como aplicativo e ative as notificações para o interfone tocar mesmo em segundo plano.</p>
+      <p style="margin-top:10px"><button class="btn sec" type="button" id="btn-push" data-vapid="{{ vapid }}">Ativar notificações</button> <button class="btn sec" type="button" id="btn-instalar" hidden>Instalar aplicativo</button></p>
+      <p id="push-status" style="font-size:14px;color:#6b5a4c"></p></div>
+    {% endif %}
+  </div>
+</div></section>
+{% endblock %}

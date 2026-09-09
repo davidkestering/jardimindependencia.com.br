@@ -2,13 +2,13 @@
 {% block titulo %}Minha área · Jardim Independência{% endblock %}
 {% block conteudo %}
 <section><div class="container">
-  <div class="eyebrow">Área do condômino</div>
+  {% include "morador/_menu.html" %}
   <h1>Olá, {{ morador.nome.split()[0] }}</h1>
   <p>{{ morador.unidade.rotulo }} · <a href="/morador/sair">Sair</a></p>
   <div class="grade" style="margin:24px 0">
     <div class="item"><h3>Documentos</h3><p>{{ documentos|length }} documento(s) publicado(s) pela administração.</p></div>
-    <div class="item"><h3>Financeiro</h3><p>Boletos, PIX e situação da unidade. Disponível em breve.</p></div>
-    <div class="item"><h3>Assembleias</h3><p>Votações abertas e resultados. Disponível em breve.</p></div>
+    <div class="item"><h3>Financeiro</h3><p>Cobranças, atrasos e histórico da unidade.</p><p><a href="/morador/financeiro">Abrir</a></p></div>
+    <div class="item"><h3>Assembleias</h3><p>Votações abertas e resultados.</p><p><a href="/morador/assembleias">Abrir</a></p></div>
   </div>
   <h2>Documentos do condomínio</h2>
   {% if not documentos %}<p>Nenhum documento publicado até o momento.</p>{% else %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block titulo %}Assembleias · Minha área{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "morador/_menu.html" %}
+  <h1>Assembleias</h1>
+  <div class="grade">
+    {% for a in assembleias %}<div class="item"><div class="eyebrow">{% if a.abre_em <= agora <= a.fecha_em %}Votação aberta{% elif agora < a.abre_em %}Abre em {{ a.abre_em.strftime('%d/%m %H:%M') }}{% else %}Encerrada{% endif %}</div>
+      <h3>{{ a.titulo }}</h3><p>{{ a.abre_em.strftime('%d/%m/%Y %H:%M') }} até {{ a.fecha_em.strftime('%d/%m/%Y %H:%M') }}</p>
+      <p style="margin-top:10px"><a class="btn sec" href="/morador/assembleias/{{ a.id }}">{% if a.abre_em <= agora <= a.fecha_em %}Votar{% else %}Ver{% endif %}</a></p></div>
+    {% else %}<p>Nenhuma assembleia publicada.</p>{% endfor %}
+  </div>
+</div></section>
+{% endblock %}

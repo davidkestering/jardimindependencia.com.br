@@ -29,7 +29,7 @@
       <label>CPF<input name="cpf" required inputmode="numeric"></label>
       <label>Data de nascimento<input name="nascimento" type="date" required></label>
       <label>Bloco<select name="bloco">{% for b in blocos %}<option>{{ b }}</option>{% endfor %}</select></label>
-      <label>Apartamento<input name="apto" required maxlength="3" placeholder="004"></label>
+      <label>Apartamento<input name="apto" maxlength="3" placeholder="004 (vazio p/ Portaria)"></label>
       <label>E-mail<input name="email" type="email"></label>
       <label>Telefone<input name="telefone"></label>
     </div>

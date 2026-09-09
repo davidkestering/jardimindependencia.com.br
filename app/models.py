@@ -24,7 +24,7 @@ class Unidade(Base):
     bloco: Mapped[str] = mapped_column(String(16))   # "01".."27", "PORTARIA", "ADMINISTRACAO"
     apto: Mapped[str] = mapped_column(String(8))     # "001".."404" ou "" para especiais
     ativa: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
-    moradores: Mapped[list["Morador"]] = relationship(back_populates="unidade")
+    moradores: Mapped[list["Morador"]] = relationship(back_populates="unidade", passive_deletes=True)
 
     @property
     def rotulo(self):
@@ -86,7 +86,7 @@ class Assembleia(Base):
     titulo: Mapped[str] = mapped_column(String(200))
     abre_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     fecha_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    pautas: Mapped[list["Pauta"]] = relationship(back_populates="assembleia", order_by="Pauta.ordem")
+    pautas: Mapped[list["Pauta"]] = relationship(back_populates="assembleia", order_by="Pauta.ordem", cascade="all, delete-orphan", passive_deletes=True)
 
 
 class Pauta(Base):
@@ -96,7 +96,7 @@ class Pauta(Base):
     ordem: Mapped[int] = mapped_column(default=1)
     texto: Mapped[str] = mapped_column(Text)
     assembleia: Mapped[Assembleia] = relationship(back_populates="pautas")
-    opcoes: Mapped[list["Opcao"]] = relationship(back_populates="pauta", order_by="Opcao.ordem")
+    opcoes: Mapped[list["Opcao"]] = relationship(back_populates="pauta", order_by="Opcao.ordem", cascade="all, delete-orphan", passive_deletes=True)
 
 
 class Opcao(Base):
