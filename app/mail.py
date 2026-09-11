@@ -5,7 +5,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from email.message import EmailMessage
 
-from config import MAIL_CONTATO, MAIL_LOGS, SMTP_HOST, SMTP_PASS, SMTP_PORT, SMTP_USER
+from config import MAIL_CONTATO, MAIL_LOGS, SMTP_HOST, SMTP_NOREPLY_PASS, SMTP_NOREPLY_USER, SMTP_PASS, SMTP_PORT, SMTP_USER
 
 log = logging.getLogger("mail")
 FUSO = ZoneInfo("America/Belem")
@@ -43,9 +43,17 @@ def notificar(para: str, assunto: str, corpo: str) -> None:
     threading.Thread(target=enviar, args=(para, assunto, corpo), daemon=True).start()
 
 
+def conta_para(para: str) -> tuple[str, str]:
+    """Remetente por destino: avisos internos (logs@ e contato@) saem de no-reply@; condôminos recebem de contato@."""
+    if SMTP_NOREPLY_USER and para.lower() in (MAIL_CONTATO.lower(), MAIL_LOGS.lower()):
+        return SMTP_NOREPLY_USER, SMTP_NOREPLY_PASS
+    return SMTP_USER, SMTP_PASS
+
+
 def enviar(para: str, assunto: str, corpo: str, responder_para: str | None = None) -> bool:
+    usuario, senha = conta_para(para)
     msg = EmailMessage()
-    msg["From"] = SMTP_USER or MAIL_CONTATO
+    msg["From"] = f"Condomínio Jardim Independência <{usuario or MAIL_CONTATO}>"
     msg["To"] = para
     msg["Subject"] = assunto
     if responder_para:
@@ -56,8 +64,8 @@ def enviar(para: str, assunto: str, corpo: str, responder_para: str | None = Non
         with cliente(SMTP_HOST, SMTP_PORT, timeout=15) as s:
             if SMTP_PORT != 465:
                 s.starttls()
-            if SMTP_USER:
-                s.login(SMTP_USER, SMTP_PASS)
+            if usuario:
+                s.login(usuario, senha)
             s.send_message(msg)
         return True
     except Exception:  # noqa: BLE001 — registra e devolve False para a UI avisar
