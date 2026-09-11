@@ -8,6 +8,7 @@
   <div class="grade">
     {% for e in enquetes %}<div class="item"><div class="eyebrow">{% if e.excluido_em %}Excluída{% elif e.abre_em <= agora <= e.fecha_em %}Aberta{% elif agora < e.abre_em %}Agendada{% else %}Encerrada{% endif %}</div>
       <h3>{{ e.pergunta }}</h3><p>{{ e.abre_em.strftime('%d/%m/%Y %H:%M') }} até {{ e.fecha_em.strftime('%d/%m/%Y %H:%M') }}</p>
+      <p style="font-size:12px;color:#6b5a4c">Criada por <strong>{{ e.criado_por }}</strong> · {{ e.criado_em|local }} · IP {{ e.criado_ip or '?' }}</p>
       <p style="margin-top:10px"><a class="btn sec" href="/admin/enquetes/{{ e.id }}">Resultados</a></p></div>
     {% else %}<p>Nenhuma enquete cadastrada.</p>{% endfor %}
   </div>

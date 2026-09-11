@@ -11,11 +11,13 @@
     <button class="btn" type="submit">Filtrar</button>
   </form>
   <div style="overflow-x:auto"><table>
-    <tr><th>Nº</th><th>Unidade</th><th>Condômino</th><th>Título</th><th>Registrada</th><th>Situação</th><th></th></tr>
+    <tr><th>Nº</th><th>Unidade</th><th>Título</th><th>Registrada por · quando · IP</th><th>Última interação</th><th>Situação</th><th></th></tr>
     {% for o in ocorrencias %}<tr>
-      <td>{{ o.numero }}</td><td>{{ o.unidade.rotulo }}</td><td>{{ o.morador.nome }}</td>
+      <td>{{ o.numero }}</td><td>{{ o.unidade.rotulo }}</td>
       <td>{{ o.titulo }}{% if o.aguarda_admin and o.status == 'aberta' %} <span class="nova">aguardando resposta</span>{% endif %}</td>
-      <td>{{ o.criado_em|local }}</td><td><span class="st st-{{ o.status }}">{{ o.status }}</span></td>
+      <td style="font-size:13px"><strong>{{ o.morador.nome }}</strong><br>{{ o.criado_em|local }}<br>IP {{ o.criado_ip or '?' }}</td>
+      <td style="font-size:13px">{% set u = o.mensagens[-1] if o.mensagens else none %}{% if u %}<strong>{{ u.autor }}</strong> ({{ 'administração' if u.autor_tipo == 'admin' else 'condômino' }})<br>{{ u.criado_em|local }}<br>IP {{ u.ip or '?' }}{% endif %}{% if o.finalizada_em %}<br><em>finalizada {{ o.finalizada_em|local }} · IP {{ o.finalizada_ip or '?' }}</em>{% endif %}</td>
+      <td><span class="st st-{{ o.status }}">{{ o.status }}</span></td>
       <td><a class="btn sec" href="/admin/ocorrencias/{{ o.id }}">Abrir</a></td>
     </tr>{% else %}<tr><td colspan="7">Nenhuma ocorrência.</td></tr>{% endfor %}
   </table></div>
