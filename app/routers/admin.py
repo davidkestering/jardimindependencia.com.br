@@ -10,14 +10,26 @@ from sqlalchemy.orm import Session
 import auth
 from config import UPLOAD_DIR
 from db import get_db
-from mail import ip_de, registrar
+from config import SITE_URL
+from mail import ip_de, notificar, registrar
 from models import AdminUser, Documento, Morador, Unidade
 from routers.arquivos import servir_documento
+from routers.morador import msg_ocupado, ocupante, validar_contato
 
 router = APIRouter(prefix="/admin")
 CATEGORIAS = ["Convenção", "Regimento interno", "Atas de assembleia", "Balancetes", "Comunicados", "Outros"]
 EXT_OK = {".pdf", ".jpg", ".jpeg", ".png"}
 MAX_MB = 25
+CONDOMINIO_CURTO = "Jardim Independência"
+STATUS = ["pendente", "aprovado", "bloqueado", "negado", "revogado"]
+# transições permitidas: de -> {para}. negado/revogado são finais (histórico) e liberam o apto.
+TRANSICOES = {"pendente": {"aprovado", "negado"}, "aprovado": {"bloqueado", "revogado"}, "bloqueado": {"aprovado", "revogado"}}
+AVISO = {
+    "aprovado": ("Acesso liberado", "Seu acesso à área do condômino foi liberado para {u}.\nEntre em {site}/morador/login com CPF e data de nascimento."),
+    "negado": ("Solicitação não aprovada", "Sua solicitação de acesso para {u} não foi aprovada.\nEm caso de dúvida, procure a administração."),
+    "bloqueado": ("Acesso bloqueado", "Seu acesso à área do condômino para {u} foi bloqueado.\nEm caso de dúvida, procure a administração."),
+    "revogado": ("Acesso encerrado", "Seu acesso à área do condômino para {u} foi encerrado e o apartamento foi liberado para novo cadastro.\nEm caso de dúvida, procure a administração."),
+}
 
 
 def render(request: Request, nome: str, **ctx):
@@ -86,39 +98,42 @@ def moradores(request: Request, status: str = "", q: str = "", admin: AdminUser 
 
 @router.post("/moradores")
 def morador_criar(request: Request, nome: str = Form(...), cpf: str = Form(...), nascimento: str = Form(...),
-                  bloco: str = Form(...), apto: str = Form(...), email: str = Form(""), telefone: str = Form(""),
+                  bloco: str = Form(...), apto: str = Form(...), email: str = Form(...), telefone: str = Form(...),
                   admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     cpf_d, nasc = auth.so_digitos(cpf), auth.parse_data(nascimento)
     apto = "" if bloco in ("PORTARIA", "ADMINISTRACAO") else auth.so_digitos(apto).zfill(3)[-3:]
     u = db.scalar(select(Unidade).where(Unidade.bloco == bloco, Unidade.apto == apto))
     if not auth.cpf_valido(cpf_d) or not nasc or not u:
         raise HTTPException(400, "CPF, data ou unidade inválidos")
-    if db.scalar(select(Morador).where(Morador.cpf == cpf_d)):
-        raise HTTPException(400, "CPF já cadastrado")
+    if erro := validar_contato(email, telefone):
+        raise HTTPException(400, erro)
+    if ocup := ocupante(db, u.id):
+        raise HTTPException(400, msg_ocupado(u, ocup))
     db.add(Morador(unidade_id=u.id, nome=nome.strip()[:120], cpf=cpf_d, nascimento=nasc, status="aprovado",
-                   email=email.strip()[:160] or None, telefone=telefone.strip()[:20] or None))
+                   email=email.strip()[:160], telefone=telefone.strip()[:20],
+                   decidido_em=datetime.now(timezone.utc), decidido_por=admin.login))
     db.commit()
     return RedirectResponse("/admin/moradores", status_code=303)
+
+
+@router.get("/moradores/{mid}")
+def morador_ver(request: Request, mid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    m = db.get(Morador, mid) or (_ for _ in ()).throw(HTTPException(404))
+    return render(request, "admin/morador.html", m=m, acoes=sorted(TRANSICOES.get(m.status, ())))
 
 
 @router.post("/moradores/{mid}/status")
-def morador_status(mid: uuid.UUID, status: str = Form(...), admin: AdminUser = Depends(admin_dep),
+def morador_status(request: Request, mid: uuid.UUID, status: str = Form(...), admin: AdminUser = Depends(admin_dep),
                    db: Session = Depends(get_db)):
-    if status not in ("aprovado", "bloqueado", "pendente"):
-        raise HTTPException(400)
     m = db.get(Morador, mid) or (_ for _ in ()).throw(HTTPException(404))
-    m.status = status
+    if status not in TRANSICOES.get(m.status, ()):
+        raise HTTPException(400, f"Não é possível passar de {m.status} para {status}")
+    m.status, m.decidido_em, m.decidido_por = status, datetime.now(timezone.utc), admin.login
     db.commit()
-    return RedirectResponse("/admin/moradores?status=pendente" if status == "aprovado" else "/admin/moradores", status_code=303)
-
-
-@router.post("/moradores/{mid}/excluir")
-def morador_excluir(mid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    m = db.get(Morador, mid)
-    if m:
-        db.delete(m)
-        db.commit()
-    return RedirectResponse("/admin/moradores", status_code=303)
+    assunto, corpo = AVISO[status]
+    notificar(m.email, f"[{CONDOMINIO_CURTO}] {assunto}", corpo.format(u=m.unidade.rotulo, site=SITE_URL))
+    registrar(f"Cadastro {status.upper()} pelo admin", request, admin=admin.login, nome=m.nome, cpf=m.cpf_fmt, unidade=m.unidade.rotulo, email=m.email)
+    return RedirectResponse(f"/admin/moradores/{m.id}", status_code=303)
 
 
 # ---- documentos ----

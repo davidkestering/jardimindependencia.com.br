@@ -1,0 +1,87 @@
+"""Checagem do fluxo de cadastro/aprovação. Roda dentro do container contra o banco real e limpa o que criou:
+docker exec condominio-app python scripts/check_cadastro.py"""
+import sys, time
+sys.path.insert(0, "/app")
+import mail
+enviados = []
+mail.enviar = lambda para, assunto, corpo, responder_para=None: enviados.append((para, assunto)) or True  # sem e-mail real
+
+from fastapi.testclient import TestClient
+from sqlalchemy import delete, select
+import auth
+from db import SessionLocal
+from main import app
+from models import AdminUser, Morador, Unidade
+
+CPF1, CPF2, CPF3 = "52998224725", "11144477735", "16899535009"
+BASE = dict(nascimento="1980-05-10", email="teste@example.com", telefone="(91) 99999-0000", declaracao="sim")
+c = TestClient(app, base_url="https://t")
+
+
+def limpar():
+    with SessionLocal() as db:
+        db.execute(delete(Morador).where(Morador.cpf.in_([CPF1, CPF2, CPF3]))); db.commit()
+
+
+def cadastrar(nome, cpf, bloco, apto, **extra):
+    return c.post("/morador/cadastro", data={**BASE, "nome": nome, "cpf": cpf, "bloco": bloco, "apto": apto, **extra}).text
+
+
+def morador(cpf, bloco):
+    with SessionLocal() as db:
+        return db.scalar(select(Morador).join(Unidade).where(Morador.cpf == cpf, Unidade.bloco == bloco))
+
+
+def admin_client():
+    with SessionLocal() as db:
+        a = db.scalar(select(AdminUser))
+    ac = TestClient(app, base_url="https://t"); ac.cookies.set(auth.COOKIE, auth.criar_sessao("admin", str(a.id)))
+    return ac
+
+
+def login(cpf):
+    lc = TestClient(app, base_url="https://t")
+    r = lc.post("/morador/login", data={"cpf": cpf, "nascimento": BASE["nascimento"]}, follow_redirects=False)
+    return lc, r
+
+
+limpar()
+try:
+    # obrigatórios
+    assert c.post("/morador/cadastro", data={"nome": "X", "cpf": CPF1, "nascimento": "1980-05-10", "bloco": "01", "apto": "101"}).status_code == 422
+    assert "aceitar a declaração" in cadastrar("Sem aceite", CPF1, "01", "101", declaracao="")
+    assert "Telefone inválido" in cadastrar("Tel ruim", CPF1, "01", "101", telefone="123")
+    # A ok, B mesmo apto bloqueado, C mesmo CPF outro apto ok
+    assert "Solicitação enviada" in cadastrar("Ana Teste", CPF1, "01", "101")
+    assert "já foi registrado em nome de Ana Teste (aguardando aprovação)" in cadastrar("Bia Teste", CPF2, "01", "101")
+    assert "Solicitação enviada" in cadastrar("Ana Teste", CPF1, "02", "102")
+    a, cc = morador(CPF1, "01"), morador(CPF1, "02")
+    # login pendente
+    _, r = login(CPF1); assert "aguarda aprovação" in r.text
+    # admin: lista, detalhe, autorizar A, negar C
+    ac = admin_client()
+    lst = ac.get("/admin/moradores?status=pendente").text; assert f"/admin/moradores/{a.id}" in lst and f"/admin/moradores/{cc.id}" in lst
+    det = ac.get(f"/admin/moradores/{a.id}").text; assert "Autorizar acesso" in det and "Negar acesso" in det and "Ana Teste" in det
+    assert ac.post(f"/admin/moradores/{a.id}/status", data={"status": "aprovado"}, follow_redirects=False).status_code == 303
+    assert ac.post(f"/admin/moradores/{cc.id}/status", data={"status": "negado"}, follow_redirects=False).status_code == 303
+    assert ac.post(f"/admin/moradores/{cc.id}/status", data={"status": "aprovado"}).status_code == 400  # negado é final
+    a, cc = morador(CPF1, "01"), morador(CPF1, "02")
+    assert a.status == "aprovado" and a.decidido_por and cc.status == "negado"
+    assert "negado" in ac.get("/admin/moradores?status=negado").text
+    assert "Habilitar novo registro" in ac.get(f"/admin/moradores/{a.id}").text
+    # apto negado liberado
+    assert "Solicitação enviada" in cadastrar("Duda Teste", CPF3, "02", "102")
+    # login aprovado + trocar unidade
+    lc, r = login(CPF1); assert r.status_code == 303 and lc.get("/morador").status_code == 200
+    d = morador(CPF3, "02"); assert lc.get(f"/morador/trocar/{d.id}", follow_redirects=False).status_code == 403
+    # habilitar novo registro (revogar) libera o apto e derruba o login
+    assert ac.post(f"/admin/moradores/{a.id}/status", data={"status": "revogado"}, follow_redirects=False).status_code == 303
+    _, r = login(CPF1); assert "não autorizado" in r.text
+    assert lc.get("/morador", follow_redirects=False).status_code == 303  # sessão antiga cai
+    assert "Solicitação enviada" in cadastrar("Bia Teste", CPF2, "01", "101")
+    time.sleep(0.3)
+    assuntos = " | ".join(s for _, s in enviados)
+    assert "Acesso liberado" in assuntos and "não aprovada" in assuntos and "Acesso encerrado" in assuntos, assuntos
+    print("check_cadastro ok")
+finally:
+    limpar()

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}{{ m.nome }} · Administração{% endblock %}
+{% block head %}<style>dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 18px;background:#fff;padding:18px;border-radius:8px;max-width:640px}dt{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b5a4c}dd{margin:0}.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-pendente{background:#fff0c2;color:#6b4b00}.st-aprovado{background:#e6f0e8;color:#1d4d2a}.st-bloqueado{background:#fbe9e3;color:#7a2e12}.st-negado,.st-revogado{background:#eee;color:#555}form.inline{display:inline}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "admin/_menu.html" %}
+  <p><a href="/admin/moradores{% if m.status == 'pendente' %}?status=pendente{% endif %}">← Voltar</a></p>
+  <h1>{{ m.nome }}</h1>
+  <dl>
+    <dt>Unidade</dt><dd>{{ m.unidade.rotulo }}</dd>
+    <dt>CPF</dt><dd>{{ m.cpf_fmt }}</dd>
+    <dt>Nascimento</dt><dd>{{ m.nascimento.strftime('%d/%m/%Y') }}</dd>
+    <dt>E-mail</dt><dd>{{ m.email }}</dd>
+    <dt>Telefone</dt><dd>{{ m.telefone }}</dd>
+    <dt>Situação</dt><dd><span class="st st-{{ m.status }}">{{ m.status }}</span></dd>
+    <dt>Solicitado em</dt><dd>{{ m.criado_em.strftime('%d/%m/%Y %H:%M') }}</dd>
+    {% if m.decidido_em %}<dt>Decidido em</dt><dd>{{ m.decidido_em.strftime('%d/%m/%Y %H:%M') }} por {{ m.decidido_por }}</dd>{% endif %}
+  </dl>
+  {% set rotulos = {'aprovado': 'Autorizar acesso', 'negado': 'Negar acesso', 'bloqueado': 'Bloquear acesso', 'revogado': 'Habilitar novo registro'} %}
+  {% if m.status == 'bloqueado' %}{% set rotulos = dict(rotulos, aprovado='Desbloquear acesso') %}{% endif %}
+  <p style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
+    {% for a in acoes %}
+    <form class="inline" method="post" action="/admin/moradores/{{ m.id }}/status"{% if a in ('negado', 'revogado') %} onsubmit="return confirm('{{ rotulos[a] }} para {{ m.nome }}? O apartamento ficará livre para novo cadastro.')"{% endif %}>
+      <input type="hidden" name="status" value="{{ a }}"><button class="btn{% if a != 'aprovado' %} sec{% endif %}" type="submit">{{ rotulos[a] }}</button>
+    </form>
+    {% else %}<span style="color:#6b5a4c">Registro encerrado. Fica como histórico; o apartamento está livre para novo cadastro.</span>{% endfor %}
+  </p>
+  {% if m.status == 'revogado' or m.status == 'negado' %}{% else %}<p style="font-size:13px;color:#6b5a4c;max-width:60ch">"Habilitar novo registro" encerra o acesso desta pessoa e libera o apartamento para uma nova solicitação (mudança de morador).</p>{% endif %}
+</div></section>
+{% endblock %}

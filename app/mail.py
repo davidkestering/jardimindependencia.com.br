@@ -24,6 +24,11 @@ def registrar(assunto: str, request, **dados) -> None:
     threading.Thread(target=enviar, args=(MAIL_LOGS, f"[Log] {assunto}", "\n".join(linhas)), daemon=True).start()
 
 
+def notificar(para: str, assunto: str, corpo: str) -> None:
+    """Envio em thread para não atrasar a resposta HTTP."""
+    threading.Thread(target=enviar, args=(para, assunto, corpo), daemon=True).start()
+
+
 def enviar(para: str, assunto: str, corpo: str, responder_para: str | None = None) -> bool:
     msg = EmailMessage()
     msg["From"] = SMTP_USER or MAIL_CONTATO

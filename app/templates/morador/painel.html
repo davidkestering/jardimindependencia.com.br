@@ -5,6 +5,7 @@
   {% include "morador/_menu.html" %}
   <h1>Olá, {{ morador.nome.split()[0] }}</h1>
   <p>{{ morador.unidade.rotulo }} · <a href="/morador/sair">Sair</a></p>
+  {% if outras %}<p>Trocar de unidade: {% for o in outras %}<a class="btn sec" href="/morador/trocar/{{ o.id }}">{{ o.unidade.rotulo }}</a> {% endfor %}</p>{% endif %}
   <div class="grade" style="margin:24px 0">
     <div class="item"><h3>Documentos</h3><p>{{ documentos|length }} documento(s) publicado(s) pela administração.</p></div>
     <div class="item"><h3>Assembleias</h3><p>Votações abertas e resultados.</p><p><a href="/morador/assembleias">Abrir</a></p></div>

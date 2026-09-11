@@ -1,17 +1,50 @@
+import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import auth
 from db import get_db
-from mail import enviar, ip_de, registrar
+from mail import ip_de, notificar, registrar
 from config import MAIL_CONTATO, SITE_URL
-from models import Documento, Morador, Unidade
+from models import OCUPA_APTO, Documento, Morador, Unidade
 
 router = APIRouter(prefix="/morador")
+
+MENSAGEM_STATUS = {
+    "pendente": "Seu cadastro ainda aguarda aprovação da administração.",
+    "bloqueado": "Acesso bloqueado. Procure a administração.",
+    "negado": "Acesso não autorizado. Procure a administração ou solicite novo cadastro.",
+    "revogado": "Acesso não autorizado. Procure a administração ou solicite novo cadastro.",
+}
+
+
+def ocupante(db: Session, unidade_id) -> Morador | None:
+    """Quem ocupa o apartamento (pendente, aprovado ou bloqueado). Só pode haver um."""
+    return db.scalar(select(Morador).where(Morador.unidade_id == unidade_id, Morador.status.in_(OCUPA_APTO)))
+
+
+def msg_ocupado(u: Unidade, m: Morador) -> str:
+    extra = " (aguardando aprovação)" if m.status == "pendente" else ""
+    return f"O acesso ao {u.rotulo} já foi registrado em nome de {m.nome}{extra}."
+
+
+def validar_contato(email: str, telefone: str) -> str | None:
+    if "@" not in email or len(email.strip()) < 5:
+        return "E-mail inválido."
+    if len(auth.so_digitos(telefone)) < 10:
+        return "Telefone inválido: informe DDD e número."
+    return None
+
+
+def cookie_sessao(resp, m: Morador):
+    resp.set_cookie(auth.COOKIE, auth.criar_sessao("morador", str(m.id)), httponly=True, secure=True, samesite="lax",
+                    max_age=auth.SESSAO_HORAS * 3600)
+    return resp
 
 
 def render(request: Request, nome: str, **ctx):
@@ -39,23 +72,32 @@ def login_post(request: Request, cpf: str = Form(...), nascimento: str = Form(..
     if auth.bloqueado(chave):
         return render(request, "morador/login.html", erro="Muitas tentativas. Aguarde 15 minutos.", next=next)
     nasc = auth.parse_data(nascimento)
-    m = db.scalar(select(Morador).where(Morador.cpf == cpf_d)) if auth.cpf_valido(cpf_d) and nasc else None
-    if not m or m.nascimento != nasc:
+    # O mesmo CPF pode ter mais de um apartamento: uma linha por unidade.
+    ms = db.scalars(select(Morador).join(Unidade).where(Morador.cpf == cpf_d, Morador.nascimento == nasc)
+                    .order_by(Unidade.bloco, Unidade.apto)).all() if auth.cpf_valido(cpf_d) and nasc else []
+    if not ms:
         auth.registrar_tentativa(chave)
         registrar("Login CONDÔMINO recusado", request, cpf=cpf, nascimento=nascimento, motivo="CPF ou data não conferem")
         return render(request, "morador/login.html", erro="CPF ou data de nascimento não conferem.", next=next)
-    if m.status != "aprovado":
-        registrar(f"Login CONDÔMINO recusado ({m.status})", request, nome=m.nome, unidade=m.unidade.rotulo, cpf=cpf, nascimento=nascimento)
-    if m.status == "pendente":
-        return render(request, "morador/login.html", erro="Seu cadastro ainda aguarda aprovação da administração.", next=next)
-    if m.status == "bloqueado":
-        return render(request, "morador/login.html", erro="Acesso bloqueado. Procure a administração.", next=next)
+    aprovados = [x for x in ms if x.status == "aprovado"]
+    m = aprovados[0] if aprovados else None
+    if not m:
+        pior = min(ms, key=lambda x: list(MENSAGEM_STATUS).index(x.status))
+        registrar(f"Login CONDÔMINO recusado ({pior.status})", request, nome=pior.nome, unidade=pior.unidade.rotulo, cpf=cpf, nascimento=nascimento)
+        return render(request, "morador/login.html", erro=MENSAGEM_STATUS[pior.status], next=next)
     auth.limpar_tentativas(chave)
     registrar("Login CONDÔMINO realizado", request, nome=m.nome, unidade=m.unidade.rotulo, cpf=cpf, nascimento=nascimento)
-    resp = RedirectResponse(next if next.startswith("/") else "/morador", status_code=303)
-    resp.set_cookie(auth.COOKIE, auth.criar_sessao("morador", str(m.id)), httponly=True, secure=True, samesite="lax",
-                    max_age=auth.SESSAO_HORAS * 3600)
-    return resp
+    return cookie_sessao(RedirectResponse(next if next.startswith("/") else "/morador", status_code=303), m)
+
+
+@router.get("/trocar/{mid}")
+def trocar(mid: uuid.UUID, request: Request, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
+    """Troca a unidade da sessão para outro apartamento aprovado do mesmo CPF."""
+    atual = morador_atual(request, db, sessao)
+    alvo = db.get(Morador, mid)
+    if not alvo or alvo.cpf != atual.cpf or alvo.status != "aprovado":
+        raise HTTPException(403, "Unidade não pertence a este CPF")
+    return cookie_sessao(RedirectResponse("/morador", status_code=303), alvo)
 
 
 @router.get("/sair")
@@ -73,30 +115,41 @@ def cadastro(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/cadastro")
 def cadastro_post(request: Request, nome: str = Form(...), cpf: str = Form(...), nascimento: str = Form(...),
-                  bloco: str = Form(...), apto: str = Form(...), email: str = Form(""), telefone: str = Form(""),
-                  db: Session = Depends(get_db)):
+                  bloco: str = Form(...), apto: str = Form(...), email: str = Form(...), telefone: str = Form(...),
+                  declaracao: str = Form(""), db: Session = Depends(get_db)):
     blocos = sorted({u.bloco for u in db.scalars(select(Unidade).where(Unidade.apto != ""))})
     cpf_d, nasc = auth.so_digitos(cpf), auth.parse_data(nascimento)
     apto = auth.so_digitos(apto).zfill(3)[-3:]
+    dados = dict(nome=nome, cpf=cpf, nascimento=nascimento, bloco=bloco, apto=apto, email=email, telefone=telefone)
     erro = None
-    if not auth.cpf_valido(cpf_d):
+    if not declaracao:
+        erro = "É preciso aceitar a declaração de veracidade das informações."
+    elif not auth.cpf_valido(cpf_d):
         erro = "CPF inválido."
     elif not nasc or nasc > date.today():
         erro = "Data de nascimento inválida."
+    elif erro_contato := validar_contato(email, telefone):
+        erro = erro_contato
     elif not (u := db.scalar(select(Unidade).where(Unidade.bloco == bloco, Unidade.apto == apto, Unidade.ativa))):
         erro = f"Unidade bloco {bloco} apto {apto} não encontrada."
-    elif db.scalar(select(Morador).where(Morador.cpf == cpf_d)):
-        erro = "Já existe um cadastro com este CPF. Se ainda não foi aprovado, aguarde a administração."
+    elif ocup := ocupante(db, u.id):
+        erro = msg_ocupado(u, ocup)
     if erro:
-        registrar("Cadastro no site RECUSADO", request, motivo=erro, nome=nome, cpf=cpf, nascimento=nascimento, bloco=bloco, apto=apto, email=email, telefone=telefone)
-        return render(request, "morador/cadastro.html", erro=erro, blocos=blocos, form=locals())
+        registrar("Cadastro no site RECUSADO", request, motivo=erro, **dados)
+        return render(request, "morador/cadastro.html", erro=erro, blocos=blocos, form=dados)
     m = Morador(unidade_id=u.id, nome=nome.strip()[:120], cpf=cpf_d, nascimento=nasc,
-                email=email.strip()[:160] or None, telefone=telefone.strip()[:20] or None, status="pendente")
+                email=email.strip()[:160], telefone=telefone.strip()[:20], status="pendente")
     db.add(m)
-    db.commit()
-    registrar("Cadastro no site (pendente)", request, nome=m.nome, cpf=cpf_d, nascimento=nasc, unidade=u.rotulo, email=email, telefone=telefone)
-    enviar(MAIL_CONTATO, f"[Site] Novo cadastro pendente: {m.nome} ({u.rotulo})",
-           f"Morador {m.nome} solicitou acesso para {u.rotulo}.\nAprove em {SITE_URL}/admin/moradores?status=pendente")
+    try:
+        db.commit()
+    except IntegrityError:  # dois envios simultâneos para o mesmo apto: o índice único parcial segura o segundo
+        db.rollback()
+        erro = msg_ocupado(u, ocupante(db, u.id))
+        registrar("Cadastro no site RECUSADO", request, motivo=erro, **dados)
+        return render(request, "morador/cadastro.html", erro=erro, blocos=blocos, form=dados)
+    registrar("Cadastro no site (pendente)", request, declaracao_aceita="sim", **dados)
+    notificar(MAIL_CONTATO, f"[Site] Novo cadastro pendente: {m.nome} ({u.rotulo})",
+              f"Morador {m.nome} solicitou acesso para {u.rotulo}.\nRevise em {SITE_URL}/admin/moradores/{m.id}")
     return render(request, "morador/cadastro.html", sucesso=True, blocos=blocos)
 
 
@@ -104,7 +157,9 @@ def cadastro_post(request: Request, nome: str = Form(...), cpf: str = Form(...),
 def painel(request: Request, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
     m = morador_atual(request, db, sessao)
     docs = db.scalars(select(Documento).where(Documento.publico).order_by(Documento.criado_em.desc())).all()
-    return render(request, "morador/painel.html", morador=m, documentos=docs)
+    outras = db.scalars(select(Morador).join(Unidade).where(Morador.cpf == m.cpf, Morador.status == "aprovado", Morador.id != m.id)
+                        .order_by(Unidade.bloco, Unidade.apto)).all()
+    return render(request, "morador/painel.html", morador=m, documentos=docs, outras=outras)
 
 
 @router.get("/documentos/{doc_id}")
