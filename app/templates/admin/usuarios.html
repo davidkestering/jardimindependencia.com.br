@@ -7,9 +7,10 @@
   <h1>Usuários da administração</h1>
   <p style="max-width:60ch">Usuários <strong>mestres</strong> acessam tudo e gerenciam esta lista. Os demais acessam somente as áreas marcadas.</p>
   <div style="overflow-x:auto"><table>
-    <tr><th>Nome</th><th>Login</th><th>Áreas liberadas</th><th>Ações</th></tr>
+    <tr><th>Nome</th><th>Login</th><th>Criado por · quando · IP</th><th>Áreas liberadas</th><th>Ações</th></tr>
     {% for u in usuarios %}<tr>
       <td>{{ u.nome }}</td><td>{{ u.login }}</td>
+      <td style="font-size:13px"><strong>{{ u.criado_por or '—' }}</strong><br>{{ u.criado_em|local if u.criado_em else '—' }}<br>IP {{ u.criado_ip or '?' }}{% if u.alterado_em %}<br><em>alterado por {{ u.alterado_por }} · {{ u.alterado_em|local }} · IP {{ u.alterado_ip or '?' }}</em>{% endif %}</td>
       <td>{% if u.master %}<strong>Mestre</strong> (todas){% else %}
         <form method="post" action="/admin/usuarios/{{ u.id }}/areas"><div class="areas">{% for k, rot in areas.items() %}<label><input type="checkbox" name="area_{{ k }}" value="1" {% if k in u.areas %}checked{% endif %}>{{ rot }}</label>{% endfor %}</div>
         <button class="btn sec" type="submit" style="margin-top:6px;padding:5px 10px;font-size:13px">Salvar áreas</button></form>{% endif %}</td>
@@ -19,7 +20,7 @@
     </tr>{% endfor %}
   </table></div>
   {% if desativados %}<details style="margin-top:24px"><summary style="cursor:pointer;font-weight:600">Histórico: {{ desativados|length }} usuário(s) desativado(s)</summary>
-  <ul style="margin-top:10px">{% for u in desativados %}<li>{{ u.nome }} ({{ u.login }}) · desativado por <strong>{{ u.excluido_por }}</strong> em {{ u.excluido_em|local }} · IP {{ u.excluido_ip or '?' }}</li>{% endfor %}</ul></details>{% endif %}
+  <ul style="margin-top:10px">{% for u in desativados %}<li>{{ u.nome }} ({{ u.login }}) · criado por {{ u.criado_por or '—' }} em {{ u.criado_em|local if u.criado_em else '—' }} (IP {{ u.criado_ip or '?' }}) · desativado por <strong>{{ u.excluido_por }}</strong> em {{ u.excluido_em|local }} · IP {{ u.excluido_ip or '?' }}</li>{% endfor %}</ul></details>{% endif %}
   <h2 style="margin-top:36px">Novo usuário</h2>
   <form class="card" method="post" action="/admin/usuarios">
     <label>Nome<input name="nome" required maxlength="120"></label>
