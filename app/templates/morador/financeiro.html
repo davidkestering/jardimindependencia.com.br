@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block titulo %}Financeiro · Minha área{% endblock %}
-{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px;font-variant-numeric:tabular-nums}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}td.num,th.num{text-align:right}.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-aberta{background:#fff0c2;color:#6b4b00}.st-paga{background:#e6f0e8;color:#1d4d2a}.st-cancelada{background:#eee;color:#555}.st-atraso{background:#fbe9e3;color:#7a2e12}.pix{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all;background:var(--creme-fundo);padding:8px;border-radius:6px}</style>{% endblock %}
+{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px;font-variant-numeric:tabular-nums}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}td.num,th.num{text-align:right}.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-aberta{background:#fff0c2;color:#6b4b00}.st-paga{background:#e6f0e8;color:#1d4d2a}.st-cancelada{background:#eee;color:#555}.st-atraso{background:#fbe9e3;color:#7a2e12}</style>{% endblock %}
 {% block conteudo %}
 <section><div class="container">
   {% include "morador/_menu.html" %}
@@ -14,7 +14,7 @@
     {% for c in cobrancas %}<tr>
       <td>{{ c.vencimento.strftime('%d/%m/%Y') }}</td><td>{{ c.descricao }}</td><td class="num">{{ '%.2f'|format(c.valor)|replace('.', ',') }}</td>
       <td>{% if em_atraso(c) %}<span class="st st-atraso">em atraso</span>{% else %}<span class="st st-{{ c.status }}">{{ c.status }}</span>{% endif %}</td>
-      <td>{% if c.status == 'aberta' %}{% if c.boleto_url %}<a class="btn sec" href="{{ c.boleto_url }}" target="_blank" rel="noopener">Boleto</a> {% endif %}{% if c.pix_copia_cola %}<div class="pix">{{ c.pix_copia_cola }}</div>{% endif %}{% if not c.boleto_url and not c.pix_copia_cola %}Pagamento na administração{% endif %}{% elif c.pago_em %}Pago em {{ c.pago_em.strftime('%d/%m/%Y') }}{% endif %}</td>
+      <td>{% if c.status == 'aberta' %}Pagamento na administração{% elif c.pago_em %}Pago em {{ c.pago_em.strftime('%d/%m/%Y') }}{% endif %}</td>
     </tr>{% else %}<tr><td colspan="5">Nenhuma cobrança registrada para a unidade.</td></tr>{% endfor %}
   </table></div>
 </div></section>
