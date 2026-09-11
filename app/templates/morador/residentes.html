@@ -11,7 +11,7 @@
     <tr><th>Nome</th><th>Tipo</th><th>CPF</th><th>Nascimento</th><th>Contato</th><th>Ações</th></tr>
     {% for r in residentes %}<tr>
       <td>{{ r.nome }}</td><td>{{ tipos[r.tipo] }}</td><td>{{ r.cpf_fmt }}</td><td>{{ r.nascimento.strftime('%d/%m/%Y') }}</td><td>{{ r.email }}<br>{{ r.telefone }}</td>
-      <td><form class="inline" method="post" action="/morador/residentes/{{ r.id }}/transferir" onsubmit="return confirm('Transferir o acesso à área do condômino para {{ r.nome }}? Você deixará de ter acesso ao {{ morador.unidade.rotulo }}.')"><button class="btn sec" type="submit">Transferir acesso</button></form>
+      <td><form class="inline" method="post" action="/morador/residentes/{{ r.id }}/transferir" onsubmit="return confirm('Transferir o acesso à área do condômino para {{ r.nome }}? Você deixará de ter acesso ao {{ morador.unidade.rotulo }} e o novo acesso ficará pendente de aprovação da administração.')"><button class="btn sec" type="submit">Transferir acesso</button></form>
         <form class="inline" method="post" action="/morador/residentes/{{ r.id }}/excluir" onsubmit="return confirm('Remover {{ r.nome }} da lista?')"><button class="btn sec" type="submit">Remover</button></form></td>
     </tr>{% else %}<tr><td colspan="6">Nenhum residente cadastrado.</td></tr>{% endfor %}
   </table></div>

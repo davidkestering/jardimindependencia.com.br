@@ -69,21 +69,28 @@ try:
     assert "Rui Inquilino" not in ac.get("/admin/moradores?bloco=02").text
     assert "Rui Inquilino" in ac.get(f"/admin/moradores/{ma.id}").text
 
-    # transferência: A -> negado, R -> titular aprovado; A vira residente; só R loga
-    r = mc.post(f"/morador/residentes/{rs[R]}/transferir"); assert r.status_code == 200 and "Acesso transferido" in r.text
+    # transferência: A -> transferido (com CPF/data), R -> PENDENTE; admin aprova; só R loga
+    r = mc.post(f"/morador/residentes/{rs[R]}/transferir"); assert r.status_code == 200 and "Acesso transferido" in r.text and "pendente de aprovação" in r.text
     assert mc.get("/morador", follow_redirects=False).status_code == 303  # sessão de A caiu
     with SessionLocal() as db:
         ma2 = db.get(Morador, ma.id); mr = db.scalar(select(Morador).where(Morador.cpf == R, Morador.unidade_id == u1.id))
-        assert ma2.status == "negado" and "Rui" in ma2.decidido_por
-        assert mr.status == "aprovado" and mr.origem == "transferencia" and "Ana Titular" in mr.decidido_por
+        assert ma2.status == "transferido" and "111.444.777-35" in ma2.decidido_por and ma2.decidido_em and ma2.decidido_ip
+        assert mr.status == "pendente" and mr.origem == "transferencia"
         assert db.scalar(select(Residente).where(Residente.cpf == R)) is None
         ares = db.scalar(select(Residente).where(Residente.cpf == A, Residente.unidade_id == u1.id)); assert ares and ares.tipo == "morador"
-        assert db.scalar(select(Morador).where(Morador.unidade_id == u1.id, Morador.status == "aprovado")).cpf == R  # 1 acesso por apto
-    assert "não autorizado" in login(A)[1].text
-    lc, r = login(R); assert r.status_code == 303 and lc.get("/morador").status_code == 200
+        assert db.scalar(select(Morador).where(Morador.unidade_id == u1.id, Morador.status == "aprovado")) is None  # ninguém aprovado até o admin decidir
+    assert "transferiu o acesso" in login(A)[1].text
+    assert "aguarda aprovação" in login(R)[1].text
     time.sleep(0.3); assuntos = {p: a for p, a, _ in enviados}
-    assert "Acesso liberado" in assuntos["r@example.com"] and "Acesso transferido" in assuntos["ana@example.com"]
+    assert "transferiu o acesso" in assuntos["ana@example.com"] and "aguardando aprovação" in assuntos["r@example.com"] and any("[Site] Acesso transferido" in a for _, a, _ in enviados)
+    corpo_a = [c for p, _, c in enviados if p == "ana@example.com"][0]; assert "111.444.777-35" in corpo_a and "pendente de aprovação" in corpo_a
+    assert "transferiu o acesso" in ac.get("/admin/moradores?status=transferido").text
+    assert ac.post(f"/admin/moradores/{mr.id}/status", data={"status": "aprovado"}, follow_redirects=False).status_code == 303
+    lc, r = login(R); assert r.status_code == 303 and lc.get("/morador").status_code == 200
+    with SessionLocal() as db:
+        assert db.scalar(select(Morador).where(Morador.unidade_id == u1.id, Morador.status == "aprovado")).cpf == R  # 1 acesso por apto
     det = ac.get(f"/admin/moradores/{mr.id}").text; assert "Acesso transferido pelo condômino" in det and "Ana Titular" in det
+    det_a = ac.get(f"/admin/moradores/{ma.id}").text; assert "transferiu o acesso" in det_a and "111.444.777-35" in det_a
 
     # R também titular em 02/102: escolha no login e troca com confirmação
     with SessionLocal() as db:

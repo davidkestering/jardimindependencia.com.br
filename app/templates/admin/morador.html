@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block titulo %}{{ m.nome }} · Administração{% endblock %}
-{% block head %}<style>dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 18px;background:#fff;padding:18px;border-radius:8px;max-width:640px}dt{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b5a4c}dd{margin:0}.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-pendente{background:#fff0c2;color:#6b4b00}.st-aprovado{background:#e6f0e8;color:#1d4d2a}.st-negado{background:#eee;color:#555}form.inline{display:inline}</style>{% endblock %}
+{% block head %}<style>dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 18px;background:#fff;padding:18px;border-radius:8px;max-width:640px}dt{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b5a4c}dd{margin:0}.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-pendente{background:#fff0c2;color:#6b4b00}.st-aprovado{background:#e6f0e8;color:#1d4d2a}.st-negado{background:#eee;color:#555}.st-transferido{background:#e8eef7;color:#274472}form.inline{display:inline}</style>{% endblock %}
 {% block conteudo %}
 <section><div class="container">
   {% include "admin/_menu.html" %}
@@ -13,7 +13,7 @@
     <dt>E-mail</dt><dd>{{ m.email }}</dd>
     <dt>Telefone</dt><dd>{{ m.telefone }}</dd>
     <dt>Origem</dt><dd>{{ origem }}</dd>
-    <dt>Situação</dt><dd><span class="st st-{{ m.status }}">{{ m.status }}</span></dd>
+    <dt>Situação</dt><dd><span class="st st-{{ m.status }}">{{ 'transferiu o acesso' if m.status == 'transferido' else m.status }}</span></dd>
     <dt>Solicitado em</dt><dd>{{ m.criado_em|local }}</dd>
     {% if m.decidido_em %}<dt>Decisão</dt><dd>{{ m.decidido_por }} · {{ m.decidido_em|local }} · IP {{ m.decidido_ip or '?' }}</dd>{% endif %}
   </dl>
@@ -23,7 +23,7 @@
     <form class="inline" method="post" action="/admin/moradores/{{ m.id }}/status"{% if a == 'negado' %} onsubmit="return confirm('{{ rotulos[a] }} para {{ m.nome }}? O apartamento ficará livre para novo cadastro.')"{% endif %}>
       <input type="hidden" name="status" value="{{ a }}"><button class="btn{% if a != 'aprovado' %} sec{% endif %}" type="submit">{{ rotulos[a] }}</button>
     </form>
-    {% else %}<span style="color:#6b5a4c">Registro encerrado. Fica como histórico; o apartamento está livre para novo cadastro.</span>{% endfor %}
+    {% else %}<span style="color:#6b5a4c">{% if m.status == 'transferido' %}Este condômino transferiu o acesso ({{ m.decidido_por }}). Registro mantido como histórico.{% else %}Registro encerrado. Fica como histórico; o apartamento está livre para novo cadastro.{% endif %}</span>{% endfor %}
   </p>
   {% if m.status == 'aprovado' %}<p style="font-size:13px;color:#6b5a4c;max-width:60ch">"Habilitar novo registro" encerra o acesso desta pessoa e libera o apartamento para uma nova solicitação (mudança de morador).</p>{% endif %}
   <h2 style="margin-top:32px;font-size:22px">Residentes do {{ m.unidade.rotulo }} (cadastrados pelo condômino)</h2>
