@@ -85,6 +85,9 @@ class Residente(Base):
     cadastrado_por: Mapped[str] = mapped_column(String(120))
     cadastrado_ip: Mapped[str | None] = mapped_column(String(45))
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
+    excluido_por: Mapped[str | None] = mapped_column(String(120))
+    excluido_ip: Mapped[str | None] = mapped_column(String(45))
     unidade: Mapped[Unidade] = relationship()
 
     @property
@@ -101,6 +104,9 @@ class AdminUser(Base):
     nome: Mapped[str] = mapped_column(String(120))
     master: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     areas: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
+    excluido_por: Mapped[str | None] = mapped_column(String(120))
+    excluido_ip: Mapped[str | None] = mapped_column(String(45))
 
     def pode(self, area: str) -> bool:
         return self.master or area in (self.areas or [])
@@ -125,6 +131,9 @@ class Documento(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     enviado_por: Mapped[str | None] = mapped_column(String(60))   # login do admin
     enviado_ip: Mapped[str | None] = mapped_column(String(45))
+    excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
+    excluido_por: Mapped[str | None] = mapped_column(String(120))
+    excluido_ip: Mapped[str | None] = mapped_column(String(45))
     assembleia: Mapped["Assembleia | None"] = relationship()
 
 
@@ -157,6 +166,9 @@ class Comunicado(Base):
     publicado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     publicado_por: Mapped[str | None] = mapped_column(String(60))
     publicado_ip: Mapped[str | None] = mapped_column(String(45))
+    excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
+    excluido_por: Mapped[str | None] = mapped_column(String(120))
+    excluido_ip: Mapped[str | None] = mapped_column(String(45))
 
 
 class Inadimplencia(Base):
@@ -179,7 +191,12 @@ class Assembleia(Base):
     titulo: Mapped[str] = mapped_column(String(200))
     abre_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     fecha_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    pautas: Mapped[list["Pauta"]] = relationship(back_populates="assembleia", order_by="Pauta.ordem", cascade="all, delete-orphan", passive_deletes=True)
+    excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
+    excluido_por: Mapped[str | None] = mapped_column(String(120))
+    excluido_ip: Mapped[str | None] = mapped_column(String(45))
+    # só pautas não excluídas; as excluídas ficam no banco com seus votos (histórico)
+    pautas: Mapped[list["Pauta"]] = relationship(primaryjoin="and_(Pauta.assembleia_id == Assembleia.id, Pauta.excluido_em.is_(None))",
+                                                order_by="Pauta.ordem", viewonly=True)
 
 
 class Pauta(Base):
@@ -188,7 +205,10 @@ class Pauta(Base):
     assembleia_id: Mapped[uuid.UUID] = fk("assembleia")
     ordem: Mapped[int] = mapped_column(default=1)
     texto: Mapped[str] = mapped_column(Text)
-    assembleia: Mapped[Assembleia] = relationship(back_populates="pautas")
+    excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
+    excluido_por: Mapped[str | None] = mapped_column(String(120))
+    excluido_ip: Mapped[str | None] = mapped_column(String(45))
+    assembleia: Mapped[Assembleia] = relationship()
     opcoes: Mapped[list["Opcao"]] = relationship(back_populates="pauta", order_by="Opcao.ordem", cascade="all, delete-orphan", passive_deletes=True)
 
 
@@ -230,3 +250,15 @@ class Chamada(Base):
     status: Mapped[str] = mapped_column(String(12), default="tocando", server_default="tocando")  # tocando|atendida|recusada|perdida
     iniciada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     encerrada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Historico(Base):
+    """Trilha de auditoria: toda ação relevante (mail.registrar) grava aqui quem (login/CPF), IP, data/hora e detalhes."""
+    __tablename__ = "historico"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    quando: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    tipo: Mapped[str | None] = mapped_column(String(12))      # admin | morador | None (visitante)
+    login: Mapped[str | None] = mapped_column(String(160))    # login do admin ou "Nome (CPF)" do condômino
+    ip: Mapped[str | None] = mapped_column(String(45))
+    acao: Mapped[str] = mapped_column(String(200))
+    detalhe: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))

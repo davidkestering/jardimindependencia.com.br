@@ -6,6 +6,7 @@
   {% include "admin/_menu.html" %}
   <div class="eyebrow">{% if a.abre_em <= agora <= a.fecha_em %}Votação aberta{% elif agora < a.abre_em %}Agendada{% else %}Encerrada{% endif %} · {{ unidades_ativas }} unidades aptas</div>
   <h1>{{ a.titulo }}</h1>
+  {% if a.excluido_em %}<p class="aviso">Assembleia excluída por <strong>{{ a.excluido_por }}</strong> em {{ a.excluido_em|local }} (IP {{ a.excluido_ip or '?' }}). Mantida como histórico; invisível aos condôminos.</p>{% endif %}
   <p>{{ a.abre_em.strftime('%d/%m/%Y %H:%M') }} até {{ a.fecha_em.strftime('%d/%m/%Y %H:%M') }} (horário de Brasília)</p>
   <h2 style="margin-top:24px;font-size:22px">Documentos da assembleia</h2>
   {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
@@ -41,6 +42,6 @@
     <label>Opções (uma por linha)<textarea name="opcoes" rows="4" required placeholder="Aprovo&#10;Não aprovo&#10;Abstenção"></textarea></label>
     <button class="btn" type="submit">Adicionar</button>
   </form>
-  <form method="post" action="/admin/assembleias/{{ a.id }}/excluir" onsubmit="return confirm('Excluir a assembleia inteira?')" style="margin-top:20px"><button class="btn sec" type="submit">Excluir assembleia</button></form>
+  {% if not a.excluido_em %}<form method="post" action="/admin/assembleias/{{ a.id }}/excluir" onsubmit="return confirm('Excluir a assembleia? Ela sai da área do condômino e fica no histórico.')" style="margin-top:20px"><button class="btn sec" type="submit">Excluir assembleia</button></form>{% endif %}
 </div></section>
 {% endblock %}

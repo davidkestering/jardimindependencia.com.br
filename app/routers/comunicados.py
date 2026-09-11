@@ -37,7 +37,7 @@ def resumo(texto: str, n: int = RESUMO_N) -> str:
 
 
 def visiveis(db: Session, niveis: tuple[str, ...], limite: int | None = None):
-    stmt = select(Comunicado).where(Comunicado.visibilidade.in_(niveis)).order_by(Comunicado.publicado_em.desc())
+    stmt = select(Comunicado).where(Comunicado.visibilidade.in_(niveis), Comunicado.excluido_em.is_(None)).order_by(Comunicado.publicado_em.desc())
     return db.scalars(stmt.limit(limite) if limite else stmt).all()
 
 
@@ -72,8 +72,9 @@ def notificar_comunicado(cid: uuid.UUID) -> None:
 # ---------- administração ----------
 @router.get("/admin/comunicados")
 def admin_lista(request: Request, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    lista = db.scalars(select(Comunicado).order_by(Comunicado.criado_em.desc())).all()
-    return render(request, "admin/comunicados.html", comunicados=lista, visibilidades=VISIBILIDADES)
+    todos = db.scalars(select(Comunicado).order_by(Comunicado.criado_em.desc())).all()
+    return render(request, "admin/comunicados.html", comunicados=[c for c in todos if not c.excluido_em],
+                  excluidos=[c for c in todos if c.excluido_em], visibilidades=VISIBILIDADES)
 
 
 def _validar(titulo: str, texto: str) -> tuple[str, str]:
@@ -103,6 +104,7 @@ def admin_criar(request: Request, titulo: str = Form(...), texto: str = Form(...
     c = Comunicado(titulo=titulo, texto=texto, autor=admin.login, criado_ip=ip_de(request))
     db.add(c)
     db.commit()
+    registrar("Comunicado criado", request, admin=admin.login, titulo=c.titulo)
     _mudar_visibilidade(request, c, visibilidade, admin, db)
     return RedirectResponse("/admin/comunicados", status_code=303)
 
@@ -124,8 +126,10 @@ def admin_preview(request: Request, cid: uuid.UUID, admin: AdminUser = Depends(a
 def admin_salvar(request: Request, cid: uuid.UUID, titulo: str = Form(...), texto: str = Form(...),
                  admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     c = db.get(Comunicado, cid) or (_ for _ in ()).throw(HTTPException(404))
+    antes = (c.titulo, c.texto)
     c.titulo, c.texto = _validar(titulo, texto)
     db.commit()
+    registrar("Comunicado editado", request, admin=admin.login, titulo=c.titulo, titulo_anterior=antes[0], texto_anterior=antes[1][:500])
     return RedirectResponse(f"/admin/comunicados/{c.id}", status_code=303)
 
 
@@ -138,11 +142,13 @@ def admin_visibilidade(request: Request, cid: uuid.UUID, visibilidade: str = For
 
 
 @router.post("/admin/comunicados/{cid}/excluir")
-def admin_excluir(cid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+def admin_excluir(request: Request, cid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    """Exclusão lógica: some do site e da área do condômino; fica no histórico da administração."""
     c = db.get(Comunicado, cid)
-    if c:
-        db.delete(c)
+    if c and not c.excluido_em:
+        c.excluido_em, c.excluido_por, c.excluido_ip = datetime.now(timezone.utc), admin.login, ip_de(request)
         db.commit()
+        registrar("Comunicado excluído (lógico)", request, admin=admin.login, titulo=c.titulo, visibilidade=c.visibilidade)
     return RedirectResponse("/admin/comunicados", status_code=303)
 
 
@@ -161,7 +167,7 @@ def morador_lista(request: Request, sessao: dict = Depends(auth.exigir("morador"
 def morador_ver(request: Request, cid: uuid.UUID, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
     m = morador_atual(request, db, sessao)
     c = db.get(Comunicado, cid)
-    if not c or c.visibilidade == "rascunho":
+    if not c or c.visibilidade == "rascunho" or c.excluido_em:
         raise HTTPException(404)
     return render(request, "morador/comunicado.html", morador=m, c=c)
 
@@ -175,7 +181,7 @@ def site_lista(request: Request, db: Session = Depends(get_db)):
 @router.get("/comunicados/{cid}")
 def site_ver(request: Request, cid: uuid.UUID, db: Session = Depends(get_db)):
     c = db.get(Comunicado, cid)
-    if not c or c.visibilidade != "publico":
+    if not c or c.visibilidade != "publico" or c.excluido_em:
         raise HTTPException(404)
     return render(request, "site/comunicado.html", c=c)
 

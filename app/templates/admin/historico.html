@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titulo %}Histórico · Administração{% endblock %}
+{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:13px}th,td{padding:7px 9px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}td.det{max-width:52ch;word-break:break-word}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "admin/_menu.html" %}
+  <h1>Histórico de ações</h1>
+  <p style="max-width:64ch">Trilha de auditoria: toda ação relevante do site, da área do condômino e da administração, com quem fez, data e hora, IP e detalhes. Nada é apagado.</p>
+  <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+    <input name="q" value="{{ q }}" placeholder="Ação, login, IP ou detalhe" style="width:320px"><button class="btn" type="submit">Buscar</button>
+    {% if q %}<a class="btn sec" href="/admin/historico">Limpar</a>{% endif %}
+  </form>
+  <div style="overflow-x:auto"><table>
+    <tr><th>Quando</th><th>Quem</th><th>IP</th><th>Ação</th><th>Detalhes</th></tr>
+    {% for h in itens %}<tr>
+      <td style="white-space:nowrap">{{ h.quando|local }}</td><td>{{ h.login or 'visitante' }}{% if h.tipo %}<br><small>{{ h.tipo }}</small>{% endif %}</td><td>{{ h.ip or '?' }}</td>
+      <td>{{ h.acao }}</td><td class="det">{% for k, v in h.detalhe.items() %}<strong>{{ k|replace('_', ' ') }}</strong>: {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</td>
+    </tr>{% else %}<tr><td colspan="5">Nada encontrado.</td></tr>{% endfor %}
+  </table></div>
+  {% if itens|length == 500 %}<p style="font-size:13px;color:#6b5a4c">Mostrando os 500 mais recentes. Use a busca para refinar.</p>{% endif %}
+</div></section>
+{% endblock %}

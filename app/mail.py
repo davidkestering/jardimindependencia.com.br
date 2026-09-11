@@ -16,11 +16,25 @@ def ip_de(request) -> str:
     return request.headers.get("x-real-ip") or (request.client.host if request.client else "?")
 
 
+def _gravar_historico(tipo, login, ip, acao, dados) -> None:
+    from db import SessionLocal
+    from models import Historico
+    try:
+        with SessionLocal() as db:
+            db.add(Historico(tipo=tipo, login=login, ip=ip, acao=acao[:200], detalhe={k: str(v)[:2000] for k, v in dados.items()}))
+            db.commit()
+    except Exception:  # noqa: BLE001 — auditoria nunca derruba a ação; fica registrada no log do container
+        log.exception("falha ao gravar histórico: %s", acao)
+
+
 def registrar(assunto: str, request, **dados) -> None:
-    """Auditoria por e-mail para MAIL_LOGS. Roda em thread para não atrasar a resposta."""
-    linhas = [f"Data/hora: {datetime.now(FUSO):%d/%m/%Y %H:%M:%S}", f"IP: {ip_de(request)}",
+    """Auditoria: grava em `historico` (quem, IP, data/hora, detalhes) e envia e-mail para MAIL_LOGS. Em thread."""
+    sessao = getattr(request.state, "sessao", None) or {}
+    tipo, login, ip = sessao.get("t"), sessao.get("login"), ip_de(request)
+    linhas = [f"Data/hora: {datetime.now(FUSO):%d/%m/%Y %H:%M:%S}", f"IP: {ip}", f"Quem: {login or 'visitante'}",
               f"Navegador: {request.headers.get('user-agent', '')[:200]}", ""]
     linhas += [f"{k.replace('_', ' ').capitalize()}: {v}" for k, v in dados.items()]
+    _gravar_historico(tipo, login, ip, assunto, dados)
     threading.Thread(target=enviar, args=(MAIL_LOGS, f"[Log] {assunto}", "\n".join(linhas)), daemon=True).start()
 
 

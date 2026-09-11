@@ -212,11 +212,11 @@ def cadastro_post(request: Request, nome: str = Form(...), cpf: str = Form(...),
 @router.get("")
 def painel(request: Request, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
     m = morador_atual(request, db, sessao)
-    docs = db.scalars(select(Documento).where(Documento.publico).order_by(Documento.criado_em.desc())).all()
+    docs = db.scalars(select(Documento).where(Documento.publico, Documento.excluido_em.is_(None)).order_by(Documento.criado_em.desc())).all()
     from routers.comunicados import novos_para, resumo
     from models import Residente
     novos = novos_para(db, m)
-    n_res = db.scalar(select(func.count()).select_from(Residente).where(Residente.unidade_id == m.unidade_id))
+    n_res = db.scalar(select(func.count()).select_from(Residente).where(Residente.unidade_id == m.unidade_id, Residente.excluido_em.is_(None)))
     return render(request, "morador/painel.html", morador=m, documentos=docs, novos=novos, resumo=resumo, n_residentes=n_res)
 
 

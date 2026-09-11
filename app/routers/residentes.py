@@ -20,12 +20,12 @@ TIPOS = {"morador": "Morador", "inquilino": "Inquilino"}
 
 
 def lista(db: Session, unidade_id):
-    return db.scalars(select(Residente).where(Residente.unidade_id == unidade_id).order_by(Residente.nome)).all()
+    return db.scalars(select(Residente).where(Residente.unidade_id == unidade_id, Residente.excluido_em.is_(None)).order_by(Residente.nome)).all()
 
 
 def _residente_do_apto(db: Session, rid: uuid.UUID, m: Morador) -> Residente:
     r = db.get(Residente, rid)
-    if not r or r.unidade_id != m.unidade_id:
+    if not r or r.unidade_id != m.unidade_id or r.excluido_em:
         raise HTTPException(404)
     return r
 
@@ -54,12 +54,14 @@ def cadastrar(request: Request, nome: str = Form(...), cpf: str = Form(...), nas
         erro = "Data de nascimento inválida."
     elif e := validar_contato(email, telefone):
         erro = e
-    elif ja := db.scalar(select(Residente).where(Residente.unidade_id == m.unidade_id, Residente.cpf == cpf_d)):
+    elif ja := db.scalar(select(Residente).where(Residente.unidade_id == m.unidade_id, Residente.cpf == cpf_d, Residente.excluido_em.is_(None))):
         erro = f"CPF já cadastrado neste apartamento em nome de {ja.nome}."
     if erro:
         return render(request, "morador/residentes.html", morador=m, residentes=lista(db, m.unidade_id), tipos=TIPOS, erro=erro)
-    r = Residente(unidade_id=m.unidade_id, nome=nome.strip()[:120], cpf=cpf_d, nascimento=nasc, email=email.strip()[:160],
-                  telefone=telefone.strip()[:20], tipo=tipo, cadastrado_por=m.nome, cadastrado_ip=ip_de(request))
+    antigo = db.scalar(select(Residente).where(Residente.unidade_id == m.unidade_id, Residente.cpf == cpf_d))  # removido antes: reativa
+    r = antigo or Residente(unidade_id=m.unidade_id, cpf=cpf_d)
+    r.nome, r.nascimento, r.email, r.telefone, r.tipo = nome.strip()[:120], nasc, email.strip()[:160], telefone.strip()[:20], tipo
+    r.cadastrado_por, r.cadastrado_ip, r.excluido_em, r.excluido_por, r.excluido_ip = m.nome, ip_de(request), None, None, None
     db.add(r)
     db.commit()
     registrar("Residente cadastrado pelo condômino", request, titular=m.nome, unidade=m.unidade.rotulo, nome=r.nome, cpf=r.cpf_fmt, tipo=tipo)
@@ -70,9 +72,9 @@ def cadastrar(request: Request, nome: str = Form(...), cpf: str = Form(...), nas
 def excluir(request: Request, rid: uuid.UUID, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
     m = morador_atual(request, db, sessao)
     r = _residente_do_apto(db, rid, m)
-    registrar("Residente removido pelo condômino", request, titular=m.nome, unidade=m.unidade.rotulo, nome=r.nome, cpf=r.cpf_fmt)
-    db.delete(r)
+    r.excluido_em, r.excluido_por, r.excluido_ip = datetime.now(timezone.utc), f"condômino {m.nome}", ip_de(request)  # lógico
     db.commit()
+    registrar("Residente removido pelo condômino (lógico)", request, titular=m.nome, unidade=m.unidade.rotulo, nome=r.nome, cpf=r.cpf_fmt)
     return RedirectResponse("/morador/residentes", status_code=303)
 
 
@@ -88,7 +90,7 @@ def transferir(request: Request, rid: uuid.UUID, sessao: dict = Depends(auth.exi
     novo = Morador(unidade_id=m.unidade_id, nome=r.nome, cpf=r.cpf, nascimento=r.nascimento, email=r.email, telefone=r.telefone,
                    status="pendente", origem="transferencia")
     db.add(novo)
-    db.delete(r)
+    r.excluido_em, r.excluido_por, r.excluido_ip = agora, "transferência: virou titular", ip
     db.add(Residente(unidade_id=m.unidade_id, nome=m.nome, cpf=m.cpf, nascimento=m.nascimento, email=m.email, telefone=m.telefone,
                      tipo="morador", cadastrado_por="transferência", cadastrado_ip=ip))
     db.commit()

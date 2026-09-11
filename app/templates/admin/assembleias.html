@@ -10,6 +10,8 @@
       <p style="margin-top:10px"><a class="btn sec" href="/admin/assembleias/{{ a.id }}">Pautas e resultados</a></p></div>
     {% else %}<p>Nenhuma assembleia cadastrada.</p>{% endfor %}
   </div>
+  {% if excluidas %}<details style="margin-top:24px"><summary style="cursor:pointer;font-weight:600">Histórico: {{ excluidas|length }} assembleia(s) excluída(s)</summary>
+  <ul style="margin-top:10px">{% for a in excluidas %}<li><a href="/admin/assembleias/{{ a.id }}">{{ a.titulo }}</a> · excluída por <strong>{{ a.excluido_por }}</strong> em {{ a.excluido_em|local }} · IP {{ a.excluido_ip or '?' }}</li>{% endfor %}</ul></details>{% endif %}
   <h2 style="margin-top:36px;font-size:22px">Nova assembleia</h2>
   <form class="card" method="post" action="/admin/assembleias">
     <label>Título<input name="titulo" required maxlength="200" placeholder="Ex.: Assembleia Geral Ordinária 2026"></label>

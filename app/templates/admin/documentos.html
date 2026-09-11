@@ -18,6 +18,14 @@
       <form class="inline" method="post" action="/admin/documentos/{{ d.id }}/excluir" onsubmit="return confirm('Excluir este documento?')"><button class="btn sec" type="submit">Excluir</button></form></td>
     </tr>{% else %}<tr><td colspan="7">Nenhum documento enviado.</td></tr>{% endfor %}
   </table></div>
+  {% if excluidos %}<details style="margin-top:24px"><summary style="cursor:pointer;font-weight:600">Histórico: {{ excluidos|length }} documento(s) excluído(s) (continuam acessíveis à administração)</summary>
+  <div style="overflow-x:auto;margin-top:10px"><table>
+    <tr><th>Excluído por · quando · IP</th><th>Enviado por · quando</th><th>Categoria</th><th>Título</th><th>Arquivo</th></tr>
+    {% for d in excluidos %}<tr style="color:#6b5a4c">
+      <td style="font-size:13px"><strong>{{ d.excluido_por }}</strong><br>{{ d.excluido_em|local }}<br>IP {{ d.excluido_ip or '?' }}</td>
+      <td style="font-size:13px">{{ d.enviado_por or '—' }}<br>{{ d.criado_em|local }}</td><td>{{ d.categoria }}</td><td>{{ d.titulo }}</td>
+      <td><a href="/admin/documentos/{{ d.id }}">{{ d.nome_original }}</a></td></tr>{% endfor %}
+  </table></div></details>{% endif %}
   <h2 style="margin-top:36px">Enviar documentos</h2>
   <form class="card" method="post" action="/admin/documentos" enctype="multipart/form-data" id="f-docs">
     <label>Arquivos (PDF, JPG ou PNG; vários de uma vez, até {{ max_mb }} MB no total)<input name="arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple required id="arquivos"></label>

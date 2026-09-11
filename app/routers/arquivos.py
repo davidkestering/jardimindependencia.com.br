@@ -15,7 +15,7 @@ def servir_documento(db: Session, doc_id: str, apenas_publicos: bool):
         d = db.get(Documento, uuid.UUID(doc_id))
     except ValueError:
         d = None
-    if not d or (apenas_publicos and not d.publico):
+    if not d or (apenas_publicos and (not d.publico or d.excluido_em)):
         raise HTTPException(404)
     caminho = (Path(UPLOAD_DIR) / d.arquivo).resolve()
     if not str(caminho).startswith(str(Path(UPLOAD_DIR).resolve())) or not caminho.is_file():

@@ -6,9 +6,9 @@
   {% include "admin/_menu.html" %}
   {% set rot = {'rascunho': 'Rascunho', 'condominos': 'Só condôminos', 'publico': 'Público'} %}
   <div class="faixa">
-    <strong>Pré-visualização</strong> · situação atual: <strong>{{ rot[c.visibilidade] }}</strong>{% if c.visibilidade == 'rascunho' %} (só a administração vê){% endif %}
+    <strong>Pré-visualização</strong> · situação atual: <strong>{% if c.excluido_em %}Excluído por {{ c.excluido_por }} em {{ c.excluido_em|local }} (IP {{ c.excluido_ip or '?' }}){% else %}{{ rot[c.visibilidade] }}{% endif %}</strong>{% if c.visibilidade == 'rascunho' and not c.excluido_em %} (só a administração vê){% endif %}
     <span style="flex:1"></span>
-    {% for v in visibilidades if v != c.visibilidade %}<form method="post" action="/admin/comunicados/{{ c.id }}/visibilidade"{% if c.publicado_em is none and v != 'rascunho' %} onsubmit="return confirm('Publicar para {{ rot[v]|lower }}? Os condôminos serão avisados por e-mail e notificação.')"{% endif %}><input type="hidden" name="visibilidade" value="{{ v }}"><button class="btn{% if v == 'rascunho' %} sec{% endif %}" type="submit">{{ 'Publicar: ' ~ rot[v]|lower if v != 'rascunho' else 'Voltar a rascunho' }}</button></form>{% endfor %}
+    {% for v in visibilidades if v != c.visibilidade and not c.excluido_em %}<form method="post" action="/admin/comunicados/{{ c.id }}/visibilidade"{% if c.publicado_em is none and v != 'rascunho' %} onsubmit="return confirm('Publicar para {{ rot[v]|lower }}? Os condôminos serão avisados por e-mail e notificação.')"{% endif %}><input type="hidden" name="visibilidade" value="{{ v }}"><button class="btn{% if v == 'rascunho' %} sec{% endif %}" type="submit">{{ 'Publicar: ' ~ rot[v]|lower if v != 'rascunho' else 'Voltar a rascunho' }}</button></form>{% endfor %}
     <a class="btn sec" href="/admin/comunicados/{{ c.id }}">Editar</a>
     <a class="btn sec" href="/admin/comunicados">Voltar</a>
   </div>
