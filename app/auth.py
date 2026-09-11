@@ -86,8 +86,11 @@ def exigir(tipo: str):
 
 
 def parse_data(s: str) -> date | None:
-    """Aceita dd/mm/aaaa ou aaaa-mm-dd."""
+    """Aceita ddmmaaaa (só números), dd/mm/aaaa ou aaaa-mm-dd."""
     s = (s or "").strip()
+    d8 = re.sub(r"\D", "", s)
+    if len(d8) == 8 and "-" not in s:
+        s = f"{d8[:2]}/{d8[2:4]}/{d8[4:]}"
     try:
         if "/" in s:
             d, m, a = s.split("/")
