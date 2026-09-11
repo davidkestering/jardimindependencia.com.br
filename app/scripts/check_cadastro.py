@@ -108,13 +108,15 @@ try:
         assert not unidade_inadimplente(db, a.unidade_id)
     assert "Histórico" in ac.get("/admin/financeiro").text
     # habilitar novo registro (revogar) libera o apto e derruba o login
-    assert ac.post(f"/admin/moradores/{a.id}/status", data={"status": "revogado"}, follow_redirects=False).status_code == 303
+    assert ac.post(f"/admin/moradores/{a.id}/status", data={"status": "bloqueado"}).status_code == 400  # status extinto
+    assert ac.post(f"/admin/moradores/{a.id}/status", data={"status": "negado"}, follow_redirects=False).status_code == 303
     _, r = login(CPF1); assert "não autorizado" in r.text
     assert lc.get("/morador", follow_redirects=False).status_code == 303  # sessão antiga cai
     assert "Solicitação enviada" in cadastrar("Bia Teste", CPF2, "01", "101")
     time.sleep(0.3)
     assuntos = " | ".join(a for _, a, _ in enviados)
     assert "Acesso liberado" in assuntos and "não aprovada" in assuntos and "Acesso encerrado" in assuntos, assuntos
+    assert "pendente" in ac.get("/admin").text  # menu único com contador de pendentes
     print("check_cadastro ok")
 finally:
     limpar()
