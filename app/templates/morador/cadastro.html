@@ -14,8 +14,9 @@
     <label>CPF<input name="cpf" inputmode="numeric" required placeholder="000.000.000-00" value="{{ form.cpf if form else '' }}"></label>
     <label>Data de nascimento<input name="nascimento" type="date" required value="{{ form.nascimento if form else '' }}"></label>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-      <label>Bloco<select name="bloco" required>{% for b in blocos %}<option value="{{ b }}">{{ b }}</option>{% endfor %}</select></label>
-      <label>Apartamento<input name="apto" inputmode="numeric" required placeholder="Ex.: 004 ou 102" maxlength="3" value="{{ form.apto if form else '' }}"></label>
+      {% set sb = form.bloco if form else (mapa|first) %}
+      <label>Bloco<select name="bloco" id="bloco" required>{% for b in mapa %}<option value="{{ b }}" {% if b == sb %}selected{% endif %}>{{ b }}</option>{% endfor %}</select></label>
+      <label>Apartamento<select name="apto" id="apto" required>{% for a in mapa.get(sb, []) %}<option value="{{ a }}" {% if form and a == form.apto %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></label>
     </div>
     <label>E-mail<input name="email" type="email" required maxlength="160" value="{{ form.email if form else '' }}"></label>
     <label>Telefone<input name="telefone" type="tel" required maxlength="20" placeholder="(91) 9 9999-9999" value="{{ form.telefone if form else '' }}"></label>
@@ -24,6 +25,10 @@
     <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400"><input type="checkbox" name="declaracao" value="sim" required style="width:auto;margin-top:3px"> Li e aceito a declaração acima.</label>
     <button class="btn" type="submit">Enviar solicitação</button>
   </form>
+  <script>
+    const mapa = {{ mapa|tojson }}, bloco = document.getElementById('bloco'), apto = document.getElementById('apto');
+    if (bloco) bloco.addEventListener('change', () => { apto.innerHTML = (mapa[bloco.value] || []).map(a => `<option value="${a}">${a}</option>`).join(''); });
+  </script>
   {% endif %}
 </div></section>
 {% endblock %}
