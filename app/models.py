@@ -2,7 +2,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Numeric, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -31,18 +31,32 @@ class Unidade(Base):
         return self.bloco if not self.apto else f"Bloco {self.bloco} · Apto {self.apto}"
 
 
+# Status que "ocupam" o apartamento: enquanto houver um morador nesses status, ninguém mais se cadastra na unidade.
+OCUPA_APTO = ("pendente", "aprovado", "bloqueado")
+
+
 class Morador(Base):
+    """Uma pessoa por apartamento (índice único parcial). O mesmo CPF pode ter vários apartamentos.
+    status: pendente|aprovado|bloqueado (ocupam o apto) · negado|revogado (histórico, apto livre)."""
     __tablename__ = "morador"
+    __table_args__ = (Index("uq_morador_unidade_ocupada", "unidade_id", unique=True,
+                            postgresql_where=text("status IN ('pendente','aprovado','bloqueado')")),)
     id: Mapped[uuid.UUID] = uuid_pk()
     unidade_id: Mapped[uuid.UUID] = fk("unidade")
     nome: Mapped[str] = mapped_column(String(120))
-    cpf: Mapped[str] = mapped_column(String(11), unique=True)  # só dígitos
+    cpf: Mapped[str] = mapped_column(String(11), index=True)  # só dígitos
     nascimento: Mapped[date] = mapped_column(Date)
-    email: Mapped[str | None] = mapped_column(String(160))
-    telefone: Mapped[str | None] = mapped_column(String(20))
-    status: Mapped[str] = mapped_column(String(12), default="pendente", server_default="pendente")  # pendente|aprovado|bloqueado
+    email: Mapped[str] = mapped_column(String(160))
+    telefone: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(12), default="pendente", server_default="pendente")
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    decidido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    decidido_por: Mapped[str | None] = mapped_column(String(60))  # login do admin que decidiu
     unidade: Mapped[Unidade] = relationship(back_populates="moradores")
+
+    @property
+    def cpf_fmt(self):
+        return f"{self.cpf[:3]}.{self.cpf[3:6]}.{self.cpf[6:9]}-{self.cpf[9:]}"
 
 
 class AdminUser(Base):
