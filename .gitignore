@@ -6,3 +6,5 @@ __pycache__/
 *.pyc
 app/static/img/condominio/
 docs/referencia/prancha-imagens.jpg
+app/templates/site/doacao.html
+app/static/img/assinatura/
