@@ -43,6 +43,8 @@ try:
         assert mc.post("/admin/usuarios", data={"login": ruim, "nome": "X", "senha": "senha12345"}).status_code == 400, ruim
     with SessionLocal() as db:
         u = db.scalar(select(AdminUser).where(AdminUser.login == LOGIN)); assert not u.master and u.areas == ["documentos"]
+        assert u.criado_por == mestre.login and u.criado_ip and u.criado_em
+    assert "Criado por · quando · IP" in mc.get("/admin/usuarios").text and f"<strong>{mestre.login}</strong>" in mc.get("/admin/usuarios").text
     uc = cliente(u.id)
     assert uc.get("/admin").status_code == 200 and uc.get("/admin/documentos").status_code == 200
     for rota in ("/admin/moradores", "/admin/comunicados", "/admin/financeiro", "/admin/assembleias", "/admin/interfone", "/admin/usuarios"):
@@ -55,6 +57,9 @@ try:
     assert r.status_code == 303
     # mestre libera outra área; usuário passa a acessar
     mc.post(f"/admin/usuarios/{u.id}/areas", data={"area_documentos": "1", "area_comunicados": "1"})
+    with SessionLocal() as db:
+        u3 = db.get(AdminUser, u.id); assert u3.alterado_por == mestre.login and u3.alterado_ip and u3.alterado_em
+    assert "alterado por" in mc.get("/admin/usuarios").text
     assert uc.get("/admin/comunicados").status_code == 200 and uc.get("/admin/moradores").status_code == 403
     # mestre não pode ser editado/excluído por aqui; usuário comum some ao excluir
     assert mc.post(f"/admin/usuarios/{mestre.id}/excluir").status_code == 404

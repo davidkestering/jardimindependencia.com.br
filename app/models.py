@@ -107,6 +107,12 @@ class AdminUser(Base):
     nome: Mapped[str] = mapped_column(String(120))
     master: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     areas: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    criado_por: Mapped[str | None] = mapped_column(String(60))
+    criado_ip: Mapped[str | None] = mapped_column(String(45))
+    criado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    alterado_por: Mapped[str | None] = mapped_column(String(60))   # última alteração de áreas ou senha
+    alterado_ip: Mapped[str | None] = mapped_column(String(45))
+    alterado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
     excluido_por: Mapped[str | None] = mapped_column(String(120))
     excluido_ip: Mapped[str | None] = mapped_column(String(45))

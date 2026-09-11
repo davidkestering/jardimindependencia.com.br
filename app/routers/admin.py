@@ -356,7 +356,8 @@ async def usuario_criar(request: Request, admin: AdminUser = Depends(admin_dep),
         raise HTTPException(400, "Login no formato nome.sobrenome (só letras minúsculas), nome e senha com 8+ caracteres são obrigatórios")
     if db.scalar(select(AdminUser).where(AdminUser.login == login)):
         raise HTTPException(400, "Já existe um usuário com este login (ativo ou desativado)")
-    db.add(AdminUser(login=login, nome=nome, senha_hash=auth.hash_senha(senha), master=False, areas=_areas_do_form(form)))
+    db.add(AdminUser(login=login, nome=nome, senha_hash=auth.hash_senha(senha), master=False, areas=_areas_do_form(form),
+                     criado_por=admin.login, criado_ip=ip_de(request)))
     db.commit()
     registrar("Usuário da administração criado", request, por=admin.login, login=login, nome=nome, areas=", ".join(_areas_do_form(form)))
     return RedirectResponse("/admin/usuarios", status_code=303)
@@ -373,6 +374,7 @@ def _usuario_editavel(db: Session, uid: uuid.UUID) -> AdminUser:
 async def usuario_areas(request: Request, uid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     u = _usuario_editavel(db, uid)
     u.areas = _areas_do_form(await request.form())
+    u.alterado_por, u.alterado_ip, u.alterado_em = admin.login, ip_de(request), datetime.now(timezone.utc)
     db.commit()
     registrar("Áreas de usuário alteradas", request, por=admin.login, login=u.login, areas=", ".join(u.areas))
     return RedirectResponse("/admin/usuarios", status_code=303)
@@ -384,6 +386,7 @@ def usuario_senha(request: Request, uid: uuid.UUID, senha: str = Form(...), admi
     if len(senha) < 8:
         raise HTTPException(400, "Senha com menos de 8 caracteres")
     u.senha_hash = auth.hash_senha(senha)
+    u.alterado_por, u.alterado_ip, u.alterado_em = admin.login, ip_de(request), datetime.now(timezone.utc)
     db.commit()
     registrar("Senha de usuário redefinida", request, por=admin.login, login=u.login)
     return RedirectResponse("/admin/usuarios", status_code=303)
