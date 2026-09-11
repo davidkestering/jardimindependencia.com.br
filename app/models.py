@@ -49,6 +49,7 @@ class Morador(Base):
     email: Mapped[str] = mapped_column(String(160))
     telefone: Mapped[str] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(12), default="pendente", server_default="pendente")
+    origem: Mapped[str] = mapped_column(String(16), default="site", server_default="site")  # site|admin|transferencia
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     decidido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     decidido_por: Mapped[str | None] = mapped_column(String(60))  # login do admin que decidiu
@@ -63,6 +64,27 @@ class Morador(Base):
 # Áreas da administração que podem ser liberadas a um usuário (chave -> rótulo). Prefixo de rota = /admin/<chave>.
 AREAS_ADMIN = {"moradores": "Moradores e cadastros", "documentos": "Documentos", "comunicados": "Comunicados",
                "financeiro": "Inadimplência", "assembleias": "Assembleias", "interfone": "Interfone"}
+
+
+class Residente(Base):
+    """Moradores e inquilinos cadastrados pelo titular do apto. Só cadastro: NÃO fazem login (1 CPF por apto = o titular)."""
+    __tablename__ = "residente"
+    __table_args__ = (UniqueConstraint("unidade_id", "cpf"),)
+    id: Mapped[uuid.UUID] = uuid_pk()
+    unidade_id: Mapped[uuid.UUID] = fk("unidade")
+    nome: Mapped[str] = mapped_column(String(120))
+    cpf: Mapped[str] = mapped_column(String(11))
+    nascimento: Mapped[date] = mapped_column(Date)
+    email: Mapped[str] = mapped_column(String(160))
+    telefone: Mapped[str] = mapped_column(String(20))
+    tipo: Mapped[str] = mapped_column(String(12))  # morador|inquilino
+    cadastrado_por: Mapped[str] = mapped_column(String(120))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    unidade: Mapped[Unidade] = relationship()
+
+    @property
+    def cpf_fmt(self):
+        return f"{self.cpf[:3]}.{self.cpf[3:6]}.{self.cpf[6:9]}-{self.cpf[9:]}"
 
 
 class AdminUser(Base):

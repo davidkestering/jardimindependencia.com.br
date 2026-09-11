@@ -6,17 +6,21 @@
   {% include "admin/_menu.html" %}
   <h1>Moradores</h1>
   <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-    <select name="status"><option value="">Todos</option>{% for s in ['pendente','aprovado','negado'] %}<option value="{{ s }}" {% if s==status %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+    <select name="status"><option value="">Titulares e residentes</option>{% for s, r in [('pendente','Pendentes'),('aprovado','Aprovados'),('negado','Negados'),('residente','Só residentes (cadastrados pelo condômino)')] %}<option value="{{ s }}" {% if s==status %}selected{% endif %}>{{ r }}</option>{% endfor %}</select>
+    <select name="bloco"><option value="">Bloco</option>{% for b in blocos %}<option {% if b==bloco %}selected{% endif %}>{{ b }}</option>{% endfor %}</select>
+    <input name="apto" value="{{ apto }}" placeholder="Apto" style="width:90px" inputmode="numeric">
     <input name="q" value="{{ q }}" placeholder="Nome ou CPF" style="width:220px">
     <button class="btn" type="submit">Filtrar</button>
+    {% if status or bloco or apto or q %}<a class="btn sec" href="/admin/moradores">Limpar</a>{% endif %}
   </form>
   <div style="overflow-x:auto"><table>
-    <tr><th>Unidade</th><th>Nome</th><th>CPF</th><th>Nascimento</th><th>Contato</th><th>Status</th><th>Ações</th></tr>
-    {% for m in moradores %}<tr>
-      <td>{{ m.unidade.bloco }} / {{ m.unidade.apto }}</td><td>{{ m.nome }}</td><td>{{ m.cpf_fmt }}</td><td>{{ m.nascimento.strftime('%d/%m/%Y') }}</td>
-      <td>{{ m.email }}<br>{{ m.telefone }}</td><td><span class="st st-{{ m.status }}">{{ m.status }}</span></td>
-      <td><a class="btn sec" href="/admin/moradores/{{ m.id }}">Ver</a></td></tr>
-    {% else %}<tr><td colspan="7">Nenhum morador encontrado.</td></tr>{% endfor %}
+    <tr><th>Unidade</th><th>Nome</th><th>CPF</th><th>Nascimento</th><th>Contato</th><th>Papel</th><th>Origem</th><th>Situação</th><th>Ações</th></tr>
+    {% for l in linhas %}<tr>
+      <td>{{ l.u.bloco }} / {{ l.u.apto }}</td><td>{{ l.nome }}</td><td>{{ l.cpf }}</td><td>{{ l.nasc.strftime('%d/%m/%Y') }}</td>
+      <td>{{ l.email }}<br>{{ l.tel }}</td><td>{{ l.papel }}</td><td>{{ l.origem }}</td>
+      <td>{% if l.status %}<span class="st st-{{ l.status }}">{{ l.status }}</span>{% else %}—{% endif %}</td>
+      <td>{% if l.id %}<a class="btn sec" href="/admin/moradores/{{ l.id }}">Ver</a>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="9">Ninguém encontrado.</td></tr>{% endfor %}
   </table></div>
   <h2 style="margin-top:36px">Cadastrar morador</h2>
   <form class="card" method="post" action="/admin/moradores">
@@ -24,7 +28,7 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <label>CPF<input name="cpf" required inputmode="numeric"></label>
       <label>Data de nascimento<input name="nascimento" type="date" required></label>
-      <label>Bloco<select name="bloco">{% for b in blocos %}<option>{{ b }}</option>{% endfor %}</select></label>
+      <label>Bloco<select name="bloco">{% for b in blocos_form %}<option>{{ b }}</option>{% endfor %}</select></label>
       <label>Apartamento<input name="apto" maxlength="3" placeholder="004 (vazio p/ Portaria)"></label>
       <label>E-mail<input name="email" type="email" required></label>
       <label>Telefone<input name="telefone" type="tel" required></label>

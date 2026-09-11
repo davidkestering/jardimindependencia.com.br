@@ -64,11 +64,18 @@ async def sessao_no_template(request: Request, call_next):
             a = db.get(AdminUser, s["id"])
             pend = db.scalar(select(func.count()).select_from(Morador).where(Morador.status == "pendente")) if a else 0
             s = {**s, "master": bool(a.master), "areas": list(a.areas or []), "pendentes": pend} if a else None
+    elif s and s["t"] == "morador":  # menu mostra o apto administrado e os outros aptos aprovados do CPF
+        with SessionLocal() as db:
+            m = db.get(Morador, s["id"])
+            if m:
+                outros = db.scalars(select(Morador).join(Unidade).where(Morador.cpf == m.cpf, Morador.status == "aprovado", Morador.id != m.id)
+                                    .order_by(Unidade.bloco, Unidade.apto)).all()
+                s = {**s, "apto": m.unidade.rotulo, "outros": [{"id": str(o.id), "rotulo": o.unidade.rotulo} for o in outros]}
     request.state.sessao = s
     return await call_next(request)
 
 
-from routers import admin, comunicados, financeiro, interfone, morador, site, votacao  # noqa: E402
+from routers import admin, comunicados, financeiro, interfone, morador, residentes, site, votacao  # noqa: E402
 
 app.include_router(site.router)
 app.include_router(morador.router)
@@ -77,6 +84,7 @@ app.include_router(financeiro.router)
 app.include_router(votacao.router)
 app.include_router(interfone.router)
 app.include_router(comunicados.router)
+app.include_router(residentes.router)
 
 
 if __name__ == "__main__":

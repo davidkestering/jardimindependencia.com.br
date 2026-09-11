@@ -3,7 +3,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -86,17 +86,43 @@ def login_post(request: Request, cpf: str = Form(...), nascimento: str = Form(..
         registrar(f"Login CONDÔMINO recusado ({pior.status})", request, nome=pior.nome, unidade=pior.unidade.rotulo, cpf=cpf, nascimento=nascimento)
         return render(request, "morador/login.html", erro=MENSAGEM_STATUS[pior.status], next=next)
     auth.limpar_tentativas(chave)
+    if len(aprovados) > 1:  # mais de um apto: escolhe qual vai administrar nesta sessão
+        registrar("Login CONDÔMINO: escolha de apto", request, nome=m.nome, cpf=cpf, aptos=", ".join(x.unidade.rotulo for x in aprovados))
+        return render(request, "morador/escolher.html", aptos=aprovados, token=auth.token_curto("escolha", cpf_d), next=next)
     registrar("Login CONDÔMINO realizado", request, nome=m.nome, unidade=m.unidade.rotulo, cpf=cpf, nascimento=nascimento)
     return cookie_sessao(RedirectResponse(next if next.startswith("/") else "/morador", status_code=303), m)
 
 
-@router.get("/trocar/{mid}")
-def trocar(mid: uuid.UUID, request: Request, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
-    """Troca a unidade da sessão para outro apartamento aprovado do mesmo CPF."""
+@router.post("/escolher")
+def escolher(request: Request, token: str = Form(...), mid: uuid.UUID = Form(...), next: str = Form("/morador"),
+             db: Session = Depends(get_db)):
+    cpf_d = auth.ler_token_curto("escolha", token)
+    m = db.get(Morador, mid) if cpf_d else None
+    if not m or m.cpf != cpf_d or m.status != "aprovado":
+        raise HTTPException(403, "Escolha inválida ou expirada. Entre novamente.")
+    registrar("Login CONDÔMINO realizado", request, nome=m.nome, unidade=m.unidade.rotulo, cpf=cpf_d)
+    return cookie_sessao(RedirectResponse(next if next.startswith("/") else "/morador", status_code=303), m)
+
+
+def _alvo_troca(request: Request, mid: uuid.UUID, sessao: dict, db: Session) -> tuple[Morador, Morador]:
     atual = morador_atual(request, db, sessao)
     alvo = db.get(Morador, mid)
-    if not alvo or alvo.cpf != atual.cpf or alvo.status != "aprovado":
+    if not alvo or alvo.cpf != atual.cpf or alvo.status != "aprovado" or alvo.id == atual.id:
         raise HTTPException(403, "Unidade não pertence a este CPF")
+    return atual, alvo
+
+
+@router.get("/trocar/{mid}")
+def trocar(mid: uuid.UUID, request: Request, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
+    """Pergunta antes de trocar o apto administrado na sessão."""
+    atual, alvo = _alvo_troca(request, mid, sessao, db)
+    return render(request, "morador/trocar.html", atual=atual, alvo=alvo)
+
+
+@router.post("/trocar/{mid}")
+def trocar_post(mid: uuid.UUID, request: Request, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
+    atual, alvo = _alvo_troca(request, mid, sessao, db)
+    registrar("CONDÔMINO trocou de apto", request, nome=atual.nome, de=atual.unidade.rotulo, para=alvo.unidade.rotulo)
     return cookie_sessao(RedirectResponse("/morador", status_code=303), alvo)
 
 
@@ -160,11 +186,11 @@ def cadastro_post(request: Request, nome: str = Form(...), cpf: str = Form(...),
 def painel(request: Request, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
     m = morador_atual(request, db, sessao)
     docs = db.scalars(select(Documento).where(Documento.publico).order_by(Documento.criado_em.desc())).all()
-    outras = db.scalars(select(Morador).join(Unidade).where(Morador.cpf == m.cpf, Morador.status == "aprovado", Morador.id != m.id)
-                        .order_by(Unidade.bloco, Unidade.apto)).all()
     from routers.comunicados import novos_para, resumo
+    from models import Residente
     novos = novos_para(db, m)
-    return render(request, "morador/painel.html", morador=m, documentos=docs, outras=outras, novos=novos, resumo=resumo)
+    n_res = db.scalar(select(func.count()).select_from(Residente).where(Residente.unidade_id == m.unidade_id))
+    return render(request, "morador/painel.html", morador=m, documentos=docs, novos=novos, resumo=resumo, n_residentes=n_res)
 
 
 @router.get("/documentos/{doc_id}")

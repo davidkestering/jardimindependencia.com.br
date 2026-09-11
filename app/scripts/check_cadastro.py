@@ -89,7 +89,7 @@ try:
     # apto negado liberado
     assert "Solicitação enviada" in cadastrar("Duda Teste", CPF3, "02", "102")
     # login aprovado + trocar unidade
-    lc, r = login(CPF1); assert r.status_code == 303 and lc.get("/morador").status_code == 200
+    lc, r = login(CPF1); assert r.status_code == 303 and lc.get("/morador").status_code == 200  # só 01/101 aprovado
     pg = lc.get("/contato").text; assert 'value="01" selected' in pg and 'value="101" selected' in pg and 'value="27"' not in pg and "Ana Teste" in pg
     assert "Mensagem enviada" in lc.post("/contato", data={**ct, **captcha(), "bloco": "01", "apto": "101"}).text
     assert "Condômino logado: Ana Teste" in enviados[-1][2]

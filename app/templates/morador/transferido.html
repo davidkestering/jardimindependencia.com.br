@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block titulo %}Acesso transferido · Jardim Independência{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  <div class="eyebrow">Área do condômino</div>
+  <h1>Acesso transferido</h1>
+  <p class="aviso ok" style="max-width:560px">O acesso ao <strong>{{ apto }}</strong> agora é de <strong>{{ novo.nome }}</strong>, que recebeu um e-mail com as instruções. Você saiu deste apartamento.</p>
+  <p><a class="btn" href="/morador/login">Entrar</a> <a class="btn sec" href="/">Início</a></p>
+</div></section>
+{% endblock %}

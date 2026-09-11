@@ -120,3 +120,16 @@ def captcha_ok(token: str, resposta: str) -> bool:
     except BadSignature:
         return False
     return d.get("exp", 0) > time.time() and so_digitos(resposta) == str(d.get("r"))
+
+
+def token_curto(tipo: str, valor: str, minutos: int = 10) -> str:
+    """Token assinado de curta duração (ex.: escolha de apto após o login)."""
+    return _captcha.dumps({"t": tipo, "v": valor, "exp": time.time() + minutos * 60})
+
+
+def ler_token_curto(tipo: str, token: str) -> str | None:
+    try:
+        d = _captcha.loads(token or "")
+    except BadSignature:
+        return None
+    return d["v"] if d.get("t") == tipo and d.get("exp", 0) > time.time() else None

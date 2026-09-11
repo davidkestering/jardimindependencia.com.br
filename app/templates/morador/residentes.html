@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block titulo %}Residentes · Minha área{% endblock %}
+{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}form.inline{display:inline}form.inline button{padding:5px 10px;font-size:13px}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "morador/_menu.html" %}
+  <h1>Residentes do {{ morador.unidade.rotulo }}</h1>
+  <p style="max-width:62ch">Cadastre quem mora no apartamento. Só <strong>um CPF por apartamento</strong> entra na área do condômino: o seu. Para passar o acesso a um residente, use "Transferir acesso".</p>
+  {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
+  <div style="overflow-x:auto"><table>
+    <tr><th>Nome</th><th>Tipo</th><th>CPF</th><th>Nascimento</th><th>Contato</th><th>Ações</th></tr>
+    {% for r in residentes %}<tr>
+      <td>{{ r.nome }}</td><td>{{ tipos[r.tipo] }}</td><td>{{ r.cpf_fmt }}</td><td>{{ r.nascimento.strftime('%d/%m/%Y') }}</td><td>{{ r.email }}<br>{{ r.telefone }}</td>
+      <td><form class="inline" method="post" action="/morador/residentes/{{ r.id }}/transferir" onsubmit="return confirm('Transferir o acesso à área do condômino para {{ r.nome }}? Você deixará de ter acesso ao {{ morador.unidade.rotulo }}.')"><button class="btn sec" type="submit">Transferir acesso</button></form>
+        <form class="inline" method="post" action="/morador/residentes/{{ r.id }}/excluir" onsubmit="return confirm('Remover {{ r.nome }} da lista?')"><button class="btn sec" type="submit">Remover</button></form></td>
+    </tr>{% else %}<tr><td colspan="6">Nenhum residente cadastrado.</td></tr>{% endfor %}
+  </table></div>
+  <h2 style="margin-top:36px">Cadastrar residente</h2>
+  <form class="card" method="post" action="/morador/residentes">
+    <p style="margin:0 0 6px">Apartamento: <strong>{{ morador.unidade.rotulo }}</strong></p>
+    <label>Nome completo<input name="nome" required maxlength="120"></label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <label>CPF<input name="cpf" inputmode="numeric" required placeholder="000.000.000-00"></label>
+      <label>Data de nascimento<input name="nascimento" type="date" required></label>
+      <label>E-mail<input name="email" type="email" required maxlength="160"></label>
+      <label>Telefone<input name="telefone" type="tel" required maxlength="20" placeholder="(91) 9 9999-9999"></label>
+    </div>
+    <label>Tipo<select name="tipo" required>{% for k, v in tipos.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></label>
+    <button class="btn" type="submit">Cadastrar</button>
+  </form>
+</div></section>
+{% endblock %}
