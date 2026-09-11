@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 import auth
 from config import MAIL_CONTATO
 from db import get_db
-from mail import enviar, registrar
+from mail import enviar, ip_de, registrar
 from models import Morador, Unidade
 
 router = APIRouter()
@@ -100,20 +100,22 @@ def contato(request: Request, db: Session = Depends(get_db)):
 @router.post("/contato")
 def contato_enviar(request: Request, nome: str = Form(...), email: str = Form(...), mensagem: str = Form(...),
                    bloco: str = Form(""), apto: str = Form(""), captcha: str = Form(""), captcha_token: str = Form(""),
-                   db: Session = Depends(get_db)):
+                   declaracao: str = Form(""), db: Session = Depends(get_db)):
     ctx = contexto_contato(request, db)
     nome, email, mensagem = nome.strip()[:120], email.strip()[:160], mensagem.strip()[:4000]
     if not auth.captcha_ok(captcha_token, captcha):
         return render(request, "site/contato.html", erro="Resposta da conta de verificação incorreta. Tente novamente.", **ctx)
+    if not declaracao:
+        return render(request, "site/contato.html", erro="É preciso aceitar a declaração de responsabilidade.", **ctx)
     if not (nome and "@" in email and mensagem):
         return render(request, "site/contato.html", erro="Preencha nome, e-mail válido e mensagem.", **ctx)
     if bloco and apto not in ctx["mapa"].get(bloco, []):
         return render(request, "site/contato.html", erro="Bloco e apartamento não conferem.", **ctx)
     unidade = f"Bloco {bloco} · Apto {apto}" if bloco else "-"
     logado = f"\nCondômino logado: {m.nome} (CPF {m.cpf_fmt})" if (m := ctx["morador"]) else ""
-    corpo = f"Nome: {nome}\nE-mail: {email}\nUnidade: {unidade}{logado}\n\n{mensagem}"
+    corpo = f"Nome: {nome}\nE-mail: {email}\nUnidade: {unidade}{logado}\nDeclaração de responsabilidade: aceita (IP {ip_de(request)})\n\n{mensagem}"
     ok = enviar(MAIL_CONTATO, f"[Site] Contato de {nome}", corpo, responder_para=email)
-    registrar("Mensagem de contato enviada" if ok else "Mensagem de contato FALHOU", request, nome=nome, email=email, unidade=unidade)
+    registrar("Mensagem de contato enviada" if ok else "Mensagem de contato FALHOU", request, nome=nome, email=email, unidade=unidade, declaracao_aceita="sim")
     if not ok:
         return render(request, "site/contato.html", erro="Não foi possível enviar agora. Tente novamente em instantes.", **ctx)
     return render(request, "site/contato.html", sucesso=True, **ctx)
