@@ -22,7 +22,7 @@
   <form class="card" method="post" action="/admin/usuarios">
     <label>Nome<input name="nome" required maxlength="120"></label>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-      <label>Login<input name="login" required pattern="[a-z0-9._-]{3,60}" placeholder="nome.sobrenome"></label>
+      <label>Login (nome.sobrenome)<input name="login" required pattern="[a-z]+(\.[a-z]+)+" title="Só letras minúsculas separadas por ponto, ex.: maria.silva" placeholder="maria.silva"></label>
       <label>Senha (mínimo 8)<input name="senha" type="password" required minlength="8"></label>
     </div>
     <p style="margin:0 0 6px;font-weight:600">Áreas liberadas</p>

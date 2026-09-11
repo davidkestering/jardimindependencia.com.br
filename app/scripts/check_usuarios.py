@@ -12,7 +12,7 @@ from db import SessionLocal
 from main import app
 from models import AdminUser
 
-LOGIN = "teste.usuario"
+LOGIN, COMUM = "teste.usuario", "comum.teste"
 
 
 def cliente(uid):
@@ -21,14 +21,16 @@ def cliente(uid):
 
 def limpar():
     with SessionLocal() as db:
-        db.execute(delete(AdminUser).where(AdminUser.login == LOGIN)); db.commit()
+        db.execute(delete(AdminUser).where(AdminUser.login.in_([LOGIN, COMUM]))); db.commit()
 
 
 limpar()
 try:
     with SessionLocal() as db:
         mestre = db.scalar(select(AdminUser).where(AdminUser.master))
-        comum = db.scalar(select(AdminUser).where(AdminUser.login == "admin"))
+        db.add(AdminUser(login=COMUM, nome="Comum", senha_hash=auth.hash_senha("senha12345"), master=False,
+                         areas=["moradores", "documentos", "comunicados", "financeiro", "assembleias", "interfone"])); db.commit()
+        comum = db.scalar(select(AdminUser).where(AdminUser.login == COMUM))
     mc, cc = cliente(mestre.id), cliente(comum.id)
     # só mestre vê/usa usuários
     assert mc.get("/admin/usuarios").status_code == 200 and "/admin/usuarios" in mc.get("/admin").text
@@ -37,6 +39,8 @@ try:
     assert mc.post("/admin/usuarios", data={"login": LOGIN, "nome": "Teste Usuário", "senha": "senha12345", "area_documentos": "1"}, follow_redirects=False).status_code == 303
     assert mc.post("/admin/usuarios", data={"login": LOGIN, "nome": "Dup", "senha": "senha12345"}).status_code == 400
     assert cc.post("/admin/usuarios", data={"login": "x.y", "nome": "X", "senha": "senha12345"}).status_code == 403
+    for ruim in ("admin", "maria_silva", "maria.silva1", ".maria", "maria."):
+        assert mc.post("/admin/usuarios", data={"login": ruim, "nome": "X", "senha": "senha12345"}).status_code == 400, ruim
     with SessionLocal() as db:
         u = db.scalar(select(AdminUser).where(AdminUser.login == LOGIN)); assert not u.master and u.areas == ["documentos"]
     uc = cliente(u.id)

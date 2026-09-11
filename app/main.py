@@ -34,8 +34,9 @@ def seed():
     with SessionLocal() as db:
         if db.scalar(select(Unidade).limit(1)) is None:
             db.add_all(Unidade(bloco=b, apto=a) for b, a in unidades_padrao())
-        if ADMIN_SENHA_INICIAL and db.scalar(select(AdminUser).where(AdminUser.login == ADMIN_LOGIN)) is None:
-            db.add(AdminUser(login=ADMIN_LOGIN, senha_hash=hash_senha(ADMIN_SENHA_INICIAL), nome="Administração"))
+        # Usuário inicial só quando não existe nenhum (primeiro acesso); depois os mestres criam os demais.
+        if ADMIN_SENHA_INICIAL and db.scalar(select(AdminUser).limit(1)) is None:
+            db.add(AdminUser(login=ADMIN_LOGIN, senha_hash=hash_senha(ADMIN_SENHA_INICIAL), nome="Administração", master=True))
         db.commit()
 
 
