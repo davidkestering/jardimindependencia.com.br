@@ -13,6 +13,7 @@ from config import MAIL_CONTATO, SITE_URL
 from db import get_db
 from mail import FUSO, ip_de, notificar, registrar
 from models import Morador, Residente
+from termo import TERMO
 from routers.morador import morador_atual, render, validar_contato
 
 router = APIRouter(prefix="/morador/residentes")
@@ -38,11 +39,14 @@ def residentes(request: Request, erro: str = "", sessao: dict = Depends(auth.exi
 
 @router.post("")
 def cadastrar(request: Request, nome: str = Form(...), cpf: str = Form(...), nascimento: str = Form(...), email: str = Form(...),
-              telefone: str = Form(...), tipo: str = Form(...), sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
+              telefone: str = Form(...), tipo: str = Form(...), declaracao: str = Form(""),
+              sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
     m = morador_atual(request, db, sessao)
     cpf_d, nasc = auth.so_digitos(cpf), auth.parse_data(nascimento)
     erro = None
-    if tipo not in TIPOS:
+    if not declaracao:
+        erro = "É preciso aceitar a declaração de veracidade das informações."
+    elif tipo not in TIPOS:
         erro = "Tipo inválido."
     elif not nome.strip():
         erro = "Informe o nome."
@@ -62,9 +66,10 @@ def cadastrar(request: Request, nome: str = Form(...), cpf: str = Form(...), nas
     r = antigo or Residente(unidade_id=m.unidade_id, cpf=cpf_d)
     r.nome, r.nascimento, r.email, r.telefone, r.tipo = nome.strip()[:120], nasc, email.strip()[:160], telefone.strip()[:20], tipo
     r.cadastrado_por, r.cadastrado_ip, r.excluido_em, r.excluido_por, r.excluido_ip = m.nome, ip_de(request), None, None, None
+    r.termo_texto, r.termo_aceito_em, r.termo_ip = TERMO, datetime.now(timezone.utc), ip_de(request)  # aceite do titular
     db.add(r)
     db.commit()
-    registrar("Residente cadastrado pelo condômino", request, titular=m.nome, unidade=m.unidade.rotulo, nome=r.nome, cpf=r.cpf_fmt, tipo=tipo)
+    registrar("Residente cadastrado pelo condômino", request, titular=m.nome, unidade=m.unidade.rotulo, nome=r.nome, cpf=r.cpf_fmt, tipo=tipo, declaracao_aceita="sim")
     return RedirectResponse("/morador/residentes", status_code=303)
 
 

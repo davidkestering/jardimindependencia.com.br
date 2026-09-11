@@ -46,7 +46,9 @@ try:
         db.add(Morador(unidade_id=u1.id, nome="Ana Titular", cpf=A, nascimento=auth.parse_data(NASC), email="ana@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO)); db.commit()
         ma = db.scalar(select(Morador).where(Morador.cpf == A))
     ac, mc = cliente("admin", adm.id), cliente("morador", ma.id)
-    base = dict(nascimento=NASC, email="r@example.com", telefone="(91) 98888-0000")
+    base = dict(nascimento=NASC, email="r@example.com", telefone="(91) 98888-0000", declaracao="sim")
+    assert "aceitar a declaração" in mc.post("/morador/residentes", data={**base, "nome": "Sem aceite", "cpf": R, "tipo": "morador", "declaracao": ""}).text
+    assert "art. 299" in mc.get("/morador/residentes").text
 
     # residente NÃO loga, antes e depois de cadastrado
     assert "não conferem" in login(R)[1].text
@@ -55,6 +57,9 @@ try:
     assert mc.post("/morador/residentes", data={**base, "nome": "Sol Moradora", "cpf": S, "tipo": "morador"}, follow_redirects=False).status_code == 303
     assert "em nome de Rui Inquilino" in mc.post("/morador/residentes", data={**base, "nome": "Dup", "cpf": R, "tipo": "morador"}).text
     pg = mc.get("/morador/residentes").text; assert "Rui Inquilino" in pg and "Inquilino" in pg and "Sol Moradora" in pg
+    with SessionLocal() as db:
+        rr = db.scalar(select(Residente).where(Residente.cpf == R)); assert rr.termo_texto == TERMO and rr.termo_aceito_em and rr.termo_ip
+    assert "declaração aceita em" in ac.get(f"/admin/moradores/{ma.id}").text
     assert "não conferem" in login(R)[1].text
     assert "2 residente(s)" in mc.get("/morador").text and "administrando <strong>Bloco 01 · Apto 101" in mc.get("/morador").text
     with SessionLocal() as db:

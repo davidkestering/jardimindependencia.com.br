@@ -26,6 +26,8 @@
       <label>Telefone<input name="telefone" type="tel" required maxlength="20" placeholder="(91) 9 9999-9999"></label>
     </div>
     <label>Tipo<select name="tipo" required>{% for k, v in tipos.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></label>
+    <p style="font-size:13px;line-height:1.5;color:#6b5a4c;margin:4px 0 8px">{{ termo }}</p>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400"><input type="checkbox" name="declaracao" value="sim" required style="width:auto;margin-top:3px"> Li e aceito a declaração acima sobre os dados deste residente.</label>
     <button class="btn" type="submit">Cadastrar</button>
   </form>
 </div></section>
