@@ -15,6 +15,8 @@ SMTP_NOREPLY_PASS = os.environ.get("SMTP_NOREPLY_PASS", "")
 MAIL_CONTATO = os.environ.get("MAIL_CONTATO", "contato@jardimindependencia.com.br")
 MAIL_LOGS = os.environ.get("MAIL_LOGS", "logs@jardimindependencia.com.br")
 SITE_URL = os.environ.get("SITE_URL", "https://jardimindependencia.com.br")
+CLAMAV_HOST = os.environ.get("CLAMAV_HOST", "")  # vazio = sem antivírus (só assinatura interna do arquivo)
+CLAMAV_PORT = int(os.environ.get("CLAMAV_PORT", "3310"))
 
 CONDOMINIO = {
     "nome": "Condomínio Residencial Jardim Independência",

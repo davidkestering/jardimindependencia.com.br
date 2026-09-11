@@ -1,3 +1,4 @@
+import logging
 import re
 import uuid
 from datetime import datetime, timezone
@@ -14,9 +15,11 @@ from db import get_db
 from config import SITE_URL
 from mail import FUSO, ip_de, notificar, registrar
 from models import AREAS_ADMIN, AdminUser, Assembleia, CategoriaDocumento, Documento, Historico, Morador, Residente, Unidade
+from antivirus import escanear
 from routers.arquivos import servir_documento
 from routers.morador import msg_ocupado, ocupante, validar_contato
 
+log = logging.getLogger("uploads")
 router = APIRouter(prefix="/admin")
 
 
@@ -194,16 +197,48 @@ def documentos(request: Request, erro: str = "", admin: AdminUser = Depends(admi
                   max_mb=MAX_TOTAL_MB, erro=erro)
 
 
+ASSINATURAS = {".pdf": (b"%PDF",), ".jpg": (b"\xff\xd8\xff",), ".jpeg": (b"\xff\xd8\xff",), ".png": (b"\x89PNG\r\n\x1a\n",)}
+# PDF com conteúdo ativo (onde vive a maior parte do malware em PDF): recusado
+PDF_ATIVO = (b"/JavaScript", b"/JS ", b"/JS(", b"/JS<", b"/OpenAction", b"/AA ", b"/AA<", b"/Launch", b"/EmbeddedFile", b"/RichMedia")
+ERRO_CONTEUDO = "Arquivo recusado: o conteúdo não corresponde ao tipo informado ou o PDF tem conteúdo ativo (JavaScript, ação automática ou anexo embutido)"
+ERRO_UPLOAD = {-1: "O envio passou de {mb} MB no total", -2: ERRO_CONTEUDO + " ({nome})",
+               -3: "Antivírus indisponível no momento; tente novamente em alguns minutos", -4: "Arquivo recusado pelo antivírus ({nome})"}
+
+
+def conteudo_valido(destino: Path, ext: str) -> bool:
+    """Checa a assinatura interna (magic bytes) e, em PDF, a ausência de conteúdo ativo."""
+    with destino.open("rb") as f:
+        inicio = f.read(16)
+    if not any(inicio.startswith(a) for a in ASSINATURAS.get(ext, ())):
+        return False
+    if ext == ".pdf":
+        with destino.open("rb") as f:
+            while bloco := f.read(4 * BLOCO):
+                if any(t in bloco for t in PDF_ATIVO):
+                    return False
+    return True
+
+
 async def _gravar_em_blocos(arquivo: UploadFile, destino: Path, restante: int) -> int:
-    """Copia o upload para o disco em blocos; devolve os bytes gravados ou -1 se estourar o limite."""
+    """Copia o upload para o disco em blocos. Devolve os bytes gravados; -1 se estourar o limite; -2 se o conteúdo
+    for inválido (assinatura interna diferente da extensão ou PDF com conteúdo ativo). Em erro, o arquivo é apagado."""
     destino.parent.mkdir(parents=True, exist_ok=True)
     total = 0
     with destino.open("wb") as f:
         while bloco := await arquivo.read(BLOCO):
             total += len(bloco)
             if total > restante:
+                destino.unlink(missing_ok=True)
                 return -1
             f.write(bloco)
+    if not conteudo_valido(destino, destino.suffix.lower()):
+        destino.unlink(missing_ok=True)
+        return -2
+    limpo, detalhe = escanear(destino)  # ClamAV; falha fechada se indisponível
+    if not limpo:
+        log.warning("upload recusado (%s): %s", destino.name, detalhe)
+        destino.unlink(missing_ok=True)
+        return -3 if detalhe == "antivírus indisponível" else -4
     return total
 
 
@@ -246,7 +281,7 @@ async def documento_enviar(request: Request, titulo: str = Form(""), categoria: 
         if n < 0:
             for g in gravados:
                 g.unlink(missing_ok=True)
-            return falha(f"O envio passou de {MAX_TOTAL_MB} MB no total")
+            return falha(ERRO_UPLOAD[n].format(mb=MAX_TOTAL_MB, nome=a.filename))
         restante -= n
         base = titulo.strip()[:200] or Path(a.filename).stem[:200]
         t = base if len(arquivos) == 1 or not titulo.strip() else f"{base} ({len(novos) + 1})"

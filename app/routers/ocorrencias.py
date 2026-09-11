@@ -16,7 +16,7 @@ from db import get_db
 from mail import FUSO, ip_de, notificar, registrar
 from models import AdminUser, Morador, Ocorrencia, OcorrenciaAnexo, OcorrenciaMensagem
 from termo import TERMO_OCORRENCIA
-from routers.admin import EXT_OK, MAX_TOTAL_MB, _gravar_em_blocos, admin_dep
+from routers.admin import ERRO_UPLOAD, EXT_OK, MAX_TOTAL_MB, _gravar_em_blocos, admin_dep
 from routers.morador import morador_atual
 
 router = APIRouter()
@@ -51,7 +51,7 @@ async def _anexar(db: Session, msg: OcorrenciaMensagem, arquivos: list[UploadFil
         if n < 0:
             for g in gravados:
                 g.unlink(missing_ok=True)
-            return f"Os anexos passaram de {MAX_TOTAL_MB} MB no total"
+            return ERRO_UPLOAD[n].format(mb=MAX_TOTAL_MB, nome=a.filename).replace("O envio passou", "Os anexos passaram")
         restante -= n
         db.add(OcorrenciaAnexo(id=aid, mensagem_id=msg.id, arquivo=nome, nome_original=Path(a.filename).name[:255]))
     return None
