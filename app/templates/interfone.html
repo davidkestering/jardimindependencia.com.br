@@ -42,6 +42,22 @@
     <div class="item"><h3>Receber chamadas com o app fechado</h3>
       <p>Instale o site como aplicativo e ative as notificações para o interfone tocar mesmo em segundo plano.</p>
       <p style="margin-top:10px"><button class="btn sec" type="button" id="btn-push" data-vapid="{{ vapid }}">Ativar notificações</button> <button class="btn sec" type="button" id="btn-instalar" hidden>Instalar aplicativo</button></p>
+      <p id="dica-instalar" style="font-size:13px;color:#6b5a4c;max-width:60ch" hidden></p>
+      <script>
+        // Sem o evento de instalação (iPhone/Safari, ou já instalado), orienta a instalação manual.
+        (function () {
+          var dica = document.getElementById('dica-instalar'), instalado = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+          if (instalado) { dica.textContent = 'Aplicativo já instalado neste aparelho.'; dica.hidden = false; return; }
+          setTimeout(function () {
+            if (!document.getElementById('btn-instalar').hidden) return;
+            var ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+            dica.textContent = ios
+              ? 'No iPhone/iPad: no Safari, toque em Compartilhar (quadrado com seta) e depois em "Adicionar à Tela de Início". Só depois disso é possível ativar as notificações.'
+              : 'Para instalar: no menu do navegador (⋮), toque em "Instalar aplicativo" ou "Adicionar à tela inicial".';
+            dica.hidden = false;
+          }, 2500);
+        })();
+      </script>
       <p id="push-status" style="font-size:14px;color:#6b5a4c"></p></div>
     {% endif %}
   </div>
