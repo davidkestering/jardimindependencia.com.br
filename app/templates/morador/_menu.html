@@ -4,6 +4,7 @@
   <a class="btn sec" href="/morador/comunicados">Comunicados{% if novos %} ({{ novos|length }}){% endif %}</a>
   <a class="btn sec" href="/morador/residentes">Residentes</a>
   <a class="btn sec" href="/morador/assembleias">Assembleias</a>
+  <a class="btn sec" href="/morador/enquetes">Enquetes</a>
   <a class="btn sec" href="/morador/interfone">Interfone</a>
   {% if sessao.outros %}<select aria-label="Trocar de apartamento" onchange="if(this.value)location.href='/morador/trocar/'+this.value" style="padding:8px 10px;border-radius:999px;border:1.5px solid var(--terracota);color:var(--terracota);background:#fff;font-weight:600"><option value="">Trocar de apto…</option>{% for o in sessao.outros %}<option value="{{ o.id }}">{{ o.rotulo }}</option>{% endfor %}</select>{% endif %}
   <a class="btn sec" href="/morador/sair">Sair</a>

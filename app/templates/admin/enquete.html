@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block titulo %}{{ e.pergunta }} · Administração{% endblock %}
+{% block head %}<style>.barra{background:var(--bege-claro);border-radius:6px;height:10px;overflow:hidden}.barra i{display:block;height:100%;background:var(--terracota)}.op{display:grid;grid-template-columns:1fr 60px;gap:8px;align-items:center;margin:6px 0;font-variant-numeric:tabular-nums}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "admin/_menu.html" %}
+  <p><a href="/admin/enquetes">← Enquetes</a></p>
+  <div class="eyebrow">{% if e.excluido_em %}Excluída{% elif e.abre_em <= agora <= e.fecha_em %}Aberta{% elif agora < e.abre_em %}Agendada{% else %}Encerrada{% endif %} · {{ unidades_ativas }} unidades aptas</div>
+  <h1>{{ e.pergunta }}</h1>
+  {% if e.descricao %}<p style="white-space:pre-wrap;max-width:70ch">{{ e.descricao }}</p>{% endif %}
+  <p>{{ e.abre_em.strftime('%d/%m/%Y %H:%M') }} até {{ e.fecha_em.strftime('%d/%m/%Y %H:%M') }} (horário de Brasília) · criada por {{ e.criado_por }} em {{ e.criado_em|local }} (IP {{ e.criado_ip or '?' }})</p>
+  {% if e.excluido_em %}<p class="aviso">Enquete excluída por <strong>{{ e.excluido_por }}</strong> em {{ e.excluido_em|local }} (IP {{ e.excluido_ip or '?' }}). Mantida como histórico; invisível aos condôminos.</p>{% endif %}
+  <div class="item" style="margin:14px 0;max-width:720px">
+    <div class="eyebrow">Resultado {% if aberta %}parcial{% endif %}</div>
+    {% for o in e.opcoes %}{% set n = res.validos[o.id] %}<div class="op"><div>{{ o.texto }}<div class="barra"><i style="width:{{ (100 * n / res.total_validos) if res.total_validos else 0 }}%"></i></div></div><strong>{{ n }}</strong></div>{% endfor %}
+    <p style="font-size:13px;color:#6b5a4c">Votos válidos: {{ res.total_validos }} · Não computados por inadimplência: {{ res.nao_computados }}</p>
+  </div>
+  {% if not e.excluido_em %}<form method="post" action="/admin/enquetes/{{ e.id }}/excluir" onsubmit="return confirm('Excluir a enquete? Ela sai da área do condômino e fica no histórico.')"><button class="btn sec" type="submit">Excluir enquete</button></form>{% endif %}
+</div></section>
+{% endblock %}

@@ -67,7 +67,7 @@ class Morador(Base):
 
 # Áreas da administração que podem ser liberadas a um usuário (chave -> rótulo). Prefixo de rota = /admin/<chave>.
 AREAS_ADMIN = {"moradores": "Moradores e cadastros", "documentos": "Documentos", "comunicados": "Comunicados",
-               "financeiro": "Inadimplência", "assembleias": "Assembleias", "interfone": "Interfone"}
+               "financeiro": "Inadimplência", "assembleias": "Assembleias", "enquetes": "Enquetes", "interfone": "Interfone"}
 
 
 class Residente(Base):
@@ -265,3 +265,40 @@ class Historico(Base):
     ip: Mapped[str | None] = mapped_column(String(45))
     acao: Mapped[str] = mapped_column(String(200))
     detalhe: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
+
+
+class Enquete(Base):
+    """Enquete da administração: uma pergunta, opções, período de votação, 1 voto por apto (regra de inadimplência igual à assembleia)."""
+    __tablename__ = "enquete"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    pergunta: Mapped[str] = mapped_column(String(300))
+    descricao: Mapped[str | None] = mapped_column(Text)
+    abre_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    fecha_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    criado_por: Mapped[str] = mapped_column(String(60))
+    criado_ip: Mapped[str | None] = mapped_column(String(45))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    excluido_por: Mapped[str | None] = mapped_column(String(120))
+    excluido_ip: Mapped[str | None] = mapped_column(String(45))
+    opcoes: Mapped[list["EnqueteOpcao"]] = relationship(order_by="EnqueteOpcao.ordem", viewonly=True)
+
+
+class EnqueteOpcao(Base):
+    __tablename__ = "enquete_opcao"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    enquete_id: Mapped[uuid.UUID] = fk("enquete")
+    ordem: Mapped[int] = mapped_column(default=1)
+    texto: Mapped[str] = mapped_column(String(200))
+
+
+class EnqueteVoto(Base):
+    __tablename__ = "enquete_voto"
+    __table_args__ = (UniqueConstraint("enquete_id", "unidade_id"),)
+    id: Mapped[uuid.UUID] = uuid_pk()
+    enquete_id: Mapped[uuid.UUID] = fk("enquete")
+    unidade_id: Mapped[uuid.UUID] = fk("unidade")
+    opcao_id: Mapped[uuid.UUID] = fk("enquete_opcao")
+    morador_id: Mapped[uuid.UUID] = fk("morador")
+    inadimplente_no_voto: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    votado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
