@@ -10,6 +10,7 @@
     <input type="hidden" name="next" value="{{ next }}">
     <label>CPF<input name="cpf" inputmode="numeric" required placeholder="000.000.000-00" autocomplete="username"></label>
     <label>Data de nascimento<input name="nascimento" type="date" required autocomplete="bday"></label>
+    {% include "_captcha.html" %}
     <button class="btn" type="submit">Entrar</button>
     <p style="margin:0;font-size:14px">Ainda não tem acesso? <a href="/morador/cadastro">Solicite seu cadastro</a>.</p>
   </form>

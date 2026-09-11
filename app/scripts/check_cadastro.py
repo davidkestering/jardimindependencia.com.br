@@ -46,12 +46,16 @@ def admin_client():
 
 def login(cpf):
     lc = TestClient(app, base_url="https://t")
-    r = lc.post("/morador/login", data={"cpf": cpf, "nascimento": BASE["nascimento"]}, follow_redirects=False)
+    r = lc.post("/morador/login", data={"cpf": cpf, "nascimento": BASE["nascimento"], **captcha()}, follow_redirects=False)
     return lc, r
 
 
 limpar()
 try:
+    # captcha nos logins
+    assert "verificação incorreta" in c.post("/morador/login", data={"cpf": CPF1, "nascimento": "1980-05-10", **captcha(False)}).text
+    assert "verificação incorreta" in c.post("/admin/login", data={"login": "x", "senha": "y", **captcha(False)}).text
+    assert "Login ou senha incorretos" in c.post("/admin/login", data={"login": "x", "senha": "y", **captcha()}).text
     # obrigatórios
     assert c.post("/morador/cadastro", data={"nome": "X", "cpf": CPF1, "nascimento": "1980-05-10", "bloco": "01", "apto": "101"}).status_code == 422
     assert "aceitar a declaração" in cadastrar("Sem aceite", CPF1, "01", "101", declaracao="")

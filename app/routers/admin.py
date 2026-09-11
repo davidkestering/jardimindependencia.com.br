@@ -34,7 +34,7 @@ AVISO = {
 
 def render(request: Request, nome: str, **ctx):
     from main import templates
-    return templates.TemplateResponse(request, nome, {"sessao": request.state.sessao, **ctx})
+    return templates.TemplateResponse(request, nome, {"sessao": request.state.sessao, "captcha": auth.captcha_novo(), **ctx})
 
 
 def admin_dep(sessao: dict = Depends(auth.exigir("admin")), db: Session = Depends(get_db)) -> AdminUser:
@@ -51,10 +51,12 @@ def login(request: Request, next: str = "/admin"):
 
 @router.post("/login")
 def login_post(request: Request, login: str = Form(...), senha: str = Form(...), next: str = Form("/admin"),
-               db: Session = Depends(get_db)):
+               captcha: str = Form(""), captcha_token: str = Form(""), db: Session = Depends(get_db)):
     chave = f"admin:{ip_de(request)}"
     if auth.bloqueado(chave):
         return render(request, "admin/login.html", erro="Muitas tentativas. Aguarde 15 minutos.", next=next)
+    if not auth.captcha_ok(captcha_token, captcha):
+        return render(request, "admin/login.html", erro="Resposta da conta de verificação incorreta. Tente novamente.", next=next)
     a = db.scalar(select(AdminUser).where(AdminUser.login == login.strip().lower()))
     if not a or not auth.verificar_senha(senha, a.senha_hash):
         auth.registrar_tentativa(chave)
