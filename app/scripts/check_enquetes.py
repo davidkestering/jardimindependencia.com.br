@@ -4,6 +4,7 @@ import sys
 sys.path.insert(0, "/app")
 import mail
 mail.enviar = lambda *a, **k: True
+mail._gravar_historico = lambda *a, **k: None  # testes não entram no histórico de auditoria
 
 from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
