@@ -88,7 +88,8 @@ def sair():
 def painel(request: Request, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     contagem = {s: n for s, n in db.execute(select(Morador.status, func.count()).group_by(Morador.status))}
     return render(request, "admin/painel.html", admin=admin, contagem=contagem,
-                  unidades=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.ativa)),
+                  aptos=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.ativa, Unidade.apto != "")),
+                  areas=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.ativa, Unidade.apto == "")),
                   documentos=db.scalar(select(func.count()).select_from(Documento)))
 
 
