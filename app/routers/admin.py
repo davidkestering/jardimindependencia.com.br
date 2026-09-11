@@ -22,14 +22,13 @@ CATEGORIAS = ["Convenção", "Regimento interno", "Atas de assembleia", "Balance
 EXT_OK = {".pdf", ".jpg", ".jpeg", ".png"}
 MAX_MB = 25
 CONDOMINIO_CURTO = "Jardim Independência"
-STATUS = ["pendente", "aprovado", "bloqueado", "negado", "revogado"]
-# transições permitidas: de -> {para}. negado/revogado são finais (histórico) e liberam o apto.
-TRANSICOES = {"pendente": {"aprovado", "negado"}, "aprovado": {"bloqueado", "revogado"}, "bloqueado": {"aprovado", "revogado"}}
+STATUS = ["pendente", "aprovado", "negado"]
+# transições: pendente -> aprovado|negado; aprovado -> negado ("habilitar novo registro"). negado é final e libera o apto.
+TRANSICOES = {"pendente": {"aprovado", "negado"}, "aprovado": {"negado"}}
 AVISO = {
     "aprovado": ("Acesso liberado", "Seu acesso à área do condômino foi liberado para {u}.\nEntre em {site}/morador/login com CPF e data de nascimento."),
     "negado": ("Solicitação não aprovada", "Sua solicitação de acesso para {u} não foi aprovada.\nEm caso de dúvida, procure a administração."),
-    "bloqueado": ("Acesso bloqueado", "Seu acesso à área do condômino para {u} foi bloqueado.\nEm caso de dúvida, procure a administração."),
-    "revogado": ("Acesso encerrado", "Seu acesso à área do condômino para {u} foi encerrado e o apartamento foi liberado para novo cadastro.\nEm caso de dúvida, procure a administração."),
+    "encerrado": ("Acesso encerrado", "Seu acesso à área do condômino para {u} foi encerrado e o apartamento foi liberado para novo cadastro.\nEm caso de dúvida, procure a administração."),
 }
 
 
@@ -138,9 +137,10 @@ def morador_status(request: Request, mid: uuid.UUID, status: str = Form(...), ad
     m = db.get(Morador, mid) or (_ for _ in ()).throw(HTTPException(404))
     if status not in TRANSICOES.get(m.status, ()):
         raise HTTPException(400, f"Não é possível passar de {m.status} para {status}")
+    aviso = "encerrado" if (m.status, status) == ("aprovado", "negado") else status
     m.status, m.decidido_em, m.decidido_por = status, datetime.now(timezone.utc), admin.login
     db.commit()
-    assunto, corpo = AVISO[status]
+    assunto, corpo = AVISO[aviso]
     notificar(m.email, f"[{CONDOMINIO_CURTO}] {assunto}", corpo.format(u=m.unidade.rotulo, site=SITE_URL))
     registrar(f"Cadastro {status.upper()} pelo admin", request, admin=admin.login, nome=m.nome, cpf=m.cpf_fmt, unidade=m.unidade.rotulo, email=m.email)
     return RedirectResponse(f"/admin/moradores/{m.id}", status_code=303)

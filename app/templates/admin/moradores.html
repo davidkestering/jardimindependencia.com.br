@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block titulo %}Moradores · Administração{% endblock %}
-{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-pendente{background:#fff0c2;color:#6b4b00}.st-aprovado{background:#e6f0e8;color:#1d4d2a}.st-bloqueado{background:#fbe9e3;color:#7a2e12}.st-negado{background:#eee;color:#555}.st-revogado{background:#eee;color:#555}form.inline{display:inline}form.inline button{padding:5px 10px;font-size:13px}</style>{% endblock %}
+{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-pendente{background:#fff0c2;color:#6b4b00}.st-aprovado{background:#e6f0e8;color:#1d4d2a}.st-negado{background:#eee;color:#555}form.inline{display:inline}form.inline button{padding:5px 10px;font-size:13px}</style>{% endblock %}
 {% block conteudo %}
 <section><div class="container">
   {% include "admin/_menu.html" %}
   <h1>Moradores</h1>
   <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-    <select name="status"><option value="">Todos</option>{% for s in ['pendente','aprovado','bloqueado','negado','revogado'] %}<option value="{{ s }}" {% if s==status %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+    <select name="status"><option value="">Todos</option>{% for s in ['pendente','aprovado','negado'] %}<option value="{{ s }}" {% if s==status %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
     <input name="q" value="{{ q }}" placeholder="Nome ou CPF" style="width:220px">
     <button class="btn" type="submit">Filtrar</button>
   </form>

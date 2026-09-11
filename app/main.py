@@ -6,12 +6,12 @@ from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from auth import hash_senha, ler_sessao
 from config import ADMIN_LOGIN, ADMIN_SENHA_INICIAL, CONDOMINIO, UPLOAD_DIR
 from db import SessionLocal
-from models import AdminUser, Unidade
+from models import AdminUser, Morador, Unidade
 
 logging.basicConfig(level=logging.INFO)
 BASE = Path(__file__).parent
@@ -62,7 +62,8 @@ async def sessao_no_template(request: Request, call_next):
     if s and s["t"] == "admin":  # menu da administração esconde o que o usuário não pode acessar
         with SessionLocal() as db:
             a = db.get(AdminUser, s["id"])
-            s = {**s, "master": bool(a and a.master), "areas": list(a.areas or []) if a else []} if a else None
+            pend = db.scalar(select(func.count()).select_from(Morador).where(Morador.status == "pendente")) if a else 0
+            s = {**s, "master": bool(a.master), "areas": list(a.areas or []), "pendentes": pend} if a else None
     request.state.sessao = s
     return await call_next(request)
 

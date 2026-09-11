@@ -17,14 +17,12 @@ router = APIRouter(prefix="/morador")
 
 MENSAGEM_STATUS = {
     "pendente": "Seu cadastro ainda aguarda aprovação da administração.",
-    "bloqueado": "Acesso bloqueado. Procure a administração.",
     "negado": "Acesso não autorizado. Procure a administração ou solicite novo cadastro.",
-    "revogado": "Acesso não autorizado. Procure a administração ou solicite novo cadastro.",
 }
 
 
 def ocupante(db: Session, unidade_id) -> Morador | None:
-    """Quem ocupa o apartamento (pendente, aprovado ou bloqueado). Só pode haver um."""
+    """Quem ocupa o apartamento (pendente ou aprovado). Só pode haver um."""
     return db.scalar(select(Morador).where(Morador.unidade_id == unidade_id, Morador.status.in_(OCUPA_APTO)))
 
 

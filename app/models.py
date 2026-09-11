@@ -32,15 +32,15 @@ class Unidade(Base):
 
 
 # Status que "ocupam" o apartamento: enquanto houver um morador nesses status, ninguém mais se cadastra na unidade.
-OCUPA_APTO = ("pendente", "aprovado", "bloqueado")
+OCUPA_APTO = ("pendente", "aprovado")
 
 
 class Morador(Base):
     """Uma pessoa por apartamento (índice único parcial). O mesmo CPF pode ter vários apartamentos.
-    status: pendente|aprovado|bloqueado (ocupam o apto) · negado|revogado (histórico, apto livre)."""
+    status: pendente|aprovado (ocupam o apto) · negado (histórico, apto livre)."""
     __tablename__ = "morador"
     __table_args__ = (Index("uq_morador_unidade_ocupada", "unidade_id", unique=True,
-                            postgresql_where=text("status IN ('pendente','aprovado','bloqueado')")),)
+                            postgresql_where=text("status IN ('pendente','aprovado')")),)
     id: Mapped[uuid.UUID] = uuid_pk()
     unidade_id: Mapped[uuid.UUID] = fk("unidade")
     nome: Mapped[str] = mapped_column(String(120))
