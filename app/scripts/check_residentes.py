@@ -12,6 +12,7 @@ import auth
 from db import SessionLocal
 from main import app
 from models import AdminUser, Morador, Residente, Unidade
+from termo import TERMO
 
 A, R, S = "52998224725", "11144477735", "16899535009"
 NASC = "1980-05-10"
@@ -42,7 +43,7 @@ try:
     with SessionLocal() as db:
         adm = db.scalar(select(AdminUser).where(AdminUser.master))
         u1 = unidade(db, "01", "101")
-        db.add(Morador(unidade_id=u1.id, nome="Ana Titular", cpf=A, nascimento=auth.parse_data(NASC), email="ana@example.com", telefone="91999990000", status="aprovado")); db.commit()
+        db.add(Morador(unidade_id=u1.id, nome="Ana Titular", cpf=A, nascimento=auth.parse_data(NASC), email="ana@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO)); db.commit()
         ma = db.scalar(select(Morador).where(Morador.cpf == A))
     ac, mc = cliente("admin", adm.id), cliente("morador", ma.id)
     base = dict(nascimento=NASC, email="r@example.com", telefone="(91) 98888-0000")
@@ -86,7 +87,10 @@ try:
     corpo_a = [c for p, _, c in enviados if p == "ana@example.com"][0]; assert "111.444.777-35" in corpo_a and "pendente de aprovação" in corpo_a
     assert "transferiu o acesso" in ac.get("/admin/moradores?status=transferido").text
     assert ac.post(f"/admin/moradores/{mr.id}/status", data={"status": "aprovado"}, follow_redirects=False).status_code == 303
-    lc, r = login(R); assert r.status_code == 303 and lc.get("/morador").status_code == 200
+    lc, r = login(R); assert r.status_code == 303
+    assert lc.get("/morador", follow_redirects=False).headers["location"] == "/morador/termo"  # nunca aceitou a declaração
+    assert lc.post("/morador/termo", data={"declaracao": "sim"}, follow_redirects=False).status_code == 303
+    assert "administrando <strong>Bloco 01 · Apto 101" in lc.get("/morador").text
     with SessionLocal() as db:
         assert db.scalar(select(Morador).where(Morador.unidade_id == u1.id, Morador.status == "aprovado")).cpf == R  # 1 acesso por apto
     det = ac.get(f"/admin/moradores/{mr.id}").text; assert "Acesso transferido pelo condômino" in det and "Ana Titular" in det
@@ -95,7 +99,7 @@ try:
     # R também titular em 02/102: escolha no login e troca com confirmação
     with SessionLocal() as db:
         u2 = unidade(db, "02", "102")
-        db.add(Morador(unidade_id=u2.id, nome="Rui Inquilino", cpf=R, nascimento=auth.parse_data(NASC), email="r@example.com", telefone="91988880000", status="aprovado")); db.commit()
+        db.add(Morador(unidade_id=u2.id, nome="Rui Inquilino", cpf=R, nascimento=auth.parse_data(NASC), email="r@example.com", telefone="91988880000", status="aprovado", termo_texto=TERMO)); db.commit()
         mr2 = db.scalar(select(Morador).where(Morador.cpf == R, Morador.unidade_id == u2.id))
     lc, r = login(R); assert r.status_code == 200 and "Qual apartamento" in r.text and "Bloco 02 · Apto 102" in r.text
     token = r.text.split('name="token" value="')[1].split('"')[0]

@@ -73,6 +73,8 @@ try:
     assert "já foi registrado em nome de Ana Teste (aguardando aprovação)" in cadastrar("Bia Teste", CPF2, "01", "101")
     assert "Solicitação enviada" in cadastrar("Ana Teste", CPF1, "02", "102")
     a, cc = morador(CPF1, "01"), morador(CPF1, "02")
+    from termo import TERMO
+    assert a.termo_texto == TERMO and a.termo_aceito_em and a.termo_ip  # aceite gravado no registro
     # login pendente
     _, r = login(CPF1); assert "aguarda aprovação" in r.text
     # admin: lista, detalhe, autorizar A, negar C
@@ -91,6 +93,17 @@ try:
     assert "Solicitação enviada" in cadastrar("Duda Teste", CPF3, "02", "102")
     # login aprovado + trocar unidade
     lc, r = login(CPF1); assert r.status_code == 303 and lc.get("/morador").status_code == 200  # só 01/101 aprovado
+    # declaração mudou -> pede novo aceite antes de qualquer página; aceite grava texto/data/IP novos
+    with SessionLocal() as db:
+        db.get(Morador, a.id).termo_texto = "versão antiga"; db.commit()
+    assert lc.get("/morador", follow_redirects=False).headers["location"] == "/morador/termo"
+    assert lc.get("/morador/assembleias", follow_redirects=False).status_code == 303
+    assert "declaração foi atualizada" in lc.get("/morador/termo").text
+    assert "marcar a caixa" in lc.post("/morador/termo", data={}).text
+    assert lc.post("/morador/termo", data={"declaracao": "sim"}, follow_redirects=False).headers["location"] == "/morador"
+    assert lc.get("/morador").status_code == 200
+    with SessionLocal() as db: assert db.get(Morador, a.id).termo_texto == TERMO
+    assert "Aceita em" in ac.get(f"/admin/moradores/{a.id}").text
     pg = lc.get("/contato").text; assert 'value="01" selected' in pg and 'value="101" selected' in pg and 'value="27"' not in pg and "Ana Teste" in pg
     assert "Mensagem enviada" in lc.post("/contato", data={**ct, **captcha(), "bloco": "01", "apto": "101"}).text
     assert "Condômino logado: Ana Teste" in enviados[-1][2]
