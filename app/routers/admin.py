@@ -403,12 +403,29 @@ def usuario_excluir(request: Request, uid: uuid.UUID, admin: AdminUser = Depends
 
 # ---- histórico de auditoria (só master; checagem em admin_dep) ----
 @router.get("/historico")
-def historico(request: Request, q: str = "", admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    stmt = select(Historico).order_by(Historico.quando.desc())
-    if q:
-        like = f"%{q}%"
-        stmt = stmt.where(Historico.acao.ilike(like) | Historico.login.ilike(like) | Historico.ip.ilike(like) | Historico.detalhe.cast(String).ilike(like))
-    return render(request, "admin/historico.html", itens=db.scalars(stmt.limit(500)).all(), q=q)
+def historico(request: Request, de: str = "", ate: str = "", q: str = "", admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    """Nada é listado sem período: o histórico cresce sem limite. Período = 00:00 de `de` até 23:59:59 de `ate` (hora de Belém)."""
+    from datetime import time as _time
+    from mail import FUSO
+    primeira = db.scalar(select(func.min(Historico.quando)))
+    total = db.scalar(select(func.count()).select_from(Historico))
+    itens, erro = [], ""
+    d_de, d_ate = auth.parse_data(de), auth.parse_data(ate)
+    if de or ate:
+        if not d_de or not d_ate:
+            erro = "Informe as duas datas do período."
+        elif d_ate < d_de:
+            erro = "A data final é anterior à inicial."
+        else:
+            ini = datetime.combine(d_de, _time.min, tzinfo=FUSO)
+            fim = datetime.combine(d_ate, _time.max, tzinfo=FUSO)
+            stmt = select(Historico).where(Historico.quando >= ini, Historico.quando <= fim).order_by(Historico.quando.desc())
+            if q:
+                like = f"%{q}%"
+                stmt = stmt.where(Historico.acao.ilike(like) | Historico.login.ilike(like) | Historico.ip.ilike(like) | Historico.detalhe.cast(String).ilike(like))
+            itens = db.scalars(stmt.limit(500)).all()
+    return render(request, "admin/historico.html", itens=itens, q=q, de=de, ate=ate, erro=erro, total=total,
+                  primeira=primeira.astimezone(FUSO) if primeira else None, filtrado=bool(de or ate) and not erro)
 
 
 # ---- senha do admin ----
