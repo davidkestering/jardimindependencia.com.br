@@ -15,6 +15,21 @@ services:
       timeout: 5s
       retries: 10
 
+  clamav:
+    image: clamav/clamav:stable
+    container_name: condominio-clamav
+    restart: unless-stopped
+    volumes:
+      - ./data/clamav:/var/lib/clamav
+    environment:
+      CLAMAV_NO_MILTERD: "true"
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 60s
+      retries: 3
+      start_period: 300s
+    networks: [condominio-net]
+
   app:
     build: ./app
     container_name: condominio-app
@@ -23,6 +38,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       UPLOAD_DIR: /data/uploads
+      CLAMAV_HOST: clamav
     volumes:
       - ./app:/app
       - ./data/uploads:/data/uploads

@@ -42,7 +42,7 @@ try:
     r = ac.post("/admin/documentos", data={"categoria": "Atas de assembleia", "assembleia_id": str(asm.id), "publico": "1"},
                 files=[("arquivos", ("teste-ata.pdf", pdf, "application/pdf")), ("arquivos", ("teste-lista.pdf", pdf, "application/pdf"))], follow_redirects=False)
     assert r.status_code == 303 and "erro" not in r.headers["location"], r.headers
-    r = ac.post("/admin/documentos", data={"categoria": "Outros", "titulo": "Balancete"}, files=[("arquivos", ("teste-b.png", b"\x89PNG" + b"0" * 100, "image/png"))], follow_redirects=False)
+    r = ac.post("/admin/documentos", data={"categoria": "Outros", "titulo": "Balancete"}, files=[("arquivos", ("teste-b.png", b"\x89PNG\r\n\x1a\n" + b"0" * 100, "image/png"))], follow_redirects=False)
     assert r.status_code == 303 and "erro" not in r.headers["location"]
     with SessionLocal() as db:
         docs = db.scalars(select(Documento).where(Documento.nome_original.like("teste-%"))).all()
@@ -81,6 +81,22 @@ try:
     assert "erro=Envie" in ac.post("/admin/documentos", data={"categoria": "Outros"}, files=[("arquivos", ("teste-x.exe", b"1", "application/octet-stream"))], follow_redirects=False).headers["location"]
     assert "erro=Assembleia" in ac.post("/admin/documentos", data={"categoria": "Outros", "assembleia_id": "nao-uuid"}, files=[("arquivos", ("teste-y.pdf", pdf, "application/pdf"))], follow_redirects=False).headers["location"]
 
+    # conteúdo: executável disfarçado de PNG e PDF com JavaScript são recusados sem deixar arquivo
+    from urllib.parse import unquote
+    for nome, dados in (("teste-falso.png", b"MZ\x90\x00" + b"0" * 100), ("teste-js.pdf", b"%PDF-1.7\n1 0 obj << /OpenAction << /S /JavaScript /JS (app.alert(1)) >> >> endobj"),
+                        ("teste-exe.pdf", b"#!/bin/sh\necho x")):
+        r = ac.post("/admin/documentos", data={"categoria": "Outros"}, files=[("arquivos", (nome, dados, "application/octet-stream"))], follow_redirects=False)
+        assert "Arquivo recusado" in unquote(r.headers["location"]), (nome, r.headers["location"])
+    with SessionLocal() as db:
+        assert db.scalar(select(Documento).where(Documento.nome_original.in_(["teste-falso.png", "teste-js.pdf", "teste-exe.pdf"]))) is None
+    assert not [p for p in Path(UPLOAD_DIR, "documentos").glob("*") if p.stat().st_size in (104, 89, 17)]
+    # antivírus: EICAR é recusado (função direta e via upload em PDF)
+    from antivirus import escanear
+    eicar = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+    tmp = Path(UPLOAD_DIR, "documentos", "eicar-check.tmp"); tmp.write_bytes(eicar); limpo, det = escanear(tmp); tmp.unlink()
+    assert limpo is False and "eicar" in det.lower(), det
+    r = ac.post("/admin/documentos", data={"categoria": "Outros"}, files=[("arquivos", ("teste-eicar.pdf", b"%PDF-1.4\n" + eicar, "application/pdf"))], follow_redirects=False)
+    assert "recusado" in unquote(r.headers["location"]), r.headers["location"]
     # limite total: com MAX_TOTAL_MB=1, dois arquivos de 700 KB estouram; nada fica gravado
     adm.MAX_TOTAL_MB = 1
     grande = b"%PDF" + b"x" * (700 * 1024)

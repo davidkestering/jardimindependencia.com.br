@@ -54,7 +54,7 @@ try:
     assert "verificação incorreta" in unquote(mc.post("/morador/ocorrencias", data={"titulo": TIT, "texto": "x", **captcha(False)}, follow_redirects=False).headers["location"])
     assert "aceitar a declaração" in unquote(mc.post("/morador/ocorrencias", data={"titulo": TIT, "texto": "x", **captcha(), "declaracao": ""}, follow_redirects=False).headers["location"])
     assert "art. 339" in mc.get("/morador/ocorrencias").text and "quanto é" in mc.get("/morador/ocorrencias").text
-    r = mc.post("/morador/ocorrencias", data={"titulo": TIT, "texto": "Lâmpada queimada.", **captcha()}, files=[("arquivos", ("foto.png", b"\x89PNG" + b"0" * 50, "image/png"))], follow_redirects=False)
+    r = mc.post("/morador/ocorrencias", data={"titulo": TIT, "texto": "Lâmpada queimada.", **captcha()}, files=[("arquivos", ("foto.png", b"\x89PNG\r\n\x1a\n" + b"0" * 50, "image/png"))], follow_redirects=False)
     assert r.status_code == 303 and "/morador/ocorrencias/" in r.headers["location"]; oid = r.headers["location"].rsplit("/", 1)[1]
     with SessionLocal() as db:
         o = db.scalar(select(Ocorrencia).where(Ocorrencia.titulo == TIT)); assert o.numero and o.status == "aberta" and o.criado_ip
@@ -71,6 +71,7 @@ try:
     assert mc.post(f"/morador/ocorrencias/{oid}/excluir").status_code in (404, 405) and ac.post(f"/admin/ocorrencias/{oid}/excluir").status_code in (404, 405)
     # anexo inválido é recusado sem gravar
     assert "apenas PDF" in unquote(mc.post("/morador/ocorrencias", data={"titulo": TIT, "texto": "x", **captcha()}, files=[("arquivos", ("v.exe", b"1", "application/octet-stream"))], follow_redirects=False).headers["location"])
+    assert "Arquivo recusado" in unquote(mc.post("/morador/ocorrencias", data={"titulo": TIT, "texto": "x", **captcha()}, files=[("arquivos", ("v.png", b"MZ\x90\x00 nao e png", "image/png"))], follow_redirects=False).headers["location"])
 
     # admin vê "aguardando resposta", responde com anexo -> e-mail ao condômino e aviso na área
     assert "aguardando resposta" in ac.get("/admin/ocorrencias").text and "Ocorrências (1)" in ac.get("/admin").text
