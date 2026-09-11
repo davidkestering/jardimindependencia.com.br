@@ -23,8 +23,9 @@ EXT_OK = {".pdf", ".jpg", ".jpeg", ".png"}
 MAX_TOTAL_MB = 100   # soma de todos os arquivos de um envio
 BLOCO = 1024 * 1024  # gravação em blocos de 1 MB: nunca carrega o arquivo inteiro em memória
 CONDOMINIO_CURTO = "Jardim Independência"
-STATUS = ["pendente", "aprovado", "negado"]
-# transições: pendente -> aprovado|negado; aprovado -> negado ("habilitar novo registro"). negado é final e libera o apto.
+STATUS = ["pendente", "aprovado", "negado", "transferido"]
+# transições: pendente -> aprovado|negado; aprovado -> negado ("habilitar novo registro").
+# negado e transferido (condômino passou o acesso a um residente) são finais e liberam o apto.
 TRANSICOES = {"pendente": {"aprovado", "negado"}, "aprovado": {"negado"}}
 AVISO = {
     "aprovado": ("Acesso liberado", "Seu acesso à área do condômino foi liberado para {u}.\nEntre em {site}/morador/login com CPF e data de nascimento."),

@@ -9,9 +9,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import auth
-from config import SITE_URL
+from config import MAIL_CONTATO, SITE_URL
 from db import get_db
-from mail import ip_de, notificar, registrar
+from mail import FUSO, ip_de, notificar, registrar
 from models import Morador, Residente
 from routers.morador import morador_atual, render, validar_contato
 
@@ -78,26 +78,30 @@ def excluir(request: Request, rid: uuid.UUID, sessao: dict = Depends(auth.exigir
 
 @router.post("/{rid}/transferir")
 def transferir(request: Request, rid: uuid.UUID, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
-    """Uma transação: titular atual -> negado; residente -> novo titular aprovado; troca de lugar na lista de residentes."""
+    """Uma transação: titular atual -> 'transferido' (histórico); residente -> novo titular PENDENTE de aprovação da
+    administração; os dois trocam de lugar na lista de residentes."""
     m = morador_atual(request, db, sessao)
     r = _residente_do_apto(db, rid, m)
-    agora = datetime.now(timezone.utc)
-    ip = ip_de(request)
-    m.status, m.decidido_em, m.decidido_por, m.decidido_ip = "negado", agora, f"transferido para {r.nome}", ip
+    agora, ip = datetime.now(timezone.utc), ip_de(request)
+    m.status, m.decidido_em, m.decidido_por, m.decidido_ip = "transferido", agora, f"transferido para {r.nome} (CPF {r.cpf_fmt})", ip
     db.flush()  # libera o índice único do apto antes de inserir o novo titular
     novo = Morador(unidade_id=m.unidade_id, nome=r.nome, cpf=r.cpf, nascimento=r.nascimento, email=r.email, telefone=r.telefone,
-                   status="aprovado", origem="transferencia", decidido_em=agora, decidido_por=f"condômino {m.nome}", decidido_ip=ip)
+                   status="pendente", origem="transferencia")
     db.add(novo)
     db.delete(r)
     db.add(Residente(unidade_id=m.unidade_id, nome=m.nome, cpf=m.cpf, nascimento=m.nascimento, email=m.email, telefone=m.telefone,
                      tipo="morador", cadastrado_por="transferência", cadastrado_ip=ip))
     db.commit()
-    rot = m.unidade.rotulo
-    notificar(novo.email, "[Jardim Independência] Acesso liberado",
-              f"{m.nome} transferiu a você o acesso à área do condômino para {rot}.\nEntre em {SITE_URL}/morador/login com CPF e data de nascimento.")
-    notificar(m.email, "[Jardim Independência] Acesso transferido",
-              f"Você transferiu o acesso à área do condômino de {rot} para {novo.nome}. Seu acesso a este apartamento foi encerrado.")
-    registrar("Acesso TRANSFERIDO pelo condômino", request, unidade=rot, de=f"{m.nome} ({m.cpf_fmt})", para=f"{novo.nome} ({novo.cpf_fmt})")
+    rot, quando = m.unidade.rotulo, agora.astimezone(FUSO).strftime("%d/%m/%Y às %H:%M")
+    notificar(m.email, "[Jardim Independência] Você transferiu o acesso",
+              f"Em {quando} você transferiu o acesso à área do condômino de {rot} para {novo.nome} (CPF {novo.cpf_fmt}).\n"
+              f"Seu acesso a este apartamento foi encerrado. O novo acesso ficará pendente de aprovação da administração.")
+    notificar(novo.email, "[Jardim Independência] Acesso transferido a você: aguardando aprovação",
+              f"{m.nome} transferiu a você o acesso à área do condômino para {rot}.\n"
+              f"A administração vai conferir e aprovar. Depois disso, entre em {SITE_URL}/morador/login com CPF e data de nascimento.")
+    notificar(MAIL_CONTATO, f"[Site] Acesso transferido, aguardando aprovação: {novo.nome} ({rot})",
+              f"{m.nome} transferiu o acesso de {rot} para {novo.nome} (CPF {novo.cpf_fmt}) em {quando}.\nRevise em {SITE_URL}/admin/moradores/{novo.id}")
+    registrar("Acesso TRANSFERIDO pelo condômino (pendente)", request, unidade=rot, de=f"{m.nome} ({m.cpf_fmt})", para=f"{novo.nome} ({novo.cpf_fmt})")
     resp = render(request, "morador/transferido.html", apto=rot, novo=novo)
     resp.delete_cookie(auth.COOKIE)
     return resp

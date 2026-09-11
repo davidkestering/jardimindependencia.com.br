@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block titulo %}Moradores · Administração{% endblock %}
-{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-pendente{background:#fff0c2;color:#6b4b00}.st-aprovado{background:#e6f0e8;color:#1d4d2a}.st-negado{background:#eee;color:#555}form.inline{display:inline}form.inline button{padding:5px 10px;font-size:13px}.filtro{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}.filtro select,.filtro input{width:auto}</style>{% endblock %}
+{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-pendente{background:#fff0c2;color:#6b4b00}.st-aprovado{background:#e6f0e8;color:#1d4d2a}.st-negado{background:#eee;color:#555}.st-transferido{background:#e8eef7;color:#274472}form.inline{display:inline}form.inline button{padding:5px 10px;font-size:13px}.filtro{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}.filtro select,.filtro input{width:auto}</style>{% endblock %}
 {% block conteudo %}
 <section><div class="container">
   {% include "admin/_menu.html" %}
   <h1>Moradores</h1>
   <form method="get" class="filtro">
-    <select name="status"><option value="">Titulares e residentes</option>{% for s, r in [('pendente','Pendentes'),('aprovado','Aprovados'),('negado','Negados'),('residente','Só residentes (cadastrados pelo condômino)')] %}<option value="{{ s }}" {% if s==status %}selected{% endif %}>{{ r }}</option>{% endfor %}</select>
+    <select name="status"><option value="">Titulares e residentes</option>{% for s, r in [('pendente','Pendentes'),('aprovado','Aprovados'),('negado','Negados'),('transferido','Transferiram o acesso'),('residente','Só residentes (cadastrados pelo condômino)')] %}<option value="{{ s }}" {% if s==status %}selected{% endif %}>{{ r }}</option>{% endfor %}</select>
     <select name="bloco" id="f-bloco"><option value="">Bloco</option>{% for b in mapa %}<option {% if b==bloco %}selected{% endif %}>{{ b }}</option>{% endfor %}</select>
     <select name="apto" id="f-apto"><option value="">Apto</option>{% for a in mapa.get(bloco, []) %}<option {% if a==apto %}selected{% endif %}>{{ a }}</option>{% endfor %}</select>
     <input name="q" value="{{ q }}" placeholder="Nome ou CPF" style="width:220px">
@@ -18,7 +18,7 @@
     {% for l in linhas %}<tr>
       <td>{{ l.u.bloco }} / {{ l.u.apto }}</td><td>{{ l.nome }}</td><td>{{ l.cpf }}</td><td>{{ l.nasc.strftime('%d/%m/%Y') }}</td>
       <td>{{ l.email }}<br>{{ l.tel }}</td><td>{{ l.papel }}</td><td>{{ l.origem }}</td>
-      <td>{% if l.status %}<span class="st st-{{ l.status }}">{{ l.status }}</span>{% else %}—{% endif %}</td>
+      <td>{% if l.status %}<span class="st st-{{ l.status }}">{{ 'transferiu o acesso' if l.status == 'transferido' else l.status }}</span>{% else %}—{% endif %}</td>
       <td style="font-size:13px">Solicitado {{ l.quando|local }}{% if l.registro %}<br>{{ 'Decidido por' if l.id else 'Cadastrado por' }} <strong>{{ l.registro[0] }}</strong><br>{{ l.registro[1]|local }} · IP {{ l.registro[2] or '?' }}{% endif %}</td>
       <td>{% if l.id %}<a class="btn sec" href="/admin/moradores/{{ l.id }}">Ver</a>{% endif %}</td></tr>
     {% else %}<tr><td colspan="10">Ninguém encontrado.</td></tr>{% endfor %}

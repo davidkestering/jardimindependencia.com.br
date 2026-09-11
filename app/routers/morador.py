@@ -18,6 +18,7 @@ router = APIRouter(prefix="/morador")
 MENSAGEM_STATUS = {
     "pendente": "Seu cadastro ainda aguarda aprovação da administração.",
     "negado": "Acesso não autorizado. Procure a administração ou solicite novo cadastro.",
+    "transferido": "Você transferiu o acesso deste apartamento a outro residente.",
 }
 
 
