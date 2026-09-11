@@ -83,7 +83,8 @@ try:
     assert ac.post(f"/admin/moradores/{cc.id}/status", data={"status": "negado"}, follow_redirects=False).status_code == 303
     assert ac.post(f"/admin/moradores/{cc.id}/status", data={"status": "aprovado"}).status_code == 400  # negado é final
     a, cc = morador(CPF1, "01"), morador(CPF1, "02")
-    assert a.status == "aprovado" and a.decidido_por and cc.status == "negado"
+    assert a.status == "aprovado" and a.decidido_por and a.decidido_ip and cc.status == "negado"
+    assert "Decidido por <strong>" in ac.get("/admin/moradores?status=aprovado").text and "· IP " in ac.get("/admin/moradores?status=aprovado").text
     assert "negado" in ac.get("/admin/moradores?status=negado").text
     assert "Habilitar novo registro" in ac.get(f"/admin/moradores/{a.id}").text
     # apto negado liberado

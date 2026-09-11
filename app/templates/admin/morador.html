@@ -14,8 +14,8 @@
     <dt>Telefone</dt><dd>{{ m.telefone }}</dd>
     <dt>Origem</dt><dd>{{ origem }}</dd>
     <dt>Situação</dt><dd><span class="st st-{{ m.status }}">{{ m.status }}</span></dd>
-    <dt>Solicitado em</dt><dd>{{ m.criado_em.strftime('%d/%m/%Y %H:%M') }}</dd>
-    {% if m.decidido_em %}<dt>Decidido em</dt><dd>{{ m.decidido_em.strftime('%d/%m/%Y %H:%M') }} por {{ m.decidido_por }}</dd>{% endif %}
+    <dt>Solicitado em</dt><dd>{{ m.criado_em|local }}</dd>
+    {% if m.decidido_em %}<dt>Decisão</dt><dd>{{ m.decidido_por }} · {{ m.decidido_em|local }} · IP {{ m.decidido_ip or '?' }}</dd>{% endif %}
   </dl>
   {% set rotulos = {'aprovado': 'Autorizar acesso', 'negado': 'Habilitar novo registro' if m.status == 'aprovado' else 'Negar acesso'} %}
   <p style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
@@ -28,8 +28,8 @@
   {% if m.status == 'aprovado' %}<p style="font-size:13px;color:#6b5a4c;max-width:60ch">"Habilitar novo registro" encerra o acesso desta pessoa e libera o apartamento para uma nova solicitação (mudança de morador).</p>{% endif %}
   <h2 style="margin-top:32px;font-size:22px">Residentes do {{ m.unidade.rotulo }} (cadastrados pelo condômino)</h2>
   {% if residentes %}<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:#fff;font-size:14px">
-    <tr><th style="text-align:left;padding:8px 10px;background:var(--bege-claro)">Nome</th><th style="text-align:left;padding:8px 10px;background:var(--bege-claro)">Tipo</th><th style="text-align:left;padding:8px 10px;background:var(--bege-claro)">CPF</th><th style="text-align:left;padding:8px 10px;background:var(--bege-claro)">Nascimento</th><th style="text-align:left;padding:8px 10px;background:var(--bege-claro)">Contato</th><th style="text-align:left;padding:8px 10px;background:var(--bege-claro)">Cadastrado por</th></tr>
-    {% for r in residentes %}<tr><td style="padding:8px 10px">{{ r.nome }}</td><td style="padding:8px 10px">{{ r.tipo }}</td><td style="padding:8px 10px">{{ r.cpf_fmt }}</td><td style="padding:8px 10px">{{ r.nascimento.strftime('%d/%m/%Y') }}</td><td style="padding:8px 10px">{{ r.email }}<br>{{ r.telefone }}</td><td style="padding:8px 10px">{{ r.cadastrado_por }}</td></tr>{% endfor %}
+    <tr><th style="text-align:left;padding:8px 10px;background:var(--bege-claro)">Nome</th><th style="text-align:left;padding:8px 10px;background:var(--bege-claro)">Tipo</th><th style="text-align:left;padding:8px 10px;background:var(--bege-claro)">CPF</th><th style="text-align:left;padding:8px 10px;background:var(--bege-claro)">Nascimento</th><th style="text-align:left;padding:8px 10px;background:var(--bege-claro)">Contato</th><th style="text-align:left;padding:8px 10px;background:var(--bege-claro)">Cadastrado por · quando · IP</th></tr>
+    {% for r in residentes %}<tr><td style="padding:8px 10px">{{ r.nome }}</td><td style="padding:8px 10px">{{ r.tipo }}</td><td style="padding:8px 10px">{{ r.cpf_fmt }}</td><td style="padding:8px 10px">{{ r.nascimento.strftime('%d/%m/%Y') }}</td><td style="padding:8px 10px">{{ r.email }}<br>{{ r.telefone }}</td><td style="padding:8px 10px">{{ r.cadastrado_por }} · {{ r.criado_em|local }} · IP {{ r.cadastrado_ip or '?' }}</td></tr>{% endfor %}
   </table></div>{% else %}<p>Nenhum residente cadastrado pelo condômino.</p>{% endif %}
 </div></section>
 {% endblock %}

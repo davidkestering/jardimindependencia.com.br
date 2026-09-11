@@ -17,6 +17,8 @@ logging.basicConfig(level=logging.INFO)
 BASE = Path(__file__).parent
 templates = Jinja2Templates(directory=BASE / "templates")
 templates.env.globals["condominio"] = CONDOMINIO
+from mail import FUSO  # noqa: E402
+templates.env.filters["local"] = lambda dt: dt.astimezone(FUSO).strftime("%d/%m/%Y %H:%M") if dt else ""
 
 
 def unidades_padrao():

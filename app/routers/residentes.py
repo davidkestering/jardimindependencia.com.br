@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 import auth
 from config import SITE_URL
 from db import get_db
-from mail import notificar, registrar
+from mail import ip_de, notificar, registrar
 from models import Morador, Residente
 from routers.morador import morador_atual, render, validar_contato
 
@@ -59,7 +59,7 @@ def cadastrar(request: Request, nome: str = Form(...), cpf: str = Form(...), nas
     if erro:
         return render(request, "morador/residentes.html", morador=m, residentes=lista(db, m.unidade_id), tipos=TIPOS, erro=erro)
     r = Residente(unidade_id=m.unidade_id, nome=nome.strip()[:120], cpf=cpf_d, nascimento=nasc, email=email.strip()[:160],
-                  telefone=telefone.strip()[:20], tipo=tipo, cadastrado_por=m.nome)
+                  telefone=telefone.strip()[:20], tipo=tipo, cadastrado_por=m.nome, cadastrado_ip=ip_de(request))
     db.add(r)
     db.commit()
     registrar("Residente cadastrado pelo condômino", request, titular=m.nome, unidade=m.unidade.rotulo, nome=r.nome, cpf=r.cpf_fmt, tipo=tipo)
@@ -82,14 +82,15 @@ def transferir(request: Request, rid: uuid.UUID, sessao: dict = Depends(auth.exi
     m = morador_atual(request, db, sessao)
     r = _residente_do_apto(db, rid, m)
     agora = datetime.now(timezone.utc)
-    m.status, m.decidido_em, m.decidido_por = "negado", agora, f"transferido para {r.nome}"
+    ip = ip_de(request)
+    m.status, m.decidido_em, m.decidido_por, m.decidido_ip = "negado", agora, f"transferido para {r.nome}", ip
     db.flush()  # libera o índice único do apto antes de inserir o novo titular
     novo = Morador(unidade_id=m.unidade_id, nome=r.nome, cpf=r.cpf, nascimento=r.nascimento, email=r.email, telefone=r.telefone,
-                   status="aprovado", origem="transferencia", decidido_em=agora, decidido_por=f"condômino {m.nome}")
+                   status="aprovado", origem="transferencia", decidido_em=agora, decidido_por=f"condômino {m.nome}", decidido_ip=ip)
     db.add(novo)
     db.delete(r)
     db.add(Residente(unidade_id=m.unidade_id, nome=m.nome, cpf=m.cpf, nascimento=m.nascimento, email=m.email, telefone=m.telefone,
-                     tipo="morador", cadastrado_por="transferência"))
+                     tipo="morador", cadastrado_por="transferência", cadastrado_ip=ip))
     db.commit()
     rot = m.unidade.rotulo
     notificar(novo.email, "[Jardim Independência] Acesso liberado",

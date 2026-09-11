@@ -53,6 +53,7 @@ class Morador(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     decidido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     decidido_por: Mapped[str | None] = mapped_column(String(60))  # login do admin que decidiu
+    decidido_ip: Mapped[str | None] = mapped_column(String(45))
     comunicados_vistos_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # até quando já viu os comunicados
     unidade: Mapped[Unidade] = relationship(back_populates="moradores")
 
@@ -79,6 +80,7 @@ class Residente(Base):
     telefone: Mapped[str] = mapped_column(String(20))
     tipo: Mapped[str] = mapped_column(String(12))  # morador|inquilino
     cadastrado_por: Mapped[str] = mapped_column(String(120))
+    cadastrado_ip: Mapped[str | None] = mapped_column(String(45))
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     unidade: Mapped[Unidade] = relationship()
 
