@@ -45,6 +45,7 @@ try:
     assert ac.post("/admin/comunicados", data={"titulo": TIT, "texto": TEXTO, "visibilidade": "rascunho"}, follow_redirects=False).status_code == 303
     with SessionLocal() as db:
         c = db.scalar(select(Comunicado).where(Comunicado.titulo == TIT)); cid = c.id; assert c.publicado_em is None
+        assert c.autor == adm.login and c.criado_ip
     assert TIT in ac.get("/admin/comunicados").text and f"/admin/comunicados/{cid}/preview" in ac.get("/admin/comunicados").text
     pv = ac.get(f"/admin/comunicados/{cid}/preview").text
     assert TEXTO in pv and "Pré-visualização" in pv and "Publicar: só condôminos" in pv and "Publicar: público" in pv and "Voltar a rascunho" not in pv
@@ -55,6 +56,9 @@ try:
     # só condôminos: notifica 1x, aparece na área e no painel como novo, não no site
     ac.post(f"/admin/comunicados/{cid}/visibilidade", data={"visibilidade": "condominos"}); time.sleep(0.5)
     assert [e[0] for e in enviados] == ["ana@example.com"], enviados
+    with SessionLocal() as db:
+        c = db.get(Comunicado, cid); assert c.publicado_por == adm.login and c.publicado_ip
+    assert "Publicado por" in ac.get("/admin/comunicados").text
     assert TIT in enviados[0][1] and f"/morador/comunicados/{cid}" in enviados[0][2]
     assert pushes and pushes[0]["tag"] == "comunicado" and pushes[0]["url"].endswith(str(cid))
     painel = mc.get("/morador").text; assert "1 comunicado(s) novo(s)" in painel and "Comunicados (1)" in painel

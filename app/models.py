@@ -123,6 +123,8 @@ class Documento(Base):
     publico: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     assembleia_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("assembleia.id", ondelete="SET NULL"), index=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    enviado_por: Mapped[str | None] = mapped_column(String(60))   # login do admin
+    enviado_ip: Mapped[str | None] = mapped_column(String(45))
     assembleia: Mapped["Assembleia | None"] = relationship()
 
 
@@ -149,9 +151,12 @@ class Comunicado(Base):
     titulo: Mapped[str] = mapped_column(String(200))
     texto: Mapped[str] = mapped_column(Text)
     visibilidade: Mapped[str] = mapped_column(String(12), default="rascunho", server_default="rascunho")
-    autor: Mapped[str] = mapped_column(String(60))
+    autor: Mapped[str] = mapped_column(String(60))                 # login de quem criou
+    criado_ip: Mapped[str | None] = mapped_column(String(45))
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     publicado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    publicado_por: Mapped[str | None] = mapped_column(String(60))
+    publicado_ip: Mapped[str | None] = mapped_column(String(45))
 
 
 class Inadimplencia(Base):

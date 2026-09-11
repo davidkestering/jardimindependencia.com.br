@@ -246,7 +246,8 @@ async def documento_enviar(request: Request, titulo: str = Form(""), categoria: 
         base = titulo.strip()[:200] or Path(a.filename).stem[:200]
         t = base if len(arquivos) == 1 or not titulo.strip() else f"{base} ({len(novos) + 1})"
         novos.append(Documento(id=doc_id, titulo=t, categoria=categoria if categoria in cats else "Outros", arquivo=nome,
-                               nome_original=Path(a.filename).name[:255], publico=bool(publico), assembleia_id=aid))
+                               nome_original=Path(a.filename).name[:255], publico=bool(publico), assembleia_id=aid,
+                               enviado_por=admin.login, enviado_ip=ip_de(request)))
     db.add_all(novos)
     db.commit()
     registrar("Documentos enviados", request, admin=admin.login, quantidade=len(novos), assembleia=str(aid or "avulso"))

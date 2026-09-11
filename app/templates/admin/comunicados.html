@@ -8,14 +8,15 @@
   <h1>Comunicados</h1>
   <p style="max-width:60ch"><strong>Rascunho</strong>: só a administração vê. <strong>Só condôminos</strong>: aparece na área do condômino. <strong>Público</strong>: aparece no site e na área do condômino. Na primeira publicação os condôminos são avisados por e-mail e notificação.</p>
   <div style="overflow-x:auto"><table>
-    <tr><th>Data</th><th>Título</th><th>Visibilidade</th><th>Ações</th></tr>
+    <tr><th>Criado por · quando · IP</th><th>Publicado por · quando · IP</th><th>Título</th><th>Visibilidade</th><th>Ações</th></tr>
     {% for c in comunicados %}<tr>
-      <td>{{ (c.publicado_em or c.criado_em).strftime('%d/%m/%Y') }}<br><small>{{ c.autor }}</small></td>
+      <td style="font-size:13px"><strong>{{ c.autor }}</strong><br>{{ c.criado_em|local }}<br>IP {{ c.criado_ip or '?' }}</td>
+      <td style="font-size:13px">{% if c.publicado_em %}<strong>{{ c.publicado_por or '—' }}</strong><br>{{ c.publicado_em|local }}<br>IP {{ c.publicado_ip or '?' }}{% else %}—{% endif %}</td>
       <td><a href="/admin/comunicados/{{ c.id }}">{{ c.titulo }}</a></td>
       <td><span class="vis vis-{{ c.visibilidade }}">{{ rot[c.visibilidade] }}</span></td>
       <td><a class="btn sec" href="/admin/comunicados/{{ c.id }}/preview" style="padding:5px 10px;font-size:13px">Pré-visualizar</a> {% for v in visibilidades if v != c.visibilidade %}<form class="inline" method="post" action="/admin/comunicados/{{ c.id }}/visibilidade"><input type="hidden" name="visibilidade" value="{{ v }}"><button class="btn sec" type="submit">{{ 'Tornar ' ~ rot[v]|lower if v != 'rascunho' else 'Voltar a rascunho' }}</button></form> {% endfor %}
         <form class="inline" method="post" action="/admin/comunicados/{{ c.id }}/excluir" onsubmit="return confirm('Excluir o comunicado?')"><button class="btn sec" type="submit">Excluir</button></form></td>
-    </tr>{% else %}<tr><td colspan="4">Nenhum comunicado.</td></tr>{% endfor %}
+    </tr>{% else %}<tr><td colspan="5">Nenhum comunicado.</td></tr>{% endfor %}
   </table></div>
   <h2 style="margin-top:36px">Novo comunicado</h2>
   <form class="card" method="post" action="/admin/comunicados">
