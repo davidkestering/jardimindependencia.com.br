@@ -12,7 +12,7 @@
   <form class="card" method="post" action="/morador/cadastro">
     <label>Nome completo<input name="nome" required maxlength="120" value="{{ form.nome if form else '' }}"></label>
     <label>CPF<input name="cpf" inputmode="numeric" required placeholder="000.000.000-00" value="{{ form.cpf if form else '' }}"></label>
-    <label>Data de nascimento<input name="nascimento" type="text" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" pattern="\d{2}/\d{2}/\d{4}" title="Digite a data no formato dd/mm/aaaa" required value="{{ form.nascimento if form else '' }}"></label>
+    <label>Data de nascimento<input name="nascimento" type="text" inputmode="numeric" placeholder="ddmmaaaa" maxlength="10" title="Digite só os números: ddmmaaaa" required value="{{ form.nascimento if form else '' }}"></label>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       {% set sb = form.bloco if form else (mapa|first) %}
       <label>Bloco<select name="bloco" id="bloco" required>{% for b in mapa %}<option value="{{ b }}" {% if b == sb %}selected{% endif %}>{{ b }}</option>{% endfor %}</select></label>
