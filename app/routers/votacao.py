@@ -68,7 +68,7 @@ def admin_lista(request: Request, admin: AdminUser = Depends(admin_dep), db: Ses
 @router.post("/admin/assembleias")
 def admin_criar(request: Request, titulo: str = Form(...), abre_em: str = Form(...), fecha_em: str = Form(...),
                 admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    a = Assembleia(titulo=titulo.strip()[:200], abre_em=parse_dt(abre_em), fecha_em=parse_dt(fecha_em))
+    a = Assembleia(titulo=titulo.strip()[:200], abre_em=parse_dt(abre_em), fecha_em=parse_dt(fecha_em), criado_por=admin.login, criado_ip=ip_de(request))
     if a.fecha_em <= a.abre_em:
         raise HTTPException(400, "Fechamento deve ser depois da abertura")
     db.add(a)
@@ -93,7 +93,7 @@ def admin_pauta(request: Request, aid: uuid.UUID, texto: str = Form(...), opcoes
     ops = [o.strip()[:200] for o in opcoes.splitlines() if o.strip()]
     if len(ops) < 2:
         raise HTTPException(400, "Informe ao menos duas opções, uma por linha")
-    p = Pauta(assembleia_id=a.id, ordem=len(a.pautas) + 1, texto=texto.strip()[:2000])
+    p = Pauta(assembleia_id=a.id, ordem=len(a.pautas) + 1, texto=texto.strip()[:2000], criado_por=admin.login, criado_ip=ip_de(request))
     p.opcoes = [Opcao(ordem=i + 1, texto=o) for i, o in enumerate(ops)]
     db.add(p)
     db.commit()

@@ -7,7 +7,7 @@
   <div class="eyebrow">{% if a.abre_em <= agora <= a.fecha_em %}Votação aberta{% elif agora < a.abre_em %}Agendada{% else %}Encerrada{% endif %} · {{ unidades_ativas }} unidades aptas</div>
   <h1>{{ a.titulo }}</h1>
   {% if a.excluido_em %}<p class="aviso">Assembleia excluída por <strong>{{ a.excluido_por }}</strong> em {{ a.excluido_em|local }} (IP {{ a.excluido_ip or '?' }}). Mantida como histórico; invisível aos condôminos.</p>{% endif %}
-  <p>{{ a.abre_em.strftime('%d/%m/%Y %H:%M') }} até {{ a.fecha_em.strftime('%d/%m/%Y %H:%M') }} (horário de Brasília)</p>
+  <p>{{ a.abre_em.strftime('%d/%m/%Y %H:%M') }} até {{ a.fecha_em.strftime('%d/%m/%Y %H:%M') }} (horário de Brasília)<br><span style="font-size:13px;color:#6b5a4c">Criada por <strong>{{ a.criado_por or '—' }}</strong> · {{ a.criado_em|local if a.criado_em else '—' }} · IP {{ a.criado_ip or '?' }}</span></p>
   <h2 style="margin-top:24px;font-size:22px">Documentos da assembleia</h2>
   {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
   {% if documentos %}<ul>{% for d in documentos %}<li><a href="/admin/documentos/{{ d.id }}">{{ d.titulo }}</a> <small>({{ d.categoria }}{% if not d.publico %} · não publicado{% endif %})</small>
@@ -26,7 +26,7 @@
   {% with voltar='/admin/assembleias/' ~ a.id %}{% include "admin/_nova_categoria_dialog.html" %}{% endwith %}
   {% for p in a.pautas %}
   <div class="item" style="margin:14px 0">
-    <div class="eyebrow">Pauta {{ p.ordem }}</div>
+    <div class="eyebrow">Pauta {{ p.ordem }} · adicionada por {{ p.criado_por or '—' }} · {{ p.criado_em|local if p.criado_em else '—' }} · IP {{ p.criado_ip or '?' }}</div>
     <h3>{{ p.texto }}</h3>
     {% set r = res[p.id] %}
     {% for o in p.opcoes %}{% set n = r.validos[o.id] %}

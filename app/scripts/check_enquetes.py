@@ -50,7 +50,7 @@ try:
     with SessionLocal() as db:
         e = db.scalar(select(Enquete).where(Enquete.pergunta == PERG)); assert e.criado_por == adm.login and e.criado_ip
         ops = db.scalars(select(EnqueteOpcao).where(EnqueteOpcao.enquete_id == e.id).order_by(EnqueteOpcao.ordem)).all(); assert [o.texto for o in ops] == ["Manhã", "Tarde"]
-    assert PERG in ac.get("/admin/enquetes").text and "Resultado parcial" in ac.get(f"/admin/enquetes/{eid}").text
+    assert PERG in ac.get("/admin/enquetes").text and "Criada por <strong>" in ac.get("/admin/enquetes").text and "Resultado parcial" in ac.get(f"/admin/enquetes/{eid}").text
 
     # condômino: lista, sem resultado antes de votar, vota, vê resultado parcial, não vota de novo
     assert "Votar" in ca.get("/morador/enquetes").text

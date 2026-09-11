@@ -196,6 +196,9 @@ class Assembleia(Base):
     titulo: Mapped[str] = mapped_column(String(200))
     abre_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     fecha_em: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    criado_por: Mapped[str | None] = mapped_column(String(60))
+    criado_ip: Mapped[str | None] = mapped_column(String(45))
+    criado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
     excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
     excluido_por: Mapped[str | None] = mapped_column(String(120))
     excluido_ip: Mapped[str | None] = mapped_column(String(45))
@@ -210,6 +213,9 @@ class Pauta(Base):
     assembleia_id: Mapped[uuid.UUID] = fk("assembleia")
     ordem: Mapped[int] = mapped_column(default=1)
     texto: Mapped[str] = mapped_column(Text)
+    criado_por: Mapped[str | None] = mapped_column(String(60))
+    criado_ip: Mapped[str | None] = mapped_column(String(45))
+    criado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
     excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
     excluido_por: Mapped[str | None] = mapped_column(String(120))
     excluido_ip: Mapped[str | None] = mapped_column(String(45))

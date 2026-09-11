@@ -62,6 +62,11 @@ try:
     aid = r.headers["location"].rsplit("/", 1)[1]
     ac.post(f"/admin/assembleias/{aid}/pautas", data={"texto": "Pauta hist teste", "opcoes": "Sim\nNão"})
     with SessionLocal() as db:
+        a0 = db.get(Assembleia, aid); assert a0.criado_por == adm.login and a0.criado_ip == "203.0.113.9" and a0.criado_em
+        p0 = db.scalar(select(Pauta).where(Pauta.assembleia_id == aid)); assert p0.criado_por == adm.login and p0.criado_ip == "203.0.113.9"
+    pg = ac.get(f"/admin/assembleias/{aid}").text; assert "Criada por <strong>" in pg and "adicionada por" in pg and "203.0.113.9" in pg
+    assert "Criada por <strong>" in ac.get("/admin/assembleias").text
+    with SessionLocal() as db:
         p = db.scalar(select(Pauta).where(Pauta.assembleia_id == aid)); pid = p.id
     ac.post(f"/admin/assembleias/{aid}/pautas/{pid}/excluir")
     with SessionLocal() as db:

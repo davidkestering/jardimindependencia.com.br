@@ -74,7 +74,8 @@ try:
     assert "Arquivo recusado" in unquote(mc.post("/morador/ocorrencias", data={"titulo": TIT, "texto": "x", **captcha()}, files=[("arquivos", ("v.png", b"MZ\x90\x00 nao e png", "image/png"))], follow_redirects=False).headers["location"])
 
     # admin vê "aguardando resposta", responde com anexo -> e-mail ao condômino e aviso na área
-    assert "aguardando resposta" in ac.get("/admin/ocorrencias").text and "Ocorrências (1)" in ac.get("/admin").text
+    lst = ac.get("/admin/ocorrencias").text; assert "aguardando resposta" in lst and "Registrada por · quando · IP" in lst and "Última interação" in lst and "<strong>Ana Oc</strong>" in lst
+    assert "Ocorrências (1)" in ac.get("/admin").text
     assert "Declaração de responsabilidade aceita" in ac.get(f"/admin/ocorrencias/{oid}").text  # abrir marca como vista
     assert "Ocorrências (1)" not in ac.get("/admin").text
     enviados.clear()

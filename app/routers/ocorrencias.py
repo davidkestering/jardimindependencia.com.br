@@ -184,7 +184,7 @@ def admin_lista(request: Request, status: str = "aberta", admin: AdminUser = Dep
     stmt = select(Ocorrencia).order_by(Ocorrencia.criado_em.desc())
     if status in ("aberta", "finalizada"):
         stmt = stmt.where(Ocorrencia.status == status)
-    return render(request, "admin/ocorrencias.html", ocorrencias=db.scalars(stmt.limit(500)).all(), status=status)
+    return render(request, "admin/ocorrencias.html", ocorrencias=db.scalars(stmt.options(selectinload(Ocorrencia.mensagens)).limit(500)).all(), status=status)
 
 
 @router.get("/admin/ocorrencias/{oid}")
