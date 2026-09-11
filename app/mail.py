@@ -31,6 +31,9 @@ def registrar(assunto: str, request, **dados) -> None:
     """Auditoria: grava em `historico` (quem, IP, data/hora, detalhes) e envia e-mail para MAIL_LOGS. Em thread."""
     sessao = getattr(request.state, "sessao", None) or {}
     tipo, login, ip = sessao.get("t"), sessao.get("login"), ip_de(request)
+    if not login:  # antes de existir sessão (logins, cadastro no site): usa o identificador informado na própria ação
+        login = str(dados.get("login") or "") or (f"{dados['nome']} ({dados['cpf']})" if dados.get("nome") and dados.get("cpf") else None)
+        tipo = tipo or ("admin" if dados.get("login") else ("morador" if login else None))
     linhas = [f"Data/hora: {datetime.now(FUSO):%d/%m/%Y %H:%M:%S}", f"IP: {ip}", f"Quem: {login or 'visitante'}",
               f"Navegador: {request.headers.get('user-agent', '')[:200]}", ""]
     linhas += [f"{k.replace('_', ' ').capitalize()}: {v}" for k, v in dados.items()]
