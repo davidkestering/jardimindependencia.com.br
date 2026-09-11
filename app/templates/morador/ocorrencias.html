@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block titulo %}Ocorrências · Minha área{% endblock %}
+{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-aberta{background:#fff0c2;color:#6b4b00}.st-finalizada{background:#e6f0e8;color:#1d4d2a}.nova{background:#fbe9e3;color:#7a2e12;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "morador/_menu.html" %}
+  <h1>Ocorrências do {{ morador.unidade.rotulo }}</h1>
+  <p style="max-width:62ch">Registre ocorrências para a administração. O registro não pode ser editado nem excluído; a administração responde aqui e por e-mail, e você pode finalizar quando estiver resolvido.</p>
+  {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
+  <div style="overflow-x:auto"><table>
+    <tr><th>Nº</th><th>Título</th><th>Registrada</th><th>Situação</th><th></th></tr>
+    {% for o in ocorrencias %}<tr>
+      <td>{{ o.numero }}</td><td>{{ o.titulo }}{% if o.tem_resposta_nova %} <span class="nova">resposta nova</span>{% endif %}</td><td>{{ o.criado_em|local }}</td>
+      <td><span class="st st-{{ o.status }}">{{ o.status }}</span></td><td><a class="btn sec" href="/morador/ocorrencias/{{ o.id }}">Abrir</a></td>
+    </tr>{% else %}<tr><td colspan="5">Nenhuma ocorrência registrada.</td></tr>{% endfor %}
+  </table></div>
+  <h2 style="margin-top:36px">Registrar ocorrência</h2>
+  <form class="card" method="post" action="/morador/ocorrencias" enctype="multipart/form-data">
+    <label>Título<input name="titulo" required maxlength="200" placeholder="Ex.: Lâmpada queimada na escada do bloco"></label>
+    <label>Descrição<textarea name="texto" rows="6" required maxlength="10000"></textarea></label>
+    <label>Anexos (PDF, JPG ou PNG; vários; até {{ max_mb }} MB no total)<input name="arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple></label>
+    {% include "_captcha.html" %}
+    <p style="font-size:13px;line-height:1.5;color:#6b5a4c;margin:4px 0 8px">{{ termo_ocorrencia }}</p>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400"><input type="checkbox" name="declaracao" value="sim" required style="width:auto;margin-top:3px"> Li e aceito a declaração acima.</label>
+    <p style="font-size:13px;color:#6b5a4c">Você receberá uma cópia por e-mail. Depois de enviada, a ocorrência não pode ser alterada.</p>
+    <button class="btn" type="submit">Registrar ocorrência</button>
+  </form>
+</div></section>
+{% endblock %}

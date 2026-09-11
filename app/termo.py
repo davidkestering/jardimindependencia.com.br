@@ -13,3 +13,10 @@ def versao(texto: str | None) -> str:
 
 
 VERSAO_ATUAL = versao(TERMO)
+
+TERMO_OCORRENCIA = ("Declaro que os fatos relatados nesta ocorrência são verdadeiros e de meu conhecimento, e que assumo a responsabilidade "
+                    "pelo seu conteúdo. Estou ciente de que relatar fatos inverídicos, fazer denúncia falsa ou ofender a honra de terceiros "
+                    "pode configurar os crimes de denunciação caluniosa (art. 339), calúnia (art. 138), difamação (art. 139) e injúria (art. 140) "
+                    "do Código Penal (Decreto-Lei nº 2.848/1940), além de responsabilidade civil por danos, e sujeitará o responsável às medidas "
+                    "judiciais cabíveis. Os dados e anexos serão usados apenas para apuração e resposta pela administração, nos termos da LGPD "
+                    "(Lei nº 13.709/2018).")

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titulo %}Ocorrência nº {{ o.numero }} · Administração{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "admin/_menu.html" %}
+  {% set base = '/admin/ocorrencias' %}
+  <p><a href="/admin/ocorrencias">← Ocorrências</a></p>
+  <div class="eyebrow">Ocorrência nº {{ o.numero }} · {{ o.unidade.rotulo }} · {{ o.morador.nome }} · registrada em {{ o.criado_em|local }} (IP {{ o.criado_ip or '?' }}) · {% if o.status == 'aberta' %}Aberta{% else %}Finalizada em {{ o.finalizada_em|local }} (IP {{ o.finalizada_ip or '?' }}){% endif %}</div>
+  <h1>{{ o.titulo }}</h1>
+  {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
+  {% if o.termo_aceito_em %}<p style="font-size:13px;color:#6b5a4c">Declaração de responsabilidade aceita pelo condômino em {{ o.termo_aceito_em|local }} · IP {{ o.termo_ip or '?' }}{% if o.termo_texto != termo_ocorrencia %} · <strong>versão antiga</strong>{% endif %} <details style="display:inline"><summary style="cursor:pointer;display:inline">texto</summary><span style="white-space:pre-wrap">{{ o.termo_texto }}</span></details></p>{% endif %}
+  <div style="max-width:760px">
+  {% for msg in o.mensagens %}
+    <div class="item" style="margin:10px 0;{% if msg.autor_tipo == 'admin' %}background:#fff7ef;border-left:4px solid var(--terracota){% else %}border-left:4px solid var(--bege-medio){% endif %}">
+      <div class="eyebrow">{% if msg.autor_tipo == 'admin' %}Administração · {{ msg.autor }}{% else %}Condômino · {{ msg.autor }}{% endif %} · {{ msg.criado_em|local }}{% if sessao.t == 'admin' %} · IP {{ msg.ip or '?' }}{% endif %}</div>
+      <p style="white-space:pre-wrap;margin:6px 0 0">{{ msg.texto }}</p>
+      {% if msg.anexos %}<p style="margin:8px 0 0;font-size:14px">{% for a in msg.anexos %}<a class="btn sec" style="padding:4px 10px;font-size:13px" href="{{ base }}/anexo/{{ a.id }}">📎 {{ a.nome_original }}</a> {% endfor %}</p>{% endif %}
+    </div>
+  {% endfor %}
+  </div>
+  {% if o.status == 'aberta' %}
+  {% set rotulo = 'Resposta / parecer da administração (o condômino recebe por e-mail e aviso na área)' %}
+  <h2 style="margin-top:24px;font-size:22px">Responder</h2>
+  <form class="card" method="post" action="{{ base }}/{{ o.id }}/mensagem" enctype="multipart/form-data" style="max-width:760px">
+    <label>{{ rotulo }}<textarea name="texto" rows="5" required maxlength="10000"></textarea></label>
+    <label>Anexos (PDF, JPG ou PNG; vários; até {{ max_mb }} MB no total)<input name="arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple></label>
+    <button class="btn" type="submit">Enviar</button>
+  </form>
+  {% else %}<p class="aviso ok" style="max-width:560px">Finalizada pelo condômino. Não aceita novas mensagens.</p>{% endif %}
+</div></section>
+{% endblock %}

@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from auth import hash_senha, ler_sessao
 from config import ADMIN_LOGIN, ADMIN_SENHA_INICIAL, CONDOMINIO, UPLOAD_DIR
 from db import SessionLocal
-from models import AdminUser, Morador, Unidade
+from models import AdminUser, Morador, Ocorrencia, Unidade
 
 logging.basicConfig(level=logging.INFO)
 BASE = Path(__file__).parent
@@ -19,6 +19,8 @@ templates = Jinja2Templates(directory=BASE / "templates")
 templates.env.globals["condominio"] = CONDOMINIO
 from termo import TERMO  # noqa: E402
 templates.env.globals["termo"] = TERMO
+from termo import TERMO_OCORRENCIA  # noqa: E402
+templates.env.globals["termo_ocorrencia"] = TERMO_OCORRENCIA
 from mail import FUSO  # noqa: E402
 templates.env.filters["local"] = lambda dt: dt.astimezone(FUSO).strftime("%d/%m/%Y %H:%M") if dt else ""
 
@@ -68,19 +70,22 @@ async def sessao_no_template(request: Request, call_next):
             a = db.get(AdminUser, s["id"])
             a = a if a and not a.excluido_em else None  # desativado: sessão morre
             pend = db.scalar(select(func.count()).select_from(Morador).where(Morador.status == "pendente")) if a else 0
-            s = {**s, "login": a.login, "master": bool(a.master), "areas": list(a.areas or []), "pendentes": pend} if a else None
+            aguard = sum(1 for o in db.scalars(select(Ocorrencia).where(Ocorrencia.status == "aberta")) if o.aguarda_admin) if a else 0
+            s = {**s, "login": a.login, "master": bool(a.master), "areas": list(a.areas or []), "pendentes": pend, "ocorrencias": aguard} if a else None
     elif s and s["t"] == "morador":  # menu mostra o apto administrado e os outros aptos aprovados do CPF
         with SessionLocal() as db:
             m = db.get(Morador, s["id"])
             if m:
                 outros = db.scalars(select(Morador).join(Unidade).where(Morador.cpf == m.cpf, Morador.status == "aprovado", Morador.id != m.id)
                                     .order_by(Unidade.bloco, Unidade.apto)).all()
-                s = {**s, "login": f"{m.nome} ({m.cpf_fmt})", "apto": m.unidade.rotulo, "outros": [{"id": str(o.id), "rotulo": o.unidade.rotulo} for o in outros]}
+                respostas = sum(1 for o in db.scalars(select(Ocorrencia).where(Ocorrencia.unidade_id == m.unidade_id, Ocorrencia.ultima_resposta_admin_em.is_not(None))) if o.tem_resposta_nova)
+                s = {**s, "login": f"{m.nome} ({m.cpf_fmt})", "apto": m.unidade.rotulo, "outros": [{"id": str(o.id), "rotulo": o.unidade.rotulo} for o in outros],
+                     "respostas": respostas}
     request.state.sessao = s
     return await call_next(request)
 
 
-from routers import admin, comunicados, enquetes, financeiro, interfone, morador, residentes, site, votacao  # noqa: E402
+from routers import admin, comunicados, enquetes, financeiro, interfone, morador, ocorrencias, residentes, site, votacao  # noqa: E402
 
 app.include_router(site.router)
 app.include_router(morador.router)
@@ -91,6 +96,7 @@ app.include_router(interfone.router)
 app.include_router(comunicados.router)
 app.include_router(residentes.router)
 app.include_router(enquetes.router)
+app.include_router(ocorrencias.router)
 
 
 if __name__ == "__main__":

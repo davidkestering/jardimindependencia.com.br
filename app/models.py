@@ -2,7 +2,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Numeric, String, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, Sequence, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -67,7 +67,7 @@ class Morador(Base):
 
 # Áreas da administração que podem ser liberadas a um usuário (chave -> rótulo). Prefixo de rota = /admin/<chave>.
 AREAS_ADMIN = {"moradores": "Moradores e cadastros", "documentos": "Documentos", "comunicados": "Comunicados",
-               "financeiro": "Inadimplência", "assembleias": "Assembleias", "enquetes": "Enquetes", "interfone": "Interfone"}
+               "financeiro": "Inadimplência", "assembleias": "Assembleias", "enquetes": "Enquetes", "ocorrencias": "Ocorrências", "interfone": "Interfone"}
 
 
 class Residente(Base):
@@ -302,3 +302,57 @@ class EnqueteVoto(Base):
     morador_id: Mapped[uuid.UUID] = fk("morador")
     inadimplente_no_voto: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     votado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Ocorrencia(Base):
+    """Registro de ocorrência do condômino. Imutável: sem edição nem exclusão. Conversa por mensagens até o condômino finalizar."""
+    __tablename__ = "ocorrencia"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    numero: Mapped[int] = mapped_column(Integer, Sequence("ocorrencia_numero_seq"), server_default=Sequence("ocorrencia_numero_seq").next_value(), unique=True)
+    unidade_id: Mapped[uuid.UUID] = fk("unidade")
+    morador_id: Mapped[uuid.UUID] = fk("morador")
+    titulo: Mapped[str] = mapped_column(String(200))
+    status: Mapped[str] = mapped_column(String(12), default="aberta", server_default="aberta")  # aberta|finalizada
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    criado_ip: Mapped[str | None] = mapped_column(String(45))
+    finalizada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finalizada_ip: Mapped[str | None] = mapped_column(String(45))
+    ultima_resposta_admin_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    vista_pelo_morador_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ultima_msg_morador_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    vista_pela_admin_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    termo_texto: Mapped[str | None] = mapped_column(Text)  # declaração aceita ao registrar
+    termo_aceito_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    termo_ip: Mapped[str | None] = mapped_column(String(45))
+    unidade: Mapped[Unidade] = relationship()
+    morador: Mapped[Morador] = relationship()
+    mensagens: Mapped[list["OcorrenciaMensagem"]] = relationship(order_by="OcorrenciaMensagem.criado_em", viewonly=True)
+
+    @property
+    def tem_resposta_nova(self):
+        return bool(self.ultima_resposta_admin_em and (not self.vista_pelo_morador_em or self.ultima_resposta_admin_em > self.vista_pelo_morador_em))
+
+    @property
+    def aguarda_admin(self):
+        return bool(self.ultima_msg_morador_em and (not self.vista_pela_admin_em or self.ultima_msg_morador_em > self.vista_pela_admin_em))
+
+
+class OcorrenciaMensagem(Base):
+    __tablename__ = "ocorrencia_mensagem"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    ocorrencia_id: Mapped[uuid.UUID] = fk("ocorrencia")
+    autor_tipo: Mapped[str] = mapped_column(String(12))   # morador|admin
+    autor: Mapped[str] = mapped_column(String(160))       # nome do condômino ou login do admin
+    texto: Mapped[str] = mapped_column(Text)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    ip: Mapped[str | None] = mapped_column(String(45))
+    anexos: Mapped[list["OcorrenciaAnexo"]] = relationship(order_by="OcorrenciaAnexo.criado_em", viewonly=True)
+
+
+class OcorrenciaAnexo(Base):
+    __tablename__ = "ocorrencia_anexo"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    mensagem_id: Mapped[uuid.UUID] = fk("ocorrencia_mensagem")
+    arquivo: Mapped[str] = mapped_column(String(255))       # caminho relativo em UPLOAD_DIR
+    nome_original: Mapped[str] = mapped_column(String(255))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
