@@ -4,8 +4,9 @@
 <section><div class="container">
   {% include "admin/_menu.html" %}
   <h1>Painel</h1>
+  <p>{{ admin.nome }} · {% if admin.master %}administrador mestre{% else %}acesso a: {% for a in admin.areas %}{{ a }}{% if not loop.last %}, {% endif %}{% else %}nenhuma área liberada ainda{% endfor %}{% endif %}</p>
   <div class="grade">
-    <div class="item"><h3>{{ contagem.get('pendente', 0) }}</h3><p>cadastros aguardando aprovação</p>{% if contagem.get('pendente') %}<p><a href="/admin/moradores?status=pendente">Revisar</a></p>{% endif %}</div>
+    <div class="item"><h3>{{ contagem.get('pendente', 0) }}</h3><p>cadastros aguardando aprovação</p>{% if contagem.get('pendente') and (sessao.master or 'moradores' in sessao.areas) %}<p><a href="/admin/moradores?status=pendente">Revisar</a></p>{% endif %}</div>
     <div class="item"><h3>{{ contagem.get('aprovado', 0) }}</h3><p>moradores com acesso</p></div>
     <div class="item"><h3>{{ unidades }}</h3><p>unidades ativas</p></div>
     <div class="item"><h3>{{ documentos }}</h3><p>documentos cadastrados</p></div>
