@@ -9,6 +9,7 @@
     <input type="hidden" name="next" value="{{ next }}">
     <label>Login<input name="login" required autocomplete="username"></label>
     <label>Senha<input name="senha" type="password" required autocomplete="current-password"></label>
+    {% include "_captcha.html" %}
     <button class="btn" type="submit">Entrar</button>
   </form>
 </div></section>

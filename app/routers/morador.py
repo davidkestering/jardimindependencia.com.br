@@ -66,11 +66,13 @@ def login(request: Request, next: str = "/morador"):
 
 @router.post("/login")
 def login_post(request: Request, cpf: str = Form(...), nascimento: str = Form(...), next: str = Form("/morador"),
-               db: Session = Depends(get_db)):
+               captcha: str = Form(""), captcha_token: str = Form(""), db: Session = Depends(get_db)):
     cpf_d = auth.so_digitos(cpf)
     chave = f"morador:{ip_de(request)}:{cpf_d}"
     if auth.bloqueado(chave):
         return render(request, "morador/login.html", erro="Muitas tentativas. Aguarde 15 minutos.", next=next)
+    if not auth.captcha_ok(captcha_token, captcha):
+        return render(request, "morador/login.html", erro="Resposta da conta de verificação incorreta. Tente novamente.", next=next)
     nasc = auth.parse_data(nascimento)
     # O mesmo CPF pode ter mais de um apartamento: uma linha por unidade.
     ms = db.scalars(select(Morador).join(Unidade).where(Morador.cpf == cpf_d, Morador.nascimento == nasc)
