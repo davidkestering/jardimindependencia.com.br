@@ -21,7 +21,7 @@
     <label>Nome completo<input name="nome" required maxlength="120"></label>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <label>CPF<input name="cpf" inputmode="numeric" required placeholder="000.000.000-00"></label>
-      <label>Data de nascimento<input name="nascimento" type="date" required></label>
+      <label>Data de nascimento<input name="nascimento" type="text" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" pattern="\d{2}/\d{2}/\d{4}" title="Digite a data no formato dd/mm/aaaa" required></label>
       <label>E-mail<input name="email" type="email" required maxlength="160"></label>
       <label>Telefone<input name="telefone" type="tel" required maxlength="20" placeholder="(91) 9 9999-9999"></label>
     </div>

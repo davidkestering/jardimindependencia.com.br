@@ -31,3 +31,20 @@ if (slides.length > 1) {
     inp.addEventListener('input', checar); inp.addEventListener('blur', checar); if (inp.value) checar();
   });
 })();
+
+// Data de nascimento digitada (dd/mm/aaaa): máscara e validação de data real.
+(function () {
+  document.querySelectorAll('input[name="nascimento"][type="text"]').forEach(inp => {
+    const checar = () => {
+      const d = inp.value.replace(/\D/g, '').slice(0, 8);
+      inp.value = d.replace(/(\d{2})(\d)/, '$1/$2').replace(/(\d{2})(\d)/, '$1/$2');
+      let msg = '';
+      if (d.length === 8) {
+        const dia = +d.slice(0, 2), mes = +d.slice(2, 4), ano = +d.slice(4), dt = new Date(ano, mes - 1, dia);
+        if (dt.getFullYear() !== ano || dt.getMonth() !== mes - 1 || dt.getDate() !== dia || ano < 1900 || dt > new Date()) msg = 'Data inválida';
+      } else if (d.length) msg = 'Data incompleta';
+      inp.setCustomValidity(msg);
+    };
+    inp.addEventListener('input', checar); inp.addEventListener('blur', checar); if (inp.value) checar();
+  });
+})();
