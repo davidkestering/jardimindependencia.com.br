@@ -80,8 +80,14 @@ try:
     ac.post(f"/admin/comunicados/{cid}/visibilidade", data={"visibilidade": "rascunho"})
     assert pub.get(f"/comunicados/{cid}").status_code == 404 and TIT not in pub.get("/").text
     assert ac.post("/admin/comunicados", data={"titulo": "", "texto": "x"}).status_code == 400
+    ac.post(f"/admin/comunicados/{cid}/visibilidade", data={"visibilidade": "publico"})
     ac.post(f"/admin/comunicados/{cid}/excluir")
-    assert ac.get(f"/admin/comunicados/{cid}").status_code == 404
+    with SessionLocal() as db:
+        c = db.get(Comunicado, cid); assert c and c.excluido_em and c.excluido_por == adm.login and c.excluido_ip  # nunca apaga
+    assert pub.get(f"/comunicados/{cid}").status_code == 404 and mc.get(f"/morador/comunicados/{cid}").status_code == 404
+    assert TIT not in pub.get("/comunicados").text and TIT + " 2" not in mc.get("/morador/comunicados").text.split("Histórico")[0]
+    lst = ac.get("/admin/comunicados").text; assert "comunicado(s) excluído(s)" in lst and TIT + " 2" in lst
+    assert "Excluído por" in ac.get(f"/admin/comunicados/{cid}/preview").text
     print("check_comunicados ok")
 finally:
     limpar()

@@ -18,6 +18,14 @@
         <form class="inline" method="post" action="/admin/comunicados/{{ c.id }}/excluir" onsubmit="return confirm('Excluir o comunicado?')"><button class="btn sec" type="submit">Excluir</button></form></td>
     </tr>{% else %}<tr><td colspan="5">Nenhum comunicado.</td></tr>{% endfor %}
   </table></div>
+  {% if excluidos %}<details style="margin-top:24px"><summary style="cursor:pointer;font-weight:600">Histórico: {{ excluidos|length }} comunicado(s) excluído(s)</summary>
+  <div style="overflow-x:auto;margin-top:10px"><table>
+    <tr><th>Excluído por · quando · IP</th><th>Criado por · quando</th><th>Título</th><th>Última visibilidade</th><th></th></tr>
+    {% for c in excluidos %}<tr style="color:#6b5a4c">
+      <td style="font-size:13px"><strong>{{ c.excluido_por }}</strong><br>{{ c.excluido_em|local }}<br>IP {{ c.excluido_ip or '?' }}</td>
+      <td style="font-size:13px">{{ c.autor }}<br>{{ c.criado_em|local }}</td><td>{{ c.titulo }}</td><td>{{ rot[c.visibilidade] }}</td>
+      <td><a class="btn sec" href="/admin/comunicados/{{ c.id }}/preview" style="padding:4px 9px;font-size:12px">Ver texto</a></td></tr>{% endfor %}
+  </table></div></details>{% endif %}
   <h2 style="margin-top:36px">Novo comunicado</h2>
   <form class="card" method="post" action="/admin/comunicados">
     <label>Título<input name="titulo" required maxlength="200"></label>

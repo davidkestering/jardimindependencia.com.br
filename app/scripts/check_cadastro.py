@@ -106,7 +106,7 @@ try:
     assert "Aceita em" in ac.get(f"/admin/moradores/{a.id}").text
     pg = lc.get("/contato").text; assert 'value="01" selected' in pg and 'value="101" selected' in pg and 'value="27"' not in pg and "Ana Teste" in pg
     assert "Mensagem enviada" in lc.post("/contato", data={**ct, **captcha(), "bloco": "01", "apto": "101"}).text
-    assert "Condômino logado: Ana Teste" in enviados[-1][2]
+    assert "Condômino logado: Ana Teste" in [c for p, _, c in enviados if p == mail.MAIL_CONTATO][-1]
     d = morador(CPF3, "02"); assert lc.get(f"/morador/trocar/{d.id}", follow_redirects=False).status_code == 403
     # inadimplência: registro manual com observação obrigatória, único por unidade, reflete na votação
     from financeiro import unidade_inadimplente

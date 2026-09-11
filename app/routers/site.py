@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 import auth
 from config import MAIL_CONTATO
 from db import get_db
-from mail import enviar
+from mail import enviar, registrar
 from models import Morador, Unidade
 
 router = APIRouter()
@@ -108,6 +108,7 @@ def contato_enviar(request: Request, nome: str = Form(...), email: str = Form(..
     logado = f"\nCondômino logado: {m.nome} (CPF {m.cpf_fmt})" if (m := ctx["morador"]) else ""
     corpo = f"Nome: {nome}\nE-mail: {email}\nUnidade: {unidade}{logado}\n\n{mensagem}"
     ok = enviar(MAIL_CONTATO, f"[Site] Contato de {nome}", corpo, responder_para=email)
+    registrar("Mensagem de contato enviada" if ok else "Mensagem de contato FALHOU", request, nome=nome, email=email, unidade=unidade)
     if not ok:
         return render(request, "site/contato.html", erro="Não foi possível enviar agora. Tente novamente em instantes.", **ctx)
     return render(request, "site/contato.html", sucesso=True, **ctx)

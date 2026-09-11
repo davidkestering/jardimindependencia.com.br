@@ -61,6 +61,12 @@ try:
     assert mc.post(f"/admin/usuarios/{u.id}/senha", data={"senha": "curta"}).status_code == 400
     assert mc.post(f"/admin/usuarios/{u.id}/excluir", follow_redirects=False).status_code == 303
     assert uc.get("/admin", follow_redirects=False).status_code == 303  # sessão cai
+    with SessionLocal() as db:
+        u2 = db.get(AdminUser, u.id); assert u2 and u2.excluido_em and u2.excluido_por == mestre.login and u2.excluido_ip  # desativado, não apagado
+    cp = auth.captcha_novo()
+    assert "incorretos" in lc.post("/admin/login", data={"login": LOGIN, "senha": "senha12345", "captcha_token": cp["token"], "captcha": str(auth._captcha.loads(cp["token"])["r"])}).text
+    assert "usuário(s) desativado(s)" in mc.get("/admin/usuarios").text
+    assert mc.post("/admin/usuarios", data={"login": LOGIN, "nome": "De novo", "senha": "senha12345"}).status_code == 400  # login continua reservado
     print("check_usuarios ok")
 finally:
     limpar()

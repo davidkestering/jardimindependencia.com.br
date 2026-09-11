@@ -66,15 +66,16 @@ async def sessao_no_template(request: Request, call_next):
     if s and s["t"] == "admin":  # menu da administração esconde o que o usuário não pode acessar
         with SessionLocal() as db:
             a = db.get(AdminUser, s["id"])
+            a = a if a and not a.excluido_em else None  # desativado: sessão morre
             pend = db.scalar(select(func.count()).select_from(Morador).where(Morador.status == "pendente")) if a else 0
-            s = {**s, "master": bool(a.master), "areas": list(a.areas or []), "pendentes": pend} if a else None
+            s = {**s, "login": a.login, "master": bool(a.master), "areas": list(a.areas or []), "pendentes": pend} if a else None
     elif s and s["t"] == "morador":  # menu mostra o apto administrado e os outros aptos aprovados do CPF
         with SessionLocal() as db:
             m = db.get(Morador, s["id"])
             if m:
                 outros = db.scalars(select(Morador).join(Unidade).where(Morador.cpf == m.cpf, Morador.status == "aprovado", Morador.id != m.id)
                                     .order_by(Unidade.bloco, Unidade.apto)).all()
-                s = {**s, "apto": m.unidade.rotulo, "outros": [{"id": str(o.id), "rotulo": o.unidade.rotulo} for o in outros]}
+                s = {**s, "login": f"{m.nome} ({m.cpf_fmt})", "apto": m.unidade.rotulo, "outros": [{"id": str(o.id), "rotulo": o.unidade.rotulo} for o in outros]}
     request.state.sessao = s
     return await call_next(request)
 

@@ -15,9 +15,11 @@
         <button class="btn sec" type="submit" style="margin-top:6px;padding:5px 10px;font-size:13px">Salvar áreas</button></form>{% endif %}</td>
       <td>{% if not u.master %}
         <form class="inline" method="post" action="/admin/usuarios/{{ u.id }}/senha"><input name="senha" type="password" placeholder="Nova senha" minlength="8" required style="width:130px;padding:5px 8px"> <button class="btn sec" type="submit">Redefinir</button></form>
-        <form class="inline" method="post" action="/admin/usuarios/{{ u.id }}/excluir" onsubmit="return confirm('Excluir o usuário {{ u.login }}?')"><button class="btn sec" type="submit">Excluir</button></form>{% endif %}</td>
+        <form class="inline" method="post" action="/admin/usuarios/{{ u.id }}/excluir" onsubmit="return confirm('Desativar o usuário {{ u.login }}? Ele perde o acesso e fica no histórico.')"><button class="btn sec" type="submit">Desativar</button></form>{% endif %}</td>
     </tr>{% endfor %}
   </table></div>
+  {% if desativados %}<details style="margin-top:24px"><summary style="cursor:pointer;font-weight:600">Histórico: {{ desativados|length }} usuário(s) desativado(s)</summary>
+  <ul style="margin-top:10px">{% for u in desativados %}<li>{{ u.nome }} ({{ u.login }}) · desativado por <strong>{{ u.excluido_por }}</strong> em {{ u.excluido_em|local }} · IP {{ u.excluido_ip or '?' }}</li>{% endfor %}</ul></details>{% endif %}
   <h2 style="margin-top:36px">Novo usuário</h2>
   <form class="card" method="post" action="/admin/usuarios">
     <label>Nome<input name="nome" required maxlength="120"></label>

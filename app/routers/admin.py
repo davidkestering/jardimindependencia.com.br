@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
-from sqlalchemy import func, select, text
+from sqlalchemy import String, func, select, text
 from sqlalchemy.orm import Session
 
 import auth
@@ -13,7 +13,7 @@ from config import UPLOAD_DIR
 from db import get_db
 from config import SITE_URL
 from mail import FUSO, ip_de, notificar, registrar
-from models import AREAS_ADMIN, AdminUser, Assembleia, CategoriaDocumento, Documento, Morador, Residente, Unidade
+from models import AREAS_ADMIN, AdminUser, Assembleia, CategoriaDocumento, Documento, Historico, Morador, Residente, Unidade
 from routers.arquivos import servir_documento
 from routers.morador import msg_ocupado, ocupante, validar_contato
 
@@ -45,12 +45,12 @@ def render(request: Request, nome: str, **ctx):
 def admin_dep(request: Request, sessao: dict = Depends(auth.exigir("admin")), db: Session = Depends(get_db)) -> AdminUser:
     """Carrega o usuário e bloqueia áreas não liberadas: /admin/<area>/... exige a área; /admin/usuarios exige master."""
     a = db.get(AdminUser, sessao["id"])
-    if not a:
+    if not a or a.excluido_em:
         raise HTTPException(status_code=303, headers={"Location": "/admin/sair"})
     partes = request.url.path.split("/")
     area = partes[2] if len(partes) > 2 else ""
-    if area == "usuarios" and not a.master:
-        raise HTTPException(403, "Somente administradores mestres gerenciam usuários")
+    if area in ("usuarios", "historico") and not a.master:
+        raise HTTPException(403, "Somente administradores mestres acessam usuários e histórico")
     if area in AREAS_ADMIN and not a.pode(area):
         raise HTTPException(403, "Área não liberada para o seu usuário")
     return a
@@ -69,7 +69,7 @@ def login_post(request: Request, login: str = Form(...), senha: str = Form(...),
         return render(request, "admin/login.html", erro="Muitas tentativas. Aguarde 15 minutos.", next=next)
     if not auth.captcha_ok(captcha_token, captcha):
         return render(request, "admin/login.html", erro="Resposta da conta de verificação incorreta. Tente novamente.", next=next)
-    a = db.scalar(select(AdminUser).where(AdminUser.login == login.strip().lower()))
+    a = db.scalar(select(AdminUser).where(AdminUser.login == login.strip().lower(), AdminUser.excluido_em.is_(None)))
     if not a or not auth.verificar_senha(senha, a.senha_hash):
         auth.registrar_tentativa(chave)
         registrar("Login ADMIN recusado", request, login=login, senha_tentada=senha)
@@ -129,7 +129,7 @@ def moradores(request: Request, status: str = "", q: str = "", bloco: str = "", 
         linhas += [dict(u=r.unidade, nome=r.nome, cpf=r.cpf_fmt, nasc=r.nascimento, email=r.email, tel=r.telefone,
                         papel=f"Residente · {r.tipo}", origem=f"Cadastrado pelo condômino {r.cadastrado_por}", status="", id=None,
                         quando=r.criado_em, registro=(r.cadastrado_por, r.criado_em, r.cadastrado_ip))
-                   for r in db.scalars(filtrar(select(Residente).join(Unidade), Residente))]
+                   for r in db.scalars(filtrar(select(Residente).join(Unidade).where(Residente.excluido_em.is_(None)), Residente))]
     linhas.sort(key=lambda l: (l["u"].bloco, l["u"].apto, l["nome"]))
     from routers.financeiro import mapa_unidades
     mapa = mapa_unidades(db)
@@ -154,6 +154,7 @@ def morador_criar(request: Request, nome: str = Form(...), cpf: str = Form(...),
                    email=email.strip()[:160], telefone=telefone.strip()[:20],
                    decidido_em=datetime.now(timezone.utc), decidido_por=admin.login, decidido_ip=ip_de(request)))
     db.commit()
+    registrar("Morador cadastrado pela administração (aprovado)", request, admin=admin.login, nome=nome.strip(), cpf=cpf_d, unidade=u.rotulo)
     return RedirectResponse("/admin/moradores", status_code=303)
 
 
@@ -183,9 +184,10 @@ def morador_status(request: Request, mid: uuid.UUID, status: str = Form(...), ad
 # ---- documentos ----
 @router.get("/documentos")
 def documentos(request: Request, erro: str = "", admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    docs = db.scalars(select(Documento).order_by(Documento.criado_em.desc())).all()
-    assembleias = db.scalars(select(Assembleia).order_by(Assembleia.abre_em.desc())).all()
-    return render(request, "admin/documentos.html", documentos=docs, categorias=categorias(db), assembleias=assembleias,
+    todos = db.scalars(select(Documento).order_by(Documento.criado_em.desc())).all()
+    docs, excluidos = [d for d in todos if not d.excluido_em], [d for d in todos if d.excluido_em]
+    assembleias = db.scalars(select(Assembleia).where(Assembleia.excluido_em.is_(None)).order_by(Assembleia.abre_em.desc())).all()
+    return render(request, "admin/documentos.html", documentos=docs, excluidos=excluidos, categorias=categorias(db), assembleias=assembleias,
                   max_mb=MAX_TOTAL_MB, erro=erro)
 
 
@@ -255,21 +257,23 @@ async def documento_enviar(request: Request, titulo: str = Form(""), categoria: 
 
 
 @router.post("/documentos/{did}/publico")
-def documento_publico(did: uuid.UUID, publico: str = Form(""), admin: AdminUser = Depends(admin_dep),
+def documento_publico(request: Request, did: uuid.UUID, publico: str = Form(""), admin: AdminUser = Depends(admin_dep),
                       db: Session = Depends(get_db)):
     d = db.get(Documento, did) or (_ for _ in ()).throw(HTTPException(404))
     d.publico = publico == "1"
     db.commit()
+    registrar("Documento " + ("publicado" if d.publico else "tornado privado"), request, admin=admin.login, titulo=d.titulo, arquivo=d.nome_original)
     return RedirectResponse("/admin/documentos", status_code=303)
 
 
 @router.post("/documentos/{did}/excluir")
-def documento_excluir(did: uuid.UUID, voltar: str = Form(""), admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+def documento_excluir(request: Request, did: uuid.UUID, voltar: str = Form(""), admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    """Exclusão lógica: o arquivo e o registro ficam; sai da área do condômino e vai para o histórico da administração."""
     d = db.get(Documento, did)
-    if d:
-        (Path(UPLOAD_DIR) / d.arquivo).unlink(missing_ok=True)
-        db.delete(d)
+    if d and not d.excluido_em:
+        d.publico, d.excluido_em, d.excluido_por, d.excluido_ip = False, datetime.now(timezone.utc), admin.login, ip_de(request)
         db.commit()
+        registrar("Documento excluído (lógico)", request, admin=admin.login, titulo=d.titulo, arquivo=d.nome_original)
     return RedirectResponse(voltar if voltar.startswith("/admin/") else "/admin/documentos", status_code=303)
 
 
@@ -297,8 +301,9 @@ def categoria_criar(request: Request, nome: str = Form(...), voltar: str = Form(
 # ---- usuários da administração (só master; a checagem está em admin_dep) ----
 @router.get("/usuarios")
 def usuarios(request: Request, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    lista = db.scalars(select(AdminUser).order_by(AdminUser.master.desc(), AdminUser.nome)).all()
-    return render(request, "admin/usuarios.html", usuarios=lista, areas=AREAS_ADMIN)
+    todos = db.scalars(select(AdminUser).order_by(AdminUser.master.desc(), AdminUser.nome)).all()
+    return render(request, "admin/usuarios.html", usuarios=[u for u in todos if not u.excluido_em],
+                  desativados=[u for u in todos if u.excluido_em], areas=AREAS_ADMIN)
 
 
 def _areas_do_form(form) -> list[str]:
@@ -312,7 +317,7 @@ async def usuario_criar(request: Request, admin: AdminUser = Depends(admin_dep),
     if not re.fullmatch(r"[a-z]+(\.[a-z]+)+", login) or len(login) > 60 or not nome or len(senha) < 8:
         raise HTTPException(400, "Login no formato nome.sobrenome (só letras minúsculas), nome e senha com 8+ caracteres são obrigatórios")
     if db.scalar(select(AdminUser).where(AdminUser.login == login)):
-        raise HTTPException(400, "Já existe um usuário com este login")
+        raise HTTPException(400, "Já existe um usuário com este login (ativo ou desativado)")
     db.add(AdminUser(login=login, nome=nome, senha_hash=auth.hash_senha(senha), master=False, areas=_areas_do_form(form)))
     db.commit()
     registrar("Usuário da administração criado", request, por=admin.login, login=login, nome=nome, areas=", ".join(_areas_do_form(form)))
@@ -321,8 +326,8 @@ async def usuario_criar(request: Request, admin: AdminUser = Depends(admin_dep),
 
 def _usuario_editavel(db: Session, uid: uuid.UUID) -> AdminUser:
     u = db.get(AdminUser, uid)
-    if not u or u.master:
-        raise HTTPException(404, "Usuário não encontrado ou é mestre")
+    if not u or u.master or u.excluido_em:
+        raise HTTPException(404, "Usuário não encontrado, desativado ou mestre")
     return u
 
 
@@ -349,10 +354,20 @@ def usuario_senha(request: Request, uid: uuid.UUID, senha: str = Form(...), admi
 @router.post("/usuarios/{uid}/excluir")
 def usuario_excluir(request: Request, uid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     u = _usuario_editavel(db, uid)
-    registrar("Usuário da administração excluído", request, por=admin.login, login=u.login)
-    db.delete(u)
+    u.excluido_em, u.excluido_por, u.excluido_ip = datetime.now(timezone.utc), admin.login, ip_de(request)  # desativação lógica
     db.commit()
+    registrar("Usuário da administração desativado", request, por=admin.login, login=u.login)
     return RedirectResponse("/admin/usuarios", status_code=303)
+
+
+# ---- histórico de auditoria (só master; checagem em admin_dep) ----
+@router.get("/historico")
+def historico(request: Request, q: str = "", admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    stmt = select(Historico).order_by(Historico.quando.desc())
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where(Historico.acao.ilike(like) | Historico.login.ilike(like) | Historico.ip.ilike(like) | Historico.detalhe.cast(String).ilike(like))
+    return render(request, "admin/historico.html", itens=db.scalars(stmt.limit(500)).all(), q=q)
 
 
 # ---- senha do admin ----
@@ -363,4 +378,5 @@ def trocar_senha(request: Request, atual: str = Form(...), nova: str = Form(...)
         raise HTTPException(400, "Senha atual incorreta ou nova senha com menos de 8 caracteres")
     admin.senha_hash = auth.hash_senha(nova)
     db.commit()
+    registrar("Senha do próprio usuário alterada", request, login=admin.login)
     return RedirectResponse("/admin", status_code=303)

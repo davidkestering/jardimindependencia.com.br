@@ -61,6 +61,13 @@ try:
         rs = {r.cpf: r.id for r in db.scalars(select(Residente).where(Residente.unidade_id == u1.id))}
     mc.post(f"/morador/residentes/{rs[S]}/excluir")
     assert "Sol Moradora" not in mc.get("/morador/residentes").text
+    with SessionLocal() as db:
+        sr = db.get(Residente, rs[S]); assert sr and sr.excluido_em and "Ana Titular" in sr.excluido_por and sr.excluido_ip  # lógico
+    assert "removido por condômino Ana Titular" in ac.get(f"/admin/moradores/{ma.id}").text
+    # recadastrar o mesmo CPF reativa a linha (unique unidade+cpf)
+    assert mc.post("/morador/residentes", data={**base, "nome": "Sol Moradora", "cpf": S, "tipo": "inquilino"}, follow_redirects=False).status_code == 303
+    assert "Sol Moradora" in mc.get("/morador/residentes").text
+    mc.post(f"/morador/residentes/{rs[S]}/excluir")
 
     # admin: lista unificada e filtros
     lst = ac.get("/admin/moradores?bloco=01&apto=101").text
@@ -77,7 +84,7 @@ try:
         ma2 = db.get(Morador, ma.id); mr = db.scalar(select(Morador).where(Morador.cpf == R, Morador.unidade_id == u1.id))
         assert ma2.status == "transferido" and "111.444.777-35" in ma2.decidido_por and ma2.decidido_em and ma2.decidido_ip
         assert mr.status == "pendente" and mr.origem == "transferencia"
-        assert db.scalar(select(Residente).where(Residente.cpf == R)) is None
+        rr = db.scalar(select(Residente).where(Residente.cpf == R)); assert rr and rr.excluido_em and "virou titular" in rr.excluido_por
         ares = db.scalar(select(Residente).where(Residente.cpf == A, Residente.unidade_id == u1.id)); assert ares and ares.tipo == "morador"
         assert db.scalar(select(Morador).where(Morador.unidade_id == u1.id, Morador.status == "aprovado")) is None  # ninguém aprovado até o admin decidir
     assert "transferiu o acesso" in login(A)[1].text
