@@ -6,22 +6,39 @@
   {% include "admin/_menu.html" %}
   <h1>Documentos</h1>
   <p style="max-width:60ch">Comunicados em texto ficam em <a href="/admin/comunicados">Comunicados</a>. Documentos digitalizados do condomínio. Só os marcados como <strong>públicos</strong> aparecem na área do condômino.</p>
+  {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
   <div style="overflow-x:auto"><table>
-    <tr><th>Data</th><th>Categoria</th><th>Título</th><th>Arquivo</th><th>Visível aos condôminos</th><th>Ações</th></tr>
+    <tr><th>Data</th><th>Categoria</th><th>Título</th><th>Assembleia</th><th>Arquivo</th><th>Visível aos condôminos</th><th>Ações</th></tr>
     {% for d in documentos %}<tr>
-      <td>{{ d.criado_em.strftime('%d/%m/%Y') }}</td><td>{{ d.categoria }}</td><td>{{ d.titulo }}</td><td><a href="/admin/documentos/{{ d.id }}">{{ d.nome_original }}</a></td>
+      <td>{{ d.criado_em.strftime('%d/%m/%Y') }}</td><td>{{ d.categoria }}</td><td>{{ d.titulo }}</td>
+      <td>{% if d.assembleia %}<a href="/admin/assembleias/{{ d.assembleia.id }}">{{ d.assembleia.titulo }}</a>{% else %}—{% endif %}</td>
+      <td><a href="/admin/documentos/{{ d.id }}">{{ d.nome_original }}</a></td>
       <td>{% if d.publico %}Sim{% else %}Não{% endif %}</td>
       <td><form class="inline" method="post" action="/admin/documentos/{{ d.id }}/publico"><input type="hidden" name="publico" value="{{ '0' if d.publico else '1' }}"><button class="btn sec" type="submit">{{ 'Tornar privado' if d.publico else 'Publicar' }}</button></form>
       <form class="inline" method="post" action="/admin/documentos/{{ d.id }}/excluir" onsubmit="return confirm('Excluir este documento?')"><button class="btn sec" type="submit">Excluir</button></form></td>
-    </tr>{% else %}<tr><td colspan="6">Nenhum documento enviado.</td></tr>{% endfor %}
+    </tr>{% else %}<tr><td colspan="7">Nenhum documento enviado.</td></tr>{% endfor %}
   </table></div>
-  <h2 style="margin-top:36px">Enviar documento</h2>
-  <form class="card" method="post" action="/admin/documentos" enctype="multipart/form-data">
-    <label>Título<input name="titulo" required maxlength="200"></label>
-    <label>Categoria<select name="categoria">{% for c in categorias %}<option>{{ c }}</option>{% endfor %}</select></label>
-    <label>Arquivo (PDF, JPG ou PNG, até 25 MB)<input name="arquivo" type="file" accept=".pdf,.jpg,.jpeg,.png" required></label>
+  <h2 style="margin-top:36px">Enviar documentos</h2>
+  <form class="card" method="post" action="/admin/documentos" enctype="multipart/form-data" id="f-docs">
+    <label>Arquivos (PDF, JPG ou PNG; vários de uma vez, até {{ max_mb }} MB no total)<input name="arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple required id="arquivos"></label>
+    <p id="resumo" style="font-size:13px;color:#6b5a4c;margin:-6px 0 10px"></p>
+    <label>Título (opcional; vazio usa o nome de cada arquivo)<input name="titulo" maxlength="200"></label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <label>Categoria<select name="categoria">{% for c in categorias %}<option>{{ c }}</option>{% endfor %}</select></label>
+      <label>Assembleia (opcional)<select name="assembleia_id"><option value="">—</option>{% for a in assembleias %}<option value="{{ a.id }}">{{ a.titulo }} · {{ a.abre_em.strftime('%d/%m/%Y') }}</option>{% endfor %}</select></label>
+    </div>
     <label style="grid-template-columns:auto 1fr;align-items:center;gap:10px;display:grid"><input type="checkbox" name="publico" value="1" style="width:auto">Publicar para os condôminos agora</label>
-    <button class="btn" type="submit">Enviar</button>
+    <button class="btn" type="submit" id="btn-enviar">Enviar</button>
   </form>
+  <script>
+    const MAX = {{ max_mb }} * 1024 * 1024, inp = document.getElementById('arquivos'), res = document.getElementById('resumo'), btn = document.getElementById('btn-enviar');
+    inp.addEventListener('change', () => {
+      const fs = [...inp.files], total = fs.reduce((s, f) => s + f.size, 0), mb = (total / 1048576).toFixed(1);
+      const ok = total <= MAX; btn.disabled = !ok;
+      res.textContent = fs.length ? `${fs.length} arquivo(s), ${mb} MB no total` + (ok ? '' : ` — acima do limite de {{ max_mb }} MB`) : '';
+      res.style.color = ok ? '#6b5a4c' : '#7a2e12';
+    });
+    document.getElementById('f-docs').addEventListener('submit', () => { btn.disabled = true; btn.textContent = 'Enviando…'; });
+  </script>
 </div></section>
 {% endblock %}

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 import auth
 from db import get_db
 from financeiro import unidade_inadimplente
-from models import AdminUser, Assembleia, Opcao, Pauta, Unidade, Voto
+from models import AdminUser, Assembleia, Documento, Opcao, Pauta, Unidade, Voto
 from routers.admin import admin_dep
 from routers.morador import morador_atual
 
@@ -78,7 +78,8 @@ def admin_criar(titulo: str = Form(...), abre_em: str = Form(...), fecha_em: str
 @router.get("/admin/assembleias/{aid}")
 def admin_detalhe(request: Request, aid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     a = carregar(db, aid)
-    return render(request, "admin/assembleia.html", a=a, res=resultado(db, a),
+    docs = db.scalars(select(Documento).where(Documento.assembleia_id == aid).order_by(Documento.criado_em)).all()
+    return render(request, "admin/assembleia.html", a=a, res=resultado(db, a), documentos=docs,
                   unidades_ativas=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.ativa, Unidade.apto != "")))
 
 
@@ -129,7 +130,8 @@ def morador_detalhe(request: Request, aid: uuid.UUID, msg: str = "", sessao: dic
     a = carregar(db, aid)
     votos = {v.pauta_id: v for v in db.scalars(select(Voto).join(Pauta).where(Pauta.assembleia_id == aid, Voto.unidade_id == m.unidade_id))}
     aberta = a.abre_em <= agora() <= a.fecha_em
-    return render(request, "morador/assembleia.html", morador=m, a=a, votos=votos, aberta=aberta,
+    docs = db.scalars(select(Documento).where(Documento.assembleia_id == aid, Documento.publico).order_by(Documento.criado_em)).all()
+    return render(request, "morador/assembleia.html", morador=m, a=a, votos=votos, aberta=aberta, documentos=docs,
                   res=resultado(db, a) if agora() > a.fecha_em else None, msg=msg,
                   inadimplente=unidade_inadimplente(db, m.unidade_id), MSG_INADIMPLENTE=MSG_INADIMPLENTE)
 

@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block titulo %}Moradores · Administração{% endblock %}
-{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-pendente{background:#fff0c2;color:#6b4b00}.st-aprovado{background:#e6f0e8;color:#1d4d2a}.st-negado{background:#eee;color:#555}form.inline{display:inline}form.inline button{padding:5px 10px;font-size:13px}</style>{% endblock %}
+{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-pendente{background:#fff0c2;color:#6b4b00}.st-aprovado{background:#e6f0e8;color:#1d4d2a}.st-negado{background:#eee;color:#555}form.inline{display:inline}form.inline button{padding:5px 10px;font-size:13px}.filtro{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}.filtro select,.filtro input{width:auto}</style>{% endblock %}
 {% block conteudo %}
 <section><div class="container">
   {% include "admin/_menu.html" %}
   <h1>Moradores</h1>
-  <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+  <form method="get" class="filtro">
     <select name="status"><option value="">Titulares e residentes</option>{% for s, r in [('pendente','Pendentes'),('aprovado','Aprovados'),('negado','Negados'),('residente','Só residentes (cadastrados pelo condômino)')] %}<option value="{{ s }}" {% if s==status %}selected{% endif %}>{{ r }}</option>{% endfor %}</select>
     <select name="bloco" id="f-bloco"><option value="">Bloco</option>{% for b in mapa %}<option {% if b==bloco %}selected{% endif %}>{{ b }}</option>{% endfor %}</select>
     <select name="apto" id="f-apto"><option value="">Apto</option>{% for a in mapa.get(bloco, []) %}<option {% if a==apto %}selected{% endif %}>{{ a }}</option>{% endfor %}</select>

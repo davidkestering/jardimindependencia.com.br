@@ -8,6 +8,8 @@
   <h1>{{ a.titulo }}</h1>
   {% if msg %}<p class="aviso {% if msg == 'Voto registrado.' %}ok{% endif %}" style="max-width:640px">{{ msg }}</p>{% endif %}
   {% if aberta and inadimplente and not msg %}<p class="aviso" style="max-width:640px">Sua unidade está com registro de inadimplência. O voto será apresentado e registrado, mas não entra na contagem final.</p>{% endif %}
+  {% if documentos %}<div class="item" style="margin:14px 0;max-width:720px"><div class="eyebrow">Documentos da assembleia</div>
+  <ul style="margin:6px 0 0">{% for d in documentos %}<li><a href="/morador/documentos/{{ d.id }}">{{ d.titulo }}</a> <small>({{ d.categoria }})</small></li>{% endfor %}</ul></div>{% endif %}
   <form method="post" action="/morador/assembleias/{{ a.id }}/votar">
   {% for p in a.pautas %}
   <div class="item" style="margin:14px 0;max-width:720px">

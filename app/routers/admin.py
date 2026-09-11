@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -13,14 +13,15 @@ from config import UPLOAD_DIR
 from db import get_db
 from config import SITE_URL
 from mail import ip_de, notificar, registrar
-from models import AREAS_ADMIN, AdminUser, Documento, Morador, Residente, Unidade
+from models import AREAS_ADMIN, AdminUser, Assembleia, Documento, Morador, Residente, Unidade
 from routers.arquivos import servir_documento
 from routers.morador import msg_ocupado, ocupante, validar_contato
 
 router = APIRouter(prefix="/admin")
 CATEGORIAS = ["Convenção", "Regimento interno", "Atas de assembleia", "Balancetes", "Comunicados", "Outros"]
 EXT_OK = {".pdf", ".jpg", ".jpeg", ".png"}
-MAX_MB = 25
+MAX_TOTAL_MB = 100   # soma de todos os arquivos de um envio
+BLOCO = 1024 * 1024  # gravação em blocos de 1 MB: nunca carrega o arquivo inteiro em memória
 CONDOMINIO_CURTO = "Jardim Independência"
 STATUS = ["pendente", "aprovado", "negado"]
 # transições: pendente -> aprovado|negado; aprovado -> negado ("habilitar novo registro"). negado é final e libera o apto.
@@ -175,28 +176,67 @@ def morador_status(request: Request, mid: uuid.UUID, status: str = Form(...), ad
 
 # ---- documentos ----
 @router.get("/documentos")
-def documentos(request: Request, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+def documentos(request: Request, erro: str = "", admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     docs = db.scalars(select(Documento).order_by(Documento.criado_em.desc())).all()
-    return render(request, "admin/documentos.html", documentos=docs, categorias=CATEGORIAS)
+    assembleias = db.scalars(select(Assembleia).order_by(Assembleia.abre_em.desc())).all()
+    return render(request, "admin/documentos.html", documentos=docs, categorias=CATEGORIAS, assembleias=assembleias,
+                  max_mb=MAX_TOTAL_MB, erro=erro)
+
+
+async def _gravar_em_blocos(arquivo: UploadFile, destino: Path, restante: int) -> int:
+    """Copia o upload para o disco em blocos; devolve os bytes gravados ou -1 se estourar o limite."""
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    total = 0
+    with destino.open("wb") as f:
+        while bloco := await arquivo.read(BLOCO):
+            total += len(bloco)
+            if total > restante:
+                return -1
+            f.write(bloco)
+    return total
 
 
 @router.post("/documentos")
-async def documento_enviar(request: Request, titulo: str = Form(...), categoria: str = Form(...),
-                           publico: str = Form(""), arquivo: UploadFile = None,
+async def documento_enviar(request: Request, titulo: str = Form(""), categoria: str = Form(...), publico: str = Form(""),
+                           assembleia_id: str = Form(""), arquivos: list[UploadFile] = File(...),
                            admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    ext = Path(arquivo.filename or "").suffix.lower()
-    if ext not in EXT_OK:
-        raise HTTPException(400, "Envie PDF, JPG ou PNG")
-    dados = await arquivo.read()
-    if len(dados) > MAX_MB * 1024 * 1024:
-        raise HTTPException(400, f"Arquivo maior que {MAX_MB} MB")
-    nome = f"documentos/{uuid.uuid4()}{ext}"
-    destino = Path(UPLOAD_DIR) / nome
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    destino.write_bytes(dados)
-    db.add(Documento(titulo=titulo.strip()[:200], categoria=categoria if categoria in CATEGORIAS else "Outros",
-                     arquivo=nome, nome_original=Path(arquivo.filename).name[:255], publico=bool(publico)))
+    """Vários arquivos num envio só, até MAX_TOTAL_MB no total, opcionalmente vinculados a uma assembleia."""
+    def falha(msg):
+        return RedirectResponse(f"/admin/documentos?erro={msg}", status_code=303)
+    arquivos = [a for a in arquivos if a.filename]
+    if not arquivos:
+        return falha("Selecione ao menos um arquivo")
+    if any(Path(a.filename).suffix.lower() not in EXT_OK for a in arquivos):
+        return falha("Envie apenas PDF, JPG ou PNG")
+    aid = None
+    if assembleia_id:
+        try:
+            aid = uuid.UUID(assembleia_id)
+        except ValueError:
+            return falha("Assembleia inválida")
+        if not db.get(Assembleia, aid):
+            return falha("Assembleia não encontrada")
+    restante = MAX_TOTAL_MB * 1024 * 1024
+    gravados: list[Path] = []
+    novos: list[Documento] = []
+    for a in arquivos:
+        ext = Path(a.filename).suffix.lower()
+        nome = f"documentos/{uuid.uuid4()}{ext}"
+        destino = Path(UPLOAD_DIR) / nome
+        gravados.append(destino)
+        n = await _gravar_em_blocos(a, destino, restante)
+        if n < 0:
+            for g in gravados:
+                g.unlink(missing_ok=True)
+            return falha(f"O envio passou de {MAX_TOTAL_MB} MB no total")
+        restante -= n
+        base = titulo.strip()[:200] or Path(a.filename).stem[:200]
+        t = base if len(arquivos) == 1 or not titulo.strip() else f"{base} ({len(novos) + 1})"
+        novos.append(Documento(titulo=t, categoria=categoria if categoria in CATEGORIAS else "Outros", arquivo=nome,
+                               nome_original=Path(a.filename).name[:255], publico=bool(publico), assembleia_id=aid))
+    db.add_all(novos)
     db.commit()
+    registrar("Documentos enviados", request, admin=admin.login, quantidade=len(novos), assembleia=str(aid or "-"))
     return RedirectResponse("/admin/documentos", status_code=303)
 
 
