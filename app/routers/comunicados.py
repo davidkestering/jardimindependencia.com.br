@@ -13,7 +13,7 @@ import auth
 import interfone
 from config import SITE_URL
 from db import SessionLocal, get_db
-from mail import enviar, registrar
+from mail import enviar, ip_de, registrar
 from models import AdminUser, Comunicado, Morador
 from routers.admin import admin_dep
 from routers.morador import morador_atual
@@ -89,7 +89,7 @@ def _mudar_visibilidade(request: Request, c: Comunicado, vis: str, admin: AdminU
     primeira = vis != "rascunho" and c.publicado_em is None
     c.visibilidade = vis
     if primeira:
-        c.publicado_em = datetime.now(timezone.utc)
+        c.publicado_em, c.publicado_por, c.publicado_ip = datetime.now(timezone.utc), admin.login, ip_de(request)
     db.commit()
     registrar(f"Comunicado {vis}", request, admin=admin.login, titulo=c.titulo, notificado="sim" if primeira else "não")
     if primeira:
@@ -100,7 +100,7 @@ def _mudar_visibilidade(request: Request, c: Comunicado, vis: str, admin: AdminU
 def admin_criar(request: Request, titulo: str = Form(...), texto: str = Form(...), visibilidade: str = Form("rascunho"),
                 admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     titulo, texto = _validar(titulo, texto)
-    c = Comunicado(titulo=titulo, texto=texto, autor=admin.login)
+    c = Comunicado(titulo=titulo, texto=texto, autor=admin.login, criado_ip=ip_de(request))
     db.add(c)
     db.commit()
     _mudar_visibilidade(request, c, visibilidade, admin, db)

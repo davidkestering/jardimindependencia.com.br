@@ -51,6 +51,7 @@ try:
         assert por_nome["teste-ata.pdf"].assembleia_id == asm.id and por_nome["teste-ata.pdf"].titulo == "teste-ata"
         assert por_nome["teste-b.png"].assembleia_id is None and por_nome["teste-b.png"].titulo == "Balancete"
         assert all((Path(UPLOAD_DIR) / d.arquivo).stat().st_size > 0 for d in docs)
+        assert all(d.enviado_por == a.login and d.enviado_ip for d in docs)
         import re
         for d in docs:  # arquivo = <uuid do registro>_ddmmyyyy_hhmmss.ext
             assert re.fullmatch(rf"documentos/{d.id}_\d{{8}}_\d{{6}}\.(pdf|png)", d.arquivo), d.arquivo
@@ -59,7 +60,7 @@ try:
     r = ac.post("/admin/documentos", data={"categoria": "Outros", "assembleia_id": str(asm.id), "voltar": f"/admin/assembleias/{asm.id}"}, files=[("arquivos", ("teste-viaasm.pdf", pdf, "application/pdf"))], follow_redirects=False)
     assert r.headers["location"] == f"/admin/assembleias/{asm.id}" and "teste-viaasm" in ac.get(f"/admin/assembleias/{asm.id}").text
     assert "Avulso" in ac.get("/admin/documentos").text
-    pg = ac.get("/admin/documentos").text; assert TIT in pg and 'multiple' in pg and "dlg-cat" in pg
+    pg = ac.get("/admin/documentos").text; assert TIT in pg and 'multiple' in pg and "dlg-cat" in pg and f"<strong>{a.login}</strong>" in pg and "IP " in pg
     import re
     for html in (pg, ac.get(f"/admin/assembleias/{asm.id}").text):  # nenhum <form> aberto dentro de outro (quebra o envio no navegador)
         prof = 0
