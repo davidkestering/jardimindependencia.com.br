@@ -109,7 +109,9 @@ class Documento(Base):
     arquivo: Mapped[str] = mapped_column(String(255))   # caminho relativo em UPLOAD_DIR
     nome_original: Mapped[str] = mapped_column(String(255))
     publico: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    assembleia_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("assembleia.id", ondelete="SET NULL"), index=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    assembleia: Mapped["Assembleia | None"] = relationship()
 
 
 class Cobranca(Base):
