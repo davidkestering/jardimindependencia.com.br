@@ -33,9 +33,10 @@ def unidade_da_sessao(sessao: dict | None, db: Session) -> uuid.UUID | None:
     return None
 
 
-def destinos(db: Session):
-    blocos = sorted({u.bloco for u in db.scalars(select(Unidade).where(Unidade.apto != "", Unidade.ativa))})
-    return blocos
+def destinos(db: Session) -> dict[str, list[str]]:
+    """Mapa bloco -> aptos ativos, para os listbox de discagem."""
+    from routers.financeiro import mapa_unidades
+    return mapa_unidades(db)
 
 
 @router.get("/morador/interfone")

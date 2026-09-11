@@ -33,11 +33,15 @@
     </div>
     <form class="card" id="form-chamar">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-        <label>Bloco<select name="bloco" required>{% for b in blocos %}<option>{{ b }}</option>{% endfor %}</select></label>
-        <label>Apartamento<input name="apto" required maxlength="3" inputmode="numeric" placeholder="004"></label>
+        <label>Bloco<select name="bloco" id="d-bloco" required>{% for b in blocos %}<option>{{ b }}</option>{% endfor %}</select></label>
+        <label>Apartamento<select name="apto" id="d-apto" required>{% for a in blocos[blocos|first] %}<option>{{ a }}</option>{% endfor %}</select></label>
       </div>
       <button class="btn" type="submit">Chamar apartamento</button>
     </form>
+    <script>
+      (function () { const mapa = {{ blocos|tojson }}, b = document.getElementById('d-bloco'), a = document.getElementById('d-apto');
+        b.addEventListener('change', () => { a.innerHTML = (mapa[b.value] || []).map(x => `<option>${x}</option>`).join(''); }); })();
+    </script>
     {% if vapid %}
     <div class="item"><h3>Receber chamadas com o app fechado</h3>
       <p>Instale o site como aplicativo e ative as notificações para o interfone tocar mesmo em segundo plano.</p>
