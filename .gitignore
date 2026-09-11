@@ -4,3 +4,5 @@ tmp_galeria/
 uploads/
 __pycache__/
 *.pyc
+app/static/img/condominio/
+docs/referencia/prancha-imagens.jpg
