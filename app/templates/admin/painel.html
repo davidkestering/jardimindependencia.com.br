@@ -8,7 +8,7 @@
   <div class="grade">
     <div class="item"><h3>{{ contagem.get('pendente', 0) }}</h3><p>cadastros aguardando aprovação</p>{% if contagem.get('pendente') and (sessao.master or 'moradores' in sessao.areas) %}<p><a href="/admin/moradores?status=pendente">Revisar</a></p>{% endif %}</div>
     <div class="item"><h3>{{ contagem.get('aprovado', 0) }}</h3><p>moradores com acesso</p></div>
-    <div class="item"><h3>{{ unidades }}</h3><p>unidades ativas</p></div>
+    <div class="item"><h3>{{ aptos }}</h3><p>apartamentos{% if areas %} · mais {{ areas }} área(s): Portaria e Administração{% endif %}</p></div>
     <div class="item"><h3>{{ documentos }}</h3><p>documentos cadastrados</p></div>
   </div>
   <h2 style="margin-top:36px">Trocar minha senha</h2>
