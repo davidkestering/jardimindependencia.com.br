@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block titulo %}Trocar de apartamento · Minha área{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "morador/_menu.html" %}
+  <h1>Trocar de apartamento</h1>
+  <p style="max-width:56ch;font-size:18px">Você deseja sair do <strong>{{ atual.unidade.rotulo }}</strong> e começar a administrar o <strong>{{ alvo.unidade.rotulo }}</strong>?</p>
+  <form method="post" action="/morador/trocar/{{ alvo.id }}" style="display:flex;gap:10px">
+    <button class="btn" type="submit">Sim, trocar</button><a class="btn sec" href="/morador">Cancelar</a>
+  </form>
+</div></section>
+{% endblock %}

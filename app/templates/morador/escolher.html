@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}Escolher apartamento · Jardim Independência{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  <div class="eyebrow">Área do condômino</div>
+  <h1>Qual apartamento você vai administrar nesta sessão?</h1>
+  <p style="max-width:56ch">Seu CPF tem acesso a mais de um apartamento. Escolha um; você pode trocar depois pelo menu.</p>
+  <form method="post" action="/morador/escolher" class="card">
+    <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="next" value="{{ next }}">
+    {% for a in aptos %}<button class="btn" type="submit" name="mid" value="{{ a.id }}" style="display:block;width:100%;margin-bottom:8px">{{ a.unidade.rotulo }}</button>{% endfor %}
+  </form>
+</div></section>
+{% endblock %}

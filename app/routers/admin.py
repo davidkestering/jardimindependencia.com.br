@@ -13,7 +13,7 @@ from config import UPLOAD_DIR
 from db import get_db
 from config import SITE_URL
 from mail import ip_de, notificar, registrar
-from models import AREAS_ADMIN, AdminUser, Documento, Morador, Unidade
+from models import AREAS_ADMIN, AdminUser, Documento, Morador, Residente, Unidade
 from routers.arquivos import servir_documento
 from routers.morador import msg_ocupado, ocupante, validar_contato
 
@@ -93,16 +93,39 @@ def painel(request: Request, admin: AdminUser = Depends(admin_dep), db: Session 
 
 
 # ---- moradores ----
+ORIGEM = {"site": "Solicitou no site", "admin": "Cadastrado pela administração", "transferencia": "Acesso transferido pelo condômino"}
+
+
 @router.get("/moradores")
-def moradores(request: Request, status: str = "", q: str = "", admin: AdminUser = Depends(admin_dep),
-              db: Session = Depends(get_db)):
-    stmt = select(Morador).join(Unidade).order_by(Unidade.bloco, Unidade.apto, Morador.nome)
-    if status:
-        stmt = stmt.where(Morador.status == status)
-    if q:
-        stmt = stmt.where(Morador.nome.ilike(f"%{q}%") | Morador.cpf.contains(auth.so_digitos(q) or "§"))
-    blocos = sorted({u.bloco for u in db.scalars(select(Unidade).where(Unidade.apto != ""))}) + ["PORTARIA", "ADMINISTRACAO"]
-    return render(request, "admin/moradores.html", moradores=db.scalars(stmt).all(), status=status, q=q, blocos=blocos)
+def moradores(request: Request, status: str = "", q: str = "", bloco: str = "", apto: str = "",
+              admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    """Titulares (tabela morador) e residentes cadastrados pelo condômino (tabela residente), numa lista só."""
+    apto_n = auth.so_digitos(apto).zfill(3)[-3:] if apto else ""
+
+    def filtrar(stmt, modelo):
+        if bloco:
+            stmt = stmt.where(Unidade.bloco == bloco)
+        if apto_n:
+            stmt = stmt.where(Unidade.apto == apto_n)
+        if q:
+            stmt = stmt.where(modelo.nome.ilike(f"%{q}%") | modelo.cpf.contains(auth.so_digitos(q) or "§"))
+        return stmt.order_by(Unidade.bloco, Unidade.apto, modelo.nome)
+
+    linhas = []
+    if status != "residente":
+        stmt = filtrar(select(Morador).join(Unidade), Morador)
+        if status:
+            stmt = stmt.where(Morador.status == status)
+        linhas += [dict(u=m.unidade, nome=m.nome, cpf=m.cpf_fmt, nasc=m.nascimento, email=m.email, tel=m.telefone,
+                        papel="Titular do acesso", origem=ORIGEM.get(m.origem, m.origem), status=m.status, id=m.id) for m in db.scalars(stmt)]
+    if status in ("", "residente"):
+        linhas += [dict(u=r.unidade, nome=r.nome, cpf=r.cpf_fmt, nasc=r.nascimento, email=r.email, tel=r.telefone,
+                        papel=f"Residente · {r.tipo}", origem=f"Cadastrado pelo condômino {r.cadastrado_por}", status="", id=None)
+                   for r in db.scalars(filtrar(select(Residente).join(Unidade), Residente))]
+    linhas.sort(key=lambda l: (l["u"].bloco, l["u"].apto, l["nome"]))
+    blocos = sorted({u.bloco for u in db.scalars(select(Unidade).where(Unidade.apto != ""))})
+    return render(request, "admin/moradores.html", linhas=linhas, status=status, q=q, bloco=bloco, apto=apto,
+                  blocos=blocos, blocos_form=blocos + ["PORTARIA", "ADMINISTRACAO"])
 
 
 @router.post("/moradores")
@@ -118,7 +141,7 @@ def morador_criar(request: Request, nome: str = Form(...), cpf: str = Form(...),
         raise HTTPException(400, erro)
     if ocup := ocupante(db, u.id):
         raise HTTPException(400, msg_ocupado(u, ocup))
-    db.add(Morador(unidade_id=u.id, nome=nome.strip()[:120], cpf=cpf_d, nascimento=nasc, status="aprovado",
+    db.add(Morador(unidade_id=u.id, nome=nome.strip()[:120], cpf=cpf_d, nascimento=nasc, status="aprovado", origem="admin",
                    email=email.strip()[:160], telefone=telefone.strip()[:20],
                    decidido_em=datetime.now(timezone.utc), decidido_por=admin.login))
     db.commit()
@@ -128,7 +151,9 @@ def morador_criar(request: Request, nome: str = Form(...), cpf: str = Form(...),
 @router.get("/moradores/{mid}")
 def morador_ver(request: Request, mid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     m = db.get(Morador, mid) or (_ for _ in ()).throw(HTTPException(404))
-    return render(request, "admin/morador.html", m=m, acoes=sorted(TRANSICOES.get(m.status, ())))
+    residentes = db.scalars(select(Residente).where(Residente.unidade_id == m.unidade_id).order_by(Residente.nome)).all()
+    return render(request, "admin/morador.html", m=m, acoes=sorted(TRANSICOES.get(m.status, ())), residentes=residentes,
+                  origem=ORIGEM.get(m.origem, m.origem))
 
 
 @router.post("/moradores/{mid}/status")
