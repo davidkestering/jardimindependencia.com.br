@@ -1,4 +1,5 @@
 """Sessão por cookie assinado, senha bcrypt, validação de CPF e rate limit de login."""
+import random
 import re
 import time
 from collections import defaultdict
@@ -11,8 +12,10 @@ from itsdangerous import BadSignature, URLSafeSerializer
 from config import SECRET_KEY
 
 _serializer = URLSafeSerializer(SECRET_KEY, salt="sessao")
+_captcha = URLSafeSerializer(SECRET_KEY, salt="captcha")
 COOKIE = "sessao"
 SESSAO_HORAS = 12
+CAPTCHA_MIN = 10
 
 # ponytail: rate limit em memória (1 processo). Trocar por Redis se houver mais de um worker.
 _tentativas: dict[str, list[float]] = defaultdict(list)
@@ -102,3 +105,18 @@ if __name__ == "__main__":  # auto-verificação mínima
         registrar_tentativa("k")
     assert bloqueado("k") and not bloqueado("outro")
     print("auth ok")
+
+
+def captcha_novo() -> dict:
+    """Soma simples contra spam. A resposta viaja assinada num campo oculto, com validade de CAPTCHA_MIN minutos."""
+    a, b = random.randint(1, 9), random.randint(1, 9)
+    return {"pergunta": f"{a} + {b}", "token": _captcha.dumps({"r": a + b, "exp": time.time() + CAPTCHA_MIN * 60})}
+
+
+def captcha_ok(token: str, resposta: str) -> bool:
+    # ponytail: token pode ser reutilizado dentro da validade; se virar problema, guardar nonce usado em memória.
+    try:
+        d = _captcha.loads(token or "")
+    except BadSignature:
+        return False
+    return d.get("exp", 0) > time.time() and so_digitos(resposta) == str(d.get("r"))
