@@ -68,6 +68,7 @@ def login_post(request: Request, login: str = Form(...), senha: str = Form(...),
     if auth.bloqueado(chave):
         return render(request, "admin/login.html", erro="Muitas tentativas. Aguarde 15 minutos.", next=next)
     if not auth.captcha_ok(captcha_token, captcha):
+        auth.registrar_tentativa(chave)
         return render(request, "admin/login.html", erro="Resposta da conta de verificação incorreta. Tente novamente.", next=next)
     a = db.scalar(select(AdminUser).where(AdminUser.login == login.strip().lower(), AdminUser.excluido_em.is_(None)))
     if not a or not auth.verificar_senha(senha, a.senha_hash):
