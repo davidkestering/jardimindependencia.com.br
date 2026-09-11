@@ -87,6 +87,11 @@ def contexto_contato(request: Request, db: Session) -> dict:
     return {"mapa": mapa, "morador": m, "sel": (m.unidade.bloco, m.unidade.apto) if m else ("", ""), "captcha": auth.captcha_novo()}
 
 
+@router.get("/doacao")
+def doacao(request: Request):
+    return render(request, "site/doacao.html")
+
+
 @router.get("/contato")
 def contato(request: Request, db: Session = Depends(get_db)):
     return render(request, "site/contato.html", **contexto_contato(request, db))
