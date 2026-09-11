@@ -62,7 +62,8 @@ try:
     assert "aceitar a declaração" in cadastrar("Sem aceite", CPF1, "01", "101", declaracao="")
     assert "verificação incorreta" in cadastrar("Captcha ruim", CPF1, "01", "101", **captcha(certo=False))
     # contato: captcha, selects e unidade do condômino logado
-    ct = dict(nome="Zé", email="ze@example.com", mensagem="oi")
+    ct = dict(nome="Zé", email="ze@example.com", mensagem="oi", declaracao="sim")
+    assert "aceitar a declaração" in c.post("/contato", data={**ct, **captcha(), "declaracao": ""}).text and "art. 339" in c.get("/contato").text
     assert "verificação incorreta" in c.post("/contato", data={**ct, **captcha(False)}).text
     assert "não conferem" in c.post("/contato", data={**ct, **captcha(), "bloco": "01", "apto": "201"}).text
     assert "Mensagem enviada" in c.post("/contato", data={**ct, **captcha(), "bloco": "01", "apto": "101"}).text

@@ -18,6 +18,8 @@
       </div>
       <label>Mensagem<textarea name="mensagem" rows="6" required maxlength="4000"></textarea></label>
       {% include "_captcha.html" %}
+      <p style="font-size:13px;line-height:1.5;color:#6b5a4c;margin:4px 0 8px">{{ termo_ocorrencia }}</p>
+      <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400"><input type="checkbox" name="declaracao" value="sim" required style="width:auto;margin-top:3px"> Li e aceito a declaração acima.</label>
       <button class="btn" type="submit">Enviar mensagem</button>
     </form>
     <script>
