@@ -32,7 +32,9 @@ def registrar(assunto: str, request, **dados) -> None:
     sessao = getattr(request.state, "sessao", None) or {}
     tipo, login, ip = sessao.get("t"), sessao.get("login"), ip_de(request)
     if not login:  # antes de existir sessão (logins, cadastro no site): usa o identificador informado na própria ação
-        login = str(dados.get("login") or "") or (f"{dados['nome']} ({dados['cpf']})" if dados.get("nome") and dados.get("cpf") else None)
+        cpf = "".join(ch for ch in str(dados.get("cpf") or "") if ch.isdigit())
+        cpf = f"{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}" if len(cpf) == 11 else str(dados.get("cpf") or "")
+        login = str(dados.get("login") or "") or (f"{dados['nome']} ({cpf})" if dados.get("nome") and cpf else None)
         tipo = tipo or ("admin" if dados.get("login") else ("morador" if login else None))
     linhas = [f"Data/hora: {datetime.now(FUSO):%d/%m/%Y %H:%M:%S}", f"IP: {ip}", f"Quem: {login or 'visitante'}",
               f"Navegador: {request.headers.get('user-agent', '')[:200]}", ""]
