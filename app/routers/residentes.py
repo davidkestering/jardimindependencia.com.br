@@ -70,6 +70,10 @@ def cadastrar(request: Request, nome: str = Form(...), cpf: str = Form(...), nas
     db.add(r)
     db.commit()
     registrar("Residente cadastrado pelo condômino", request, titular=m.nome, unidade=m.unidade.rotulo, nome=r.nome, cpf=r.cpf_fmt, tipo=tipo, declaracao_aceita="sim")
+    notificar(MAIL_CONTATO, f"[Site] Residente cadastrado: {r.nome} ({m.unidade.rotulo})",
+              f"O condômino {m.nome} cadastrou um residente no {m.unidade.rotulo} (sem necessidade de aprovação).\n\n"
+              f"Nome: {r.nome}\nTipo: {TIPOS[tipo]}\nCPF: {r.cpf_fmt}\nNascimento: {r.nascimento:%d/%m/%Y}\nE-mail: {r.email}\nTelefone: {r.telefone}\n\n"
+              f"Ver na administração: {SITE_URL}/admin/moradores/{m.id}")
     return RedirectResponse("/morador/residentes", status_code=303)
 
 
@@ -80,6 +84,9 @@ def excluir(request: Request, rid: uuid.UUID, sessao: dict = Depends(auth.exigir
     r.excluido_em, r.excluido_por, r.excluido_ip = datetime.now(timezone.utc), f"condômino {m.nome}", ip_de(request)  # lógico
     db.commit()
     registrar("Residente removido pelo condômino (lógico)", request, titular=m.nome, unidade=m.unidade.rotulo, nome=r.nome, cpf=r.cpf_fmt)
+    notificar(MAIL_CONTATO, f"[Site] Residente removido: {r.nome} ({m.unidade.rotulo})",
+              f"O condômino {m.nome} removeu o residente {r.nome} (CPF {r.cpf_fmt}, {TIPOS.get(r.tipo, r.tipo)}) do {m.unidade.rotulo}.\n"
+              f"O registro fica no histórico: {SITE_URL}/admin/moradores/{m.id}")
     return RedirectResponse("/morador/residentes", status_code=303)
 
 
