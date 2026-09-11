@@ -8,7 +8,7 @@ mail.enviar = lambda *a, **k: True
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 import auth
 from config import UPLOAD_DIR
 from db import SessionLocal
@@ -23,7 +23,9 @@ def limpar():
     with SessionLocal() as db:
         for d in db.scalars(select(Documento).where(Documento.nome_original.like("teste-%"))):
             (Path(UPLOAD_DIR) / d.arquivo).unlink(missing_ok=True); db.delete(d)
-        db.execute(delete(Assembleia).where(Assembleia.titulo == TIT)); db.commit()
+        db.execute(delete(Assembleia).where(Assembleia.titulo == TIT))
+        from models import CategoriaDocumento
+        db.execute(delete(CategoriaDocumento).where(CategoriaDocumento.nome.ilike("laudos teste"))); db.commit()
 
 
 limpar()
@@ -53,7 +55,16 @@ try:
     r = ac.post("/admin/documentos", data={"categoria": "Outros", "assembleia_id": str(asm.id), "voltar": f"/admin/assembleias/{asm.id}"}, files=[("arquivos", ("teste-viaasm.pdf", pdf, "application/pdf"))], follow_redirects=False)
     assert r.headers["location"] == f"/admin/assembleias/{asm.id}" and "teste-viaasm" in ac.get(f"/admin/assembleias/{asm.id}").text
     assert "Avulso" in ac.get("/admin/documentos").text
-    pg = ac.get("/admin/documentos").text; assert TIT in pg and 'multiple' in pg
+    pg = ac.get("/admin/documentos").text; assert TIT in pg and 'multiple' in pg and "dlg-cat" in pg
+    # nova categoria via modal (dedup sem diferenciar maiúsculas), disponível nas duas telas
+    from models import CategoriaDocumento
+    with SessionLocal() as db: db.execute(delete(CategoriaDocumento).where(CategoriaDocumento.nome.ilike("laudos teste"))); db.commit()
+    assert ac.post("/admin/categorias", data={"nome": "  Laudos   teste ", "voltar": f"/admin/assembleias/{asm.id}"}, follow_redirects=False).headers["location"] == f"/admin/assembleias/{asm.id}"
+    ac.post("/admin/categorias", data={"nome": "laudos TESTE"})
+    with SessionLocal() as db: assert db.scalar(select(func.count()).select_from(CategoriaDocumento).where(CategoriaDocumento.nome.ilike("laudos teste"))) == 1
+    assert "Laudos teste" in ac.get("/admin/documentos").text and "Laudos teste" in ac.get(f"/admin/assembleias/{asm.id}").text
+    r = ac.post("/admin/documentos", data={"categoria": "Laudos teste"}, files=[("arquivos", ("teste-cat.pdf", pdf, "application/pdf"))], follow_redirects=False)
+    with SessionLocal() as db: assert db.scalar(select(Documento).where(Documento.nome_original == "teste-cat.pdf")).categoria == "Laudos teste"
 
     # extensão inválida e assembleia inexistente
     assert "erro=Envie" in ac.post("/admin/documentos", data={"categoria": "Outros"}, files=[("arquivos", ("teste-x.exe", b"1", "application/octet-stream"))], follow_redirects=False).headers["location"]

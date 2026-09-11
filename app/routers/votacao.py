@@ -79,8 +79,8 @@ def admin_criar(titulo: str = Form(...), abre_em: str = Form(...), fecha_em: str
 def admin_detalhe(request: Request, aid: uuid.UUID, erro: str = "", admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     a = carregar(db, aid)
     docs = db.scalars(select(Documento).where(Documento.assembleia_id == aid).order_by(Documento.criado_em)).all()
-    from routers.admin import CATEGORIAS, MAX_TOTAL_MB
-    return render(request, "admin/assembleia.html", a=a, res=resultado(db, a), documentos=docs, erro=erro, categorias=CATEGORIAS, max_mb=MAX_TOTAL_MB,
+    from routers.admin import MAX_TOTAL_MB, categorias
+    return render(request, "admin/assembleia.html", a=a, res=resultado(db, a), documentos=docs, erro=erro, categorias=categorias(db), max_mb=MAX_TOTAL_MB,
                   unidades_ativas=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.ativa, Unidade.apto != "")))
 
 

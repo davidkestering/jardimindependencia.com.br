@@ -13,12 +13,15 @@ from config import UPLOAD_DIR
 from db import get_db
 from config import SITE_URL
 from mail import ip_de, notificar, registrar
-from models import AREAS_ADMIN, AdminUser, Assembleia, Documento, Morador, Residente, Unidade
+from models import AREAS_ADMIN, AdminUser, Assembleia, CategoriaDocumento, Documento, Morador, Residente, Unidade
 from routers.arquivos import servir_documento
 from routers.morador import msg_ocupado, ocupante, validar_contato
 
 router = APIRouter(prefix="/admin")
-CATEGORIAS = ["Convenção", "Regimento interno", "Atas de assembleia", "Balancetes", "Contratos com Administradora de Condomínio", "Contratos com Terceiros", "Comunicados", "Outros"]
+
+
+def categorias(db: Session) -> list[str]:
+    return [c.nome for c in db.scalars(select(CategoriaDocumento).order_by(CategoriaDocumento.nome))]
 EXT_OK = {".pdf", ".jpg", ".jpeg", ".png"}
 MAX_TOTAL_MB = 100   # soma de todos os arquivos de um envio
 BLOCO = 1024 * 1024  # gravação em blocos de 1 MB: nunca carrega o arquivo inteiro em memória
@@ -182,7 +185,7 @@ def morador_status(request: Request, mid: uuid.UUID, status: str = Form(...), ad
 def documentos(request: Request, erro: str = "", admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     docs = db.scalars(select(Documento).order_by(Documento.criado_em.desc())).all()
     assembleias = db.scalars(select(Assembleia).order_by(Assembleia.abre_em.desc())).all()
-    return render(request, "admin/documentos.html", documentos=docs, categorias=CATEGORIAS, assembleias=assembleias,
+    return render(request, "admin/documentos.html", documentos=docs, categorias=categorias(db), assembleias=assembleias,
                   max_mb=MAX_TOTAL_MB, erro=erro)
 
 
@@ -223,6 +226,7 @@ async def documento_enviar(request: Request, titulo: str = Form(""), categoria: 
             return falha("Assembleia inválida")
         if not db.get(Assembleia, aid):
             return falha("Assembleia não encontrada")
+    cats = categorias(db)
     restante = MAX_TOTAL_MB * 1024 * 1024
     gravados: list[Path] = []
     novos: list[Documento] = []
@@ -239,7 +243,7 @@ async def documento_enviar(request: Request, titulo: str = Form(""), categoria: 
         restante -= n
         base = titulo.strip()[:200] or Path(a.filename).stem[:200]
         t = base if len(arquivos) == 1 or not titulo.strip() else f"{base} ({len(novos) + 1})"
-        novos.append(Documento(titulo=t, categoria=categoria if categoria in CATEGORIAS else "Outros", arquivo=nome,
+        novos.append(Documento(titulo=t, categoria=categoria if categoria in cats else "Outros", arquivo=nome,
                                nome_original=Path(a.filename).name[:255], publico=bool(publico), assembleia_id=aid))
     db.add_all(novos)
     db.commit()
@@ -269,6 +273,22 @@ def documento_excluir(did: uuid.UUID, voltar: str = Form(""), admin: AdminUser =
 @router.get("/documentos/{did}")
 def documento_baixar(did: str, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     return servir_documento(db, did, apenas_publicos=False)
+
+
+@router.post("/categorias")
+def categoria_criar(request: Request, nome: str = Form(...), voltar: str = Form(""), admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    """Nova categoria de documento (modal nas telas de envio). Precisa da área documentos: /admin/categorias não está em AREAS_ADMIN."""
+    if not admin.pode("documentos"):
+        raise HTTPException(403, "Área não liberada para o seu usuário")
+    destino = voltar if voltar.startswith("/admin/") else "/admin/documentos"
+    nome = " ".join(nome.split())[:80]
+    if not nome:
+        return RedirectResponse(f"{destino}?erro=Informe+o+nome+da+categoria", status_code=303)
+    if not db.scalar(select(CategoriaDocumento).where(func.lower(CategoriaDocumento.nome) == nome.lower())):
+        db.add(CategoriaDocumento(nome=nome))
+        db.commit()
+        registrar("Categoria de documento criada", request, admin=admin.login, categoria=nome)
+    return RedirectResponse(destino, status_code=303)
 
 
 # ---- usuários da administração (só master; a checagem está em admin_dep) ----

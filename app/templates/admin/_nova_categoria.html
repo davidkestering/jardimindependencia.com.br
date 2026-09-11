@@ -1,0 +1,9 @@
+<button type="button" class="btn sec" style="padding:4px 10px;font-size:12px;margin-left:8px" onclick="document.getElementById('dlg-cat').showModal()">+ Nova categoria</button>
+<dialog id="dlg-cat" style="border:0;border-radius:12px;padding:24px;max-width:420px;width:92%;box-shadow:0 10px 40px rgba(0,0,0,.25)">
+  <form method="post" action="/admin/categorias">
+    <input type="hidden" name="voltar" value="{{ voltar }}">
+    <h3 style="margin-top:0">Nova categoria de documento</h3>
+    <label>Nome<input name="nome" required maxlength="80" placeholder="Ex.: Laudos técnicos" autofocus></label>
+    <p style="display:flex;gap:8px;margin:12px 0 0"><button class="btn" type="submit">Salvar</button><button class="btn sec" type="button" onclick="document.getElementById('dlg-cat').close()">Cancelar</button></p>
+  </form>
+</dialog>
