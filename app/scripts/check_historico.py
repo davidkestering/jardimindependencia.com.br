@@ -78,7 +78,11 @@ try:
     assert "assembleia(s) excluída(s)" in ac.get("/admin/assembleias").text and "Assembleia excluída por" in ac.get(f"/admin/assembleias/{aid}").text
 
     # histórico visível só ao mestre, com busca
-    hp = ac.get("/admin/historico?q=hist-doc").text; assert "Documento excluído (lógico)" in hp and "203.0.113.9" in hp
+    hp = ac.get("/admin/historico").text; assert "Registro mais antigo" in hp and "<table" not in hp  # nada listado sem período
+    from datetime import date as _d; hoje = _d.today().isoformat()
+    hp = ac.get(f"/admin/historico?de={hoje}&ate={hoje}&q=hist-doc").text; assert "Documento excluído (lógico)" in hp and "203.0.113.9" in hp
+    assert "Nenhum registro" in ac.get("/admin/historico?de=2000-01-01&ate=2000-01-02").text
+    assert "anterior à inicial" in ac.get(f"/admin/historico?de={hoje}&ate=2000-01-01").text
     print("check_historico ok")
 finally:
     limpar()
