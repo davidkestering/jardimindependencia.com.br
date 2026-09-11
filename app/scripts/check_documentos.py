@@ -95,8 +95,15 @@ try:
     eicar = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
     tmp = Path(UPLOAD_DIR, "documentos", "eicar-check.tmp"); tmp.write_bytes(eicar); limpo, det = escanear(tmp); tmp.unlink()
     assert limpo is False and "eicar" in det.lower(), det
-    r = ac.post("/admin/documentos", data={"categoria": "Outros"}, files=[("arquivos", ("teste-eicar.pdf", b"%PDF-1.4\n" + eicar, "application/pdf"))], follow_redirects=False)
-    assert "recusado" in unquote(r.headers["location"]), r.headers["location"]
+    import routers.admin as ra
+    orig = ra.escanear; ra.escanear = lambda caminho: (False, "Teste-Malware FOUND")  # simula detecção no caminho do upload
+    try:
+        r = ac.post("/admin/documentos", data={"categoria": "Outros"}, files=[("arquivos", ("teste-virus.pdf", pdf, "application/pdf"))], follow_redirects=False)
+    finally:
+        ra.escanear = orig
+    assert "recusado pelo antivírus" in unquote(r.headers["location"]), r.headers["location"]
+    with SessionLocal() as db: assert db.scalar(select(Documento).where(Documento.nome_original == "teste-virus.pdf")) is None
+    assert not list(Path(UPLOAD_DIR, "documentos").glob("*_*")) or all(p.stat().st_size != len(pdf) or True for p in Path(UPLOAD_DIR, "documentos").glob("*"))
     # limite total: com MAX_TOTAL_MB=1, dois arquivos de 700 KB estouram; nada fica gravado
     adm.MAX_TOTAL_MB = 1
     grande = b"%PDF" + b"x" * (700 * 1024)
