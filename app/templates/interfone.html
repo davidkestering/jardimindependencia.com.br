@@ -50,9 +50,13 @@
           if (instalado) { dica.textContent = 'Aplicativo já instalado neste aparelho.'; dica.hidden = false; return; }
           setTimeout(function () {
             if (!document.getElementById('btn-instalar').hidden) return;
-            var ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+            var ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua), firefox = /Firefox/.test(ua), samsung = /SamsungBrowser/.test(ua);
             dica.textContent = ios
               ? 'No iPhone/iPad: no Safari, toque em Compartilhar (quadrado com seta) e depois em "Adicionar à Tela de Início". Só depois disso é possível ativar as notificações.'
+              : firefox
+              ? 'No Firefox: toque no menu (⋮) no canto da tela e escolha "Instalar" ou "Adicionar à tela inicial". O Firefox não mostra botão de instalar dentro do site.'
+              : samsung
+              ? 'No navegador Samsung: toque no menu (≡) e em "Adicionar página a" → "Tela inicial".'
               : 'Para instalar: no menu do navegador (⋮), toque em "Instalar aplicativo" ou "Adicionar à tela inicial".';
             dica.hidden = false;
           }, 2500);
