@@ -103,6 +103,13 @@ class AdminUser(Base):
         return self.master or area in (self.areas or [])
 
 
+class CategoriaDocumento(Base):
+    __tablename__ = "categoria_documento"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    nome: Mapped[str] = mapped_column(String(80), unique=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Documento(Base):
     __tablename__ = "documento"
     id: Mapped[uuid.UUID] = uuid_pk()

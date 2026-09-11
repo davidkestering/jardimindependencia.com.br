@@ -18,7 +18,7 @@
     <input type="hidden" name="assembleia_id" value="{{ a.id }}"><input type="hidden" name="voltar" value="/admin/assembleias/{{ a.id }}">
     <label>Arquivos (PDF, JPG ou PNG; vários de uma vez, até {{ max_mb }} MB no total)<input name="arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple required></label>
     <label>Título (opcional; vazio usa o nome de cada arquivo)<input name="titulo" maxlength="200"></label>
-    <label>Categoria<select name="categoria">{% for c in categorias %}<option {% if c == 'Atas de assembleia' %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+    <label><span>Categoria{% with voltar='/admin/assembleias/' ~ a.id %}{% include "admin/_nova_categoria.html" %}{% endwith %}</span><select name="categoria">{% for c in categorias %}<option {% if c == 'Atas de assembleia' %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
     <label style="grid-template-columns:auto 1fr;align-items:center;gap:10px;display:grid"><input type="checkbox" name="publico" value="1" style="width:auto" checked>Publicar para os condôminos agora</label>
     <button class="btn" type="submit">Enviar</button>
   </form></details>

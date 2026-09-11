@@ -24,7 +24,7 @@
     <p id="resumo" style="font-size:13px;color:#6b5a4c;margin:-6px 0 10px"></p>
     <label>Título (opcional; vazio usa o nome de cada arquivo)<input name="titulo" maxlength="200"></label>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-      <label>Categoria<select name="categoria">{% for c in categorias %}<option>{{ c }}</option>{% endfor %}</select></label>
+      <label><span>Categoria{% with voltar='/admin/documentos' %}{% include "admin/_nova_categoria.html" %}{% endwith %}</span><select name="categoria">{% for c in categorias %}<option>{{ c }}</option>{% endfor %}</select></label>
       <label>Assembleia (opcional)<select name="assembleia_id"><option value="">Documento avulso</option>{% for a in assembleias %}<option value="{{ a.id }}">{{ a.titulo }} · {{ a.abre_em.strftime('%d/%m/%Y') }}</option>{% endfor %}</select></label>
     </div>
     <label style="grid-template-columns:auto 1fr;align-items:center;gap:10px;display:grid"><input type="checkbox" name="publico" value="1" style="width:auto">Publicar para os condôminos agora</label>
