@@ -5,14 +5,14 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 import auth
 from config import UPLOAD_DIR
 from db import get_db
 from config import SITE_URL
-from mail import ip_de, notificar, registrar
+from mail import FUSO, ip_de, notificar, registrar
 from models import AREAS_ADMIN, AdminUser, Assembleia, CategoriaDocumento, Documento, Morador, Residente, Unidade
 from routers.arquivos import servir_documento
 from routers.morador import msg_ocupado, ocupante, validar_contato
@@ -232,7 +232,9 @@ async def documento_enviar(request: Request, titulo: str = Form(""), categoria: 
     novos: list[Documento] = []
     for a in arquivos:
         ext = Path(a.filename).suffix.lower()
-        nome = f"documentos/{uuid.uuid4()}{ext}"
+        # nome do arquivo = UUID v7 do registro (ordenável no tempo, Postgres 18) + data/hora: sem duplicidade
+        doc_id = db.scalar(text("select uuidv7()"))
+        nome = f"documentos/{doc_id}_{datetime.now(FUSO):%d%m%Y_%H%M%S}{ext}"
         destino = Path(UPLOAD_DIR) / nome
         gravados.append(destino)
         n = await _gravar_em_blocos(a, destino, restante)
@@ -243,7 +245,7 @@ async def documento_enviar(request: Request, titulo: str = Form(""), categoria: 
         restante -= n
         base = titulo.strip()[:200] or Path(a.filename).stem[:200]
         t = base if len(arquivos) == 1 or not titulo.strip() else f"{base} ({len(novos) + 1})"
-        novos.append(Documento(titulo=t, categoria=categoria if categoria in cats else "Outros", arquivo=nome,
+        novos.append(Documento(id=doc_id, titulo=t, categoria=categoria if categoria in cats else "Outros", arquivo=nome,
                                nome_original=Path(a.filename).name[:255], publico=bool(publico), assembleia_id=aid))
     db.add_all(novos)
     db.commit()
