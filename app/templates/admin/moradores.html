@@ -7,8 +7,8 @@
   <h1>Moradores</h1>
   <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
     <select name="status"><option value="">Titulares e residentes</option>{% for s, r in [('pendente','Pendentes'),('aprovado','Aprovados'),('negado','Negados'),('residente','Só residentes (cadastrados pelo condômino)')] %}<option value="{{ s }}" {% if s==status %}selected{% endif %}>{{ r }}</option>{% endfor %}</select>
-    <select name="bloco"><option value="">Bloco</option>{% for b in blocos %}<option {% if b==bloco %}selected{% endif %}>{{ b }}</option>{% endfor %}</select>
-    <input name="apto" value="{{ apto }}" placeholder="Apto" style="width:90px" inputmode="numeric">
+    <select name="bloco" id="f-bloco"><option value="">Bloco</option>{% for b in mapa %}<option {% if b==bloco %}selected{% endif %}>{{ b }}</option>{% endfor %}</select>
+    <select name="apto" id="f-apto"><option value="">Apto</option>{% for a in mapa.get(bloco, []) %}<option {% if a==apto %}selected{% endif %}>{{ a }}</option>{% endfor %}</select>
     <input name="q" value="{{ q }}" placeholder="Nome ou CPF" style="width:220px">
     <button class="btn" type="submit">Filtrar</button>
     {% if status or bloco or apto or q %}<a class="btn sec" href="/admin/moradores">Limpar</a>{% endif %}
@@ -28,12 +28,20 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <label>CPF<input name="cpf" required inputmode="numeric"></label>
       <label>Data de nascimento<input name="nascimento" type="date" required></label>
-      <label>Bloco<select name="bloco">{% for b in blocos_form %}<option>{{ b }}</option>{% endfor %}</select></label>
-      <label>Apartamento<input name="apto" maxlength="3" placeholder="004 (vazio p/ Portaria)"></label>
+      <label>Bloco<select name="bloco" id="c-bloco">{% for b in mapa_form %}<option>{{ b }}</option>{% endfor %}</select></label>
+      <label>Apartamento<select name="apto" id="c-apto">{% for a in mapa_form[mapa_form|first] %}<option>{{ a }}</option>{% endfor %}</select></label>
       <label>E-mail<input name="email" type="email" required></label>
       <label>Telefone<input name="telefone" type="tel" required></label>
     </div>
     <button class="btn" type="submit">Cadastrar (já aprovado)</button>
   </form>
+  <script>
+    const mapa = {{ mapa_form|tojson }};
+    function liga(bId, aId, vazio) {
+      const b = document.getElementById(bId), a = document.getElementById(aId);
+      b.addEventListener('change', () => { a.innerHTML = (vazio ? '<option value="">Apto</option>' : '') + (mapa[b.value] || []).map(x => `<option>${x}</option>`).join(''); });
+    }
+    liga('f-bloco', 'f-apto', true); liga('c-bloco', 'c-apto', false);
+  </script>
 </div></section>
 {% endblock %}
