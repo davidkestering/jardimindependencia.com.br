@@ -9,7 +9,7 @@
   <form class="card" method="post" action="/morador/login">
     <input type="hidden" name="next" value="{{ next }}">
     <label>CPF<input name="cpf" inputmode="numeric" required placeholder="000.000.000-00" autocomplete="username"></label>
-    <label>Data de nascimento<input name="nascimento" type="date" required autocomplete="bday"></label>
+    <label>Data de nascimento<input name="nascimento" type="text" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" pattern="\d{2}/\d{2}/\d{4}" title="Digite a data no formato dd/mm/aaaa" required autocomplete="bday"></label>
     {% include "_captcha.html" %}
     <button class="btn" type="submit">Entrar</button>
     <p style="margin:0;font-size:14px">Ainda não tem acesso? <a href="/morador/cadastro">Solicite seu cadastro</a>.</p>
