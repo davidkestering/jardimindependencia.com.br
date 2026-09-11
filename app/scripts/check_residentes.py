@@ -82,7 +82,7 @@ try:
     assert "transferiu o acesso" in login(A)[1].text
     assert "aguarda aprovação" in login(R)[1].text
     time.sleep(0.3); assuntos = {p: a for p, a, _ in enviados}
-    assert "transferiu o acesso" in assuntos["ana@example.com"] and "aguarde a liberação" in assuntos["r@example.com"] and "Aguarde o e-mail de liberação" in [c for p, _, c in enviados if p == "r@example.com"][0] and any("[Site] Acesso transferido" in a for _, a, _ in enviados)
+    assert "transferiu o acesso" in assuntos["ana@example.com"] and "aguarde a liberação" in assuntos["r@example.com"] and all(t in [c for p, _, c in enviados if p == "r@example.com"][0] for t in ("Aguarde o e-mail de liberação", "login será sempre o seu CPF", "111.444.777-35")) and any("[Site] Acesso transferido" in a for _, a, _ in enviados)
     corpo_a = [c for p, _, c in enviados if p == "ana@example.com"][0]; assert "111.444.777-35" in corpo_a and "pendente de aprovação" in corpo_a
     assert "transferiu o acesso" in ac.get("/admin/moradores?status=transferido").text
     assert ac.post(f"/admin/moradores/{mr.id}/status", data={"status": "aprovado"}, follow_redirects=False).status_code == 303
