@@ -56,6 +56,7 @@ try:
     assert mc.post("/morador/residentes", data={**base, "nome": "Rui Inquilino", "cpf": R, "tipo": "inquilino"}, follow_redirects=False).status_code == 303
     assert mc.post("/morador/residentes", data={**base, "nome": "Sol Moradora", "cpf": S, "tipo": "morador"}, follow_redirects=False).status_code == 303
     assert "em nome de Rui Inquilino" in mc.post("/morador/residentes", data={**base, "nome": "Dup", "cpf": R, "tipo": "morador"}).text
+    time.sleep(0.3); assert sum(1 for p, a, _ in enviados if p == mail.MAIL_CONTATO and "Residente cadastrado" in a) == 2, [a for _, a, _ in enviados]
     pg = mc.get("/morador/residentes").text; assert "Rui Inquilino" in pg and "Inquilino" in pg and "Sol Moradora" in pg
     with SessionLocal() as db:
         rr = db.scalar(select(Residente).where(Residente.cpf == R)); assert rr.termo_texto == TERMO and rr.termo_aceito_em and rr.termo_ip
@@ -66,6 +67,7 @@ try:
         rs = {r.cpf: r.id for r in db.scalars(select(Residente).where(Residente.unidade_id == u1.id))}
     mc.post(f"/morador/residentes/{rs[S]}/excluir")
     assert "Sol Moradora" not in mc.get("/morador/residentes").text
+    time.sleep(0.3); assert any(p == mail.MAIL_CONTATO and "Residente removido: Sol Moradora" in a for p, a, _ in enviados)
     with SessionLocal() as db:
         sr = db.get(Residente, rs[S]); assert sr and sr.excluido_em and "Ana Titular" in sr.excluido_por and sr.excluido_ip  # lógico
     assert "removido por condômino Ana Titular" in ac.get(f"/admin/moradores/{ma.id}").text
