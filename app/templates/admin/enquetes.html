@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block titulo %}Enquetes · Administração{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "admin/_menu.html" %}
+  <h1>Enquetes</h1>
+  <p style="max-width:62ch">Consultas rápidas aos condôminos: uma pergunta, opções e período. Um voto por apartamento; unidade inadimplente vota, mas o voto não é computado. O condômino vê o resultado parcial logo após votar.</p>
+  <div class="grade">
+    {% for e in enquetes %}<div class="item"><div class="eyebrow">{% if e.excluido_em %}Excluída{% elif e.abre_em <= agora <= e.fecha_em %}Aberta{% elif agora < e.abre_em %}Agendada{% else %}Encerrada{% endif %}</div>
+      <h3>{{ e.pergunta }}</h3><p>{{ e.abre_em.strftime('%d/%m/%Y %H:%M') }} até {{ e.fecha_em.strftime('%d/%m/%Y %H:%M') }}</p>
+      <p style="margin-top:10px"><a class="btn sec" href="/admin/enquetes/{{ e.id }}">Resultados</a></p></div>
+    {% else %}<p>Nenhuma enquete cadastrada.</p>{% endfor %}
+  </div>
+  {% if excluidas %}<details style="margin-top:24px"><summary style="cursor:pointer;font-weight:600">Histórico: {{ excluidas|length }} enquete(s) excluída(s)</summary>
+  <ul style="margin-top:10px">{% for e in excluidas %}<li><a href="/admin/enquetes/{{ e.id }}">{{ e.pergunta }}</a> · excluída por <strong>{{ e.excluido_por }}</strong> em {{ e.excluido_em|local }} · IP {{ e.excluido_ip or '?' }}</li>{% endfor %}</ul></details>{% endif %}
+  <h2 style="margin-top:36px;font-size:22px">Nova enquete</h2>
+  <form class="card" method="post" action="/admin/enquetes">
+    <label>Pergunta<input name="pergunta" required maxlength="300" placeholder="Ex.: Qual horário prefere para a limpeza da piscina?"></label>
+    <label>Descrição (opcional)<textarea name="descricao" rows="3" maxlength="4000"></textarea></label>
+    <label>Opções (uma por linha)<textarea name="opcoes" rows="4" required placeholder="Manhã&#10;Tarde&#10;Noite"></textarea></label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <label>Abre em<input name="abre_em" type="datetime-local" required></label>
+      <label>Fecha em<input name="fecha_em" type="datetime-local" required></label>
+    </div>
+    <button class="btn" type="submit">Criar enquete</button>
+  </form>
+</div></section>
+{% endblock %}

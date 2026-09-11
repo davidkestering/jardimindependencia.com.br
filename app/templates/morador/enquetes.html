@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block titulo %}Enquetes · Minha área{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "morador/_menu.html" %}
+  <h1>Enquetes</h1>
+  <div class="grade">
+    {% for e in enquetes %}<div class="item"><div class="eyebrow">{% if e.abre_em <= agora <= e.fecha_em %}Aberta até {{ e.fecha_em.strftime('%d/%m %H:%M') }}{% elif agora < e.abre_em %}Abre em {{ e.abre_em.strftime('%d/%m %H:%M') }}{% else %}Encerrada{% endif %}{% if e.id in votadas %} · sua unidade já votou{% endif %}</div>
+      <h3>{{ e.pergunta }}</h3>
+      <p style="margin-top:10px"><a class="btn sec" href="/morador/enquetes/{{ e.id }}">{% if e.abre_em <= agora <= e.fecha_em and e.id not in votadas %}Votar{% else %}Ver{% endif %}</a></p></div>
+    {% else %}<p>Nenhuma enquete publicada.</p>{% endfor %}
+  </div>
+</div></section>
+{% endblock %}
