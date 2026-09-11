@@ -136,8 +136,8 @@ def sair():
 
 @router.get("/cadastro")
 def cadastro(request: Request, db: Session = Depends(get_db)):
-    blocos = sorted({u.bloco for u in db.scalars(select(Unidade).where(Unidade.apto != ""))})
-    return render(request, "morador/cadastro.html", blocos=blocos)
+    from routers.financeiro import mapa_unidades
+    return render(request, "morador/cadastro.html", mapa=mapa_unidades(db))
 
 
 @router.post("/cadastro")
@@ -145,7 +145,8 @@ def cadastro_post(request: Request, nome: str = Form(...), cpf: str = Form(...),
                   bloco: str = Form(...), apto: str = Form(...), email: str = Form(...), telefone: str = Form(...),
                   declaracao: str = Form(""), captcha: str = Form(""), captcha_token: str = Form(""),
                   db: Session = Depends(get_db)):
-    blocos = sorted({u.bloco for u in db.scalars(select(Unidade).where(Unidade.apto != ""))})
+    from routers.financeiro import mapa_unidades
+    mapa = mapa_unidades(db)
     cpf_d, nasc = auth.so_digitos(cpf), auth.parse_data(nascimento)
     apto = auth.so_digitos(apto).zfill(3)[-3:]
     dados = dict(nome=nome, cpf=cpf, nascimento=nascimento, bloco=bloco, apto=apto, email=email, telefone=telefone)
@@ -166,7 +167,7 @@ def cadastro_post(request: Request, nome: str = Form(...), cpf: str = Form(...),
         erro = msg_ocupado(u, ocup)
     if erro:
         registrar("Cadastro no site RECUSADO", request, motivo=erro, **dados)
-        return render(request, "morador/cadastro.html", erro=erro, blocos=blocos, form=dados)
+        return render(request, "morador/cadastro.html", erro=erro, mapa=mapa, form=dados)
     m = Morador(unidade_id=u.id, nome=nome.strip()[:120], cpf=cpf_d, nascimento=nasc,
                 email=email.strip()[:160], telefone=telefone.strip()[:20], status="pendente")
     db.add(m)
@@ -176,11 +177,11 @@ def cadastro_post(request: Request, nome: str = Form(...), cpf: str = Form(...),
         db.rollback()
         erro = msg_ocupado(u, ocupante(db, u.id))
         registrar("Cadastro no site RECUSADO", request, motivo=erro, **dados)
-        return render(request, "morador/cadastro.html", erro=erro, blocos=blocos, form=dados)
+        return render(request, "morador/cadastro.html", erro=erro, mapa=mapa, form=dados)
     registrar("Cadastro no site (pendente)", request, declaracao_aceita="sim", **dados)
     notificar(MAIL_CONTATO, f"[Site] Novo cadastro pendente: {m.nome} ({u.rotulo})",
               f"Morador {m.nome} solicitou acesso para {u.rotulo}.\nRevise em {SITE_URL}/admin/moradores/{m.id}")
-    return render(request, "morador/cadastro.html", sucesso=True, blocos=blocos)
+    return render(request, "morador/cadastro.html", sucesso=True, mapa=mapa)
 
 
 @router.get("")
