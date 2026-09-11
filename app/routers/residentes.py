@@ -96,9 +96,10 @@ def transferir(request: Request, rid: uuid.UUID, sessao: dict = Depends(auth.exi
     notificar(m.email, "[Jardim Independência] Você transferiu o acesso",
               f"Em {quando} você transferiu o acesso à área do condômino de {rot} para {novo.nome} (CPF {novo.cpf_fmt}).\n"
               f"Seu acesso a este apartamento foi encerrado. O novo acesso ficará pendente de aprovação da administração.")
-    notificar(novo.email, "[Jardim Independência] Acesso transferido a você: aguardando aprovação",
-              f"{m.nome} transferiu a você o acesso à área do condômino para {rot}.\n"
-              f"A administração vai conferir e aprovar. Depois disso, entre em {SITE_URL}/morador/login com CPF e data de nascimento.")
+    notificar(novo.email, "[Jardim Independência] Acesso transferido a você: aguarde a liberação",
+              f"{m.nome} transferiu a você os poderes de acesso à área do condômino para {rot}.\n"
+              f"A administração vai conferir a transferência. Aguarde o e-mail de liberação de acesso; só depois dele será possível "
+              f"entrar em {SITE_URL}/morador/login com CPF e data de nascimento.")
     notificar(MAIL_CONTATO, f"[Site] Acesso transferido, aguardando aprovação: {novo.nome} ({rot})",
               f"{m.nome} transferiu o acesso de {rot} para {novo.nome} (CPF {novo.cpf_fmt}) em {quando}.\nRevise em {SITE_URL}/admin/moradores/{novo.id}")
     registrar("Acesso TRANSFERIDO pelo condômino (pendente)", request, unidade=rot, de=f"{m.nome} ({m.cpf_fmt})", para=f"{novo.nome} ({novo.cpf_fmt})")
