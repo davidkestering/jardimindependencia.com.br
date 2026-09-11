@@ -84,6 +84,9 @@ class Residente(Base):
     tipo: Mapped[str] = mapped_column(String(12))  # morador|inquilino
     cadastrado_por: Mapped[str] = mapped_column(String(120))
     cadastrado_ip: Mapped[str | None] = mapped_column(String(45))
+    termo_texto: Mapped[str | None] = mapped_column(Text)  # declaração aceita pelo titular ao cadastrar este residente
+    termo_aceito_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    termo_ip: Mapped[str | None] = mapped_column(String(45))
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
     excluido_por: Mapped[str | None] = mapped_column(String(120))
