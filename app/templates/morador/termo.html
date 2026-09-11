@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block titulo %}Declaração · Minha área{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  <div class="eyebrow">Área do condômino</div>
+  <h1>{% if primeira %}Declaração de veracidade{% else %}A declaração foi atualizada{% endif %}</h1>
+  <p style="max-width:60ch">{% if primeira %}Para usar a área do condômino, leia e aceite a declaração abaixo.{% else %}O texto da declaração mudou desde o seu aceite. Leia e aceite a nova versão para continuar.{% endif %}</p>
+  {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
+  <form class="card" method="post" action="/morador/termo" style="max-width:640px">
+    <p style="font-size:14px;line-height:1.6;color:#6b5a4c">{{ termo }}</p>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400"><input type="checkbox" name="declaracao" value="sim" required style="width:auto;margin-top:3px"> Li e aceito a declaração acima.</label>
+    <p style="display:flex;gap:8px;margin:12px 0 0"><button class="btn" type="submit">Aceitar e continuar</button><a class="btn sec" href="/morador/sair">Sair</a></p>
+  </form>
+</div></section>
+{% endblock %}

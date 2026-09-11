@@ -15,6 +15,7 @@
     <dt>Origem</dt><dd>{{ origem }}</dd>
     <dt>Situação</dt><dd><span class="st st-{{ m.status }}">{{ 'transferiu o acesso' if m.status == 'transferido' else m.status }}</span></dd>
     <dt>Solicitado em</dt><dd>{{ m.criado_em|local }}</dd>
+    <dt>Declaração</dt><dd>{% if m.termo_aceito_em %}Aceita em {{ m.termo_aceito_em|local }} · IP {{ m.termo_ip or '?' }}{% if m.termo_texto != termo %} · <strong>versão antiga</strong> (novo aceite será pedido ao entrar){% endif %}<details><summary style="cursor:pointer;font-size:13px">Texto aceito</summary><p style="font-size:13px;white-space:pre-wrap">{{ m.termo_texto }}</p></details>{% else %}Ainda não aceita (será pedida no primeiro acesso){% endif %}</dd>
     {% if m.decidido_em %}<dt>Decisão</dt><dd>{{ m.decidido_por }} · {{ m.decidido_em|local }} · IP {{ m.decidido_ip or '?' }}</dd>{% endif %}
   </dl>
   {% set rotulos = {'aprovado': 'Autorizar acesso', 'negado': 'Habilitar novo registro' if m.status == 'aprovado' else 'Negar acesso'} %}

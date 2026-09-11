@@ -54,6 +54,9 @@ class Morador(Base):
     decidido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     decidido_por: Mapped[str | None] = mapped_column(String(60))  # login do admin que decidiu
     decidido_ip: Mapped[str | None] = mapped_column(String(45))
+    termo_texto: Mapped[str | None] = mapped_column(Text)        # declaração exatamente como foi aceita
+    termo_aceito_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    termo_ip: Mapped[str | None] = mapped_column(String(45))
     comunicados_vistos_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # até quando já viu os comunicados
     unidade: Mapped[Unidade] = relationship(back_populates="moradores")
 

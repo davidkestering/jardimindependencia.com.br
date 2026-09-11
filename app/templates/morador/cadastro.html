@@ -21,7 +21,7 @@
     <label>E-mail<input name="email" type="email" required maxlength="160" value="{{ form.email if form else '' }}"></label>
     <label>Telefone<input name="telefone" type="tel" required maxlength="20" placeholder="(91) 9 9999-9999" value="{{ form.telefone if form else '' }}"></label>
     {% include "_captcha.html" %}
-    <p style="font-size:13px;line-height:1.5;color:#6b5a4c;margin:4px 0 8px">Declaro, sob as penas da lei, que as informações prestadas são verdadeiras e que sou a pessoa indicada. A prestação de informações falsas ou o uso da identidade de outra pessoa configura crime de falsidade ideológica (art. 299) e falsa identidade (art. 307) do Código Penal (Decreto-Lei nº 2.848/1940) e sujeitará o responsável às medidas judiciais cabíveis. Os dados serão usados apenas para gestão do acesso, nos termos da LGPD (Lei nº 13.709/2018).</p>
+    <p style="font-size:13px;line-height:1.5;color:#6b5a4c;margin:4px 0 8px">{{ termo }}</p>
     <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400"><input type="checkbox" name="declaracao" value="sim" required style="width:auto;margin-top:3px"> Li e aceito a declaração acima.</label>
     <button class="btn" type="submit">Enviar solicitação</button>
   </form>

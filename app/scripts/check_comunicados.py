@@ -13,6 +13,7 @@ import auth
 from db import SessionLocal
 from main import app
 from models import AdminUser, Comunicado, Morador, Unidade
+from termo import TERMO
 
 CPF = "52998224725"
 TIT = "Comunicado de teste automático"
@@ -35,7 +36,7 @@ try:
         adm = db.scalar(select(AdminUser))
         u1, u2 = [db.scalar(select(Unidade).where(Unidade.bloco == b, Unidade.apto == a)) for b, a in (("01", "101"), ("02", "102"))]
         for u in (u1, u2):  # mesmo CPF/e-mail em 2 aptos: deve receber 1 e-mail
-            db.add(Morador(unidade_id=u.id, nome="Ana Teste", cpf=CPF, nascimento=auth.parse_data("1980-05-10"), email="ana@example.com", telefone="91999990000", status="aprovado"))
+            db.add(Morador(unidade_id=u.id, nome="Ana Teste", cpf=CPF, nascimento=auth.parse_data("1980-05-10"), email="ana@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO))
         db.commit()
         m1 = db.scalar(select(Morador).where(Morador.cpf == CPF, Morador.unidade_id == u1.id))
     ac, mc, pub = cliente("admin", adm.id), cliente("morador", m1.id), TestClient(app, base_url="https://t")

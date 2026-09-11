@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -12,6 +12,7 @@ from db import get_db
 from mail import ip_de, notificar, registrar
 from config import MAIL_CONTATO, SITE_URL
 from models import OCUPA_APTO, Documento, Morador, Unidade
+from termo import TERMO
 
 router = APIRouter(prefix="/morador")
 
@@ -51,11 +52,34 @@ def render(request: Request, nome: str, **ctx):
     return templates.TemplateResponse(request, nome, {"sessao": request.state.sessao, "captcha": auth.captcha_novo(), **ctx})
 
 
-def morador_atual(request: Request, db: Session, sessao: dict) -> Morador:
+def morador_atual(request: Request, db: Session, sessao: dict, exigir_termo: bool = True) -> Morador:
     m = db.get(Morador, sessao["id"])
     if not m or m.status != "aprovado":
         raise auth.HTTPException(status_code=303, headers={"Location": "/morador/sair"})
+    if exigir_termo and m.termo_texto != TERMO:  # nunca aceitou, ou a declaração mudou: aceita de novo antes de usar a área
+        raise auth.HTTPException(status_code=303, headers={"Location": "/morador/termo"})
     return m
+
+
+def aceitar_termo(m: Morador, request: Request) -> None:
+    m.termo_texto, m.termo_aceito_em, m.termo_ip = TERMO, datetime.now(timezone.utc), ip_de(request)
+
+
+@router.get("/termo")
+def termo(request: Request, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
+    m = morador_atual(request, db, sessao, exigir_termo=False)
+    return render(request, "morador/termo.html", morador=m, primeira=m.termo_texto is None)
+
+
+@router.post("/termo")
+def termo_post(request: Request, declaracao: str = Form(""), sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
+    m = morador_atual(request, db, sessao, exigir_termo=False)
+    if not declaracao:
+        return render(request, "morador/termo.html", morador=m, primeira=m.termo_texto is None, erro="É preciso marcar a caixa para continuar.")
+    aceitar_termo(m, request)
+    db.commit()
+    registrar("Declaração aceita (nova versão)", request, nome=m.nome, cpf=m.cpf_fmt, unidade=m.unidade.rotulo)
+    return RedirectResponse("/morador", status_code=303)
 
 
 @router.get("/login")
@@ -170,6 +194,7 @@ def cadastro_post(request: Request, nome: str = Form(...), cpf: str = Form(...),
         return render(request, "morador/cadastro.html", erro=erro, mapa=mapa, form=dados)
     m = Morador(unidade_id=u.id, nome=nome.strip()[:120], cpf=cpf_d, nascimento=nasc,
                 email=email.strip()[:160], telefone=telefone.strip()[:20], status="pendente")
+    aceitar_termo(m, request)  # checkbox obrigatório: grava texto aceito, data/hora e IP
     db.add(m)
     try:
         db.commit()
