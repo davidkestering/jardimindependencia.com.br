@@ -13,7 +13,7 @@
       <td>{{ (c.publicado_em or c.criado_em).strftime('%d/%m/%Y') }}<br><small>{{ c.autor }}</small></td>
       <td><a href="/admin/comunicados/{{ c.id }}">{{ c.titulo }}</a></td>
       <td><span class="vis vis-{{ c.visibilidade }}">{{ rot[c.visibilidade] }}</span></td>
-      <td>{% for v in visibilidades if v != c.visibilidade %}<form class="inline" method="post" action="/admin/comunicados/{{ c.id }}/visibilidade"><input type="hidden" name="visibilidade" value="{{ v }}"><button class="btn sec" type="submit">{{ 'Tornar ' ~ rot[v]|lower if v != 'rascunho' else 'Voltar a rascunho' }}</button></form> {% endfor %}
+      <td><a class="btn sec" href="/admin/comunicados/{{ c.id }}/preview" style="padding:5px 10px;font-size:13px">Pré-visualizar</a> {% for v in visibilidades if v != c.visibilidade %}<form class="inline" method="post" action="/admin/comunicados/{{ c.id }}/visibilidade"><input type="hidden" name="visibilidade" value="{{ v }}"><button class="btn sec" type="submit">{{ 'Tornar ' ~ rot[v]|lower if v != 'rascunho' else 'Voltar a rascunho' }}</button></form> {% endfor %}
         <form class="inline" method="post" action="/admin/comunicados/{{ c.id }}/excluir" onsubmit="return confirm('Excluir o comunicado?')"><button class="btn sec" type="submit">Excluir</button></form></td>
     </tr>{% else %}<tr><td colspan="4">Nenhum comunicado.</td></tr>{% endfor %}
   </table></div>

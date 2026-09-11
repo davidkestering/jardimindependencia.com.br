@@ -10,7 +10,10 @@
   <form class="card" method="post" action="/admin/comunicados/{{ c.id }}">
     <label>Título<input name="titulo" required maxlength="200" value="{{ c.titulo }}"></label>
     <label>Texto<textarea name="texto" rows="14" required maxlength="20000">{{ c.texto }}</textarea></label>
-    <button class="btn" type="submit">Salvar alterações</button>
+    <button class="btn" type="submit">Salvar alterações</button> <a class="btn sec" href="/admin/comunicados/{{ c.id }}/preview">Pré-visualizar</a>
   </form>
+  {% set rot = {'rascunho': 'Rascunho', 'condominos': 'Só condôminos', 'publico': 'Público'} %}
+  <h2 style="margin-top:28px;font-size:22px">Publicação</h2>
+  <p style="display:flex;gap:8px;flex-wrap:wrap">{% for v in visibilidades if v != c.visibilidade %}<form class="inline" method="post" action="/admin/comunicados/{{ c.id }}/visibilidade" style="display:inline"><input type="hidden" name="visibilidade" value="{{ v }}"><button class="btn{% if v == 'rascunho' %} sec{% endif %}" type="submit">{{ 'Publicar: ' ~ rot[v]|lower if v != 'rascunho' else 'Voltar a rascunho' }}</button></form>{% endfor %}</p>
 </div></section>
 {% endblock %}
