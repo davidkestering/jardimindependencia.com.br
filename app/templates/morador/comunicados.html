@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}Comunicados · Minha área{% endblock %}
+{% block head %}<style>.item.novo{outline:2px solid #c9a227}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "morador/_menu.html" %}
+  {% set base = '/morador/comunicados' %}
+  <h1>Comunicados da administração</h1>
+  {% for mes, itens in grupos %}<h2 style="margin-top:28px">{{ mes }}</h2>
+  <div class="grade">{% for c in itens %}<div class="item{% if novos_ids and c.id in novos_ids %} novo{% endif %}"><div class="eyebrow">{{ c.publicado_em.strftime('%d/%m/%Y') }}{% if novos_ids and c.id in novos_ids %} · novo{% endif %}</div><h3><a href="{{ base }}/{{ c.id }}">{{ c.titulo }}</a></h3><p>{{ resumo(c.texto) }}</p><p style="margin-top:10px"><a class="btn sec" href="{{ base }}/{{ c.id }}">Ler comunicado</a></p></div>{% endfor %}</div>
+  {% else %}<p>Nenhum comunicado {{ 'publicado' }} até o momento.</p>{% endfor %}
+</div></section>
+{% endblock %}

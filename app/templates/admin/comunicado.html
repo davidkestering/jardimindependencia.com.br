@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block titulo %}Editar comunicado · Administração{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "admin/_menu.html" %}
+  {% set rot = {'rascunho': 'Rascunho', 'condominos': 'Só condôminos', 'publico': 'Público'} %}
+  <p><a href="/admin/comunicados">← Comunicados</a></p>
+  <h1>Editar comunicado</h1>
+  <p>Visibilidade atual: <strong>{{ rot[c.visibilidade] }}</strong>{% if c.publicado_em %} · publicado em {{ c.publicado_em.strftime('%d/%m/%Y %H:%M') }}{% endif %} · autor {{ c.autor }}</p>
+  <form class="card" method="post" action="/admin/comunicados/{{ c.id }}">
+    <label>Título<input name="titulo" required maxlength="200" value="{{ c.titulo }}"></label>
+    <label>Texto<textarea name="texto" rows="14" required maxlength="20000">{{ c.texto }}</textarea></label>
+    <button class="btn" type="submit">Salvar alterações</button>
+  </form>
+</div></section>
+{% endblock %}

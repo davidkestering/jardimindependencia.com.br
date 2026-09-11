@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block titulo %}Comunicados · Administração{% endblock %}
+{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}form.inline{display:inline}form.inline button{padding:5px 10px;font-size:13px}.vis{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.vis-rascunho{background:#eee;color:#555}.vis-condominos{background:#fff0c2;color:#6b4b00}.vis-publico{background:#e6f0e8;color:#1d4d2a}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "admin/_menu.html" %}
+  {% set rot = {'rascunho': 'Rascunho', 'condominos': 'Só condôminos', 'publico': 'Público'} %}
+  <h1>Comunicados</h1>
+  <p style="max-width:60ch"><strong>Rascunho</strong>: só a administração vê. <strong>Só condôminos</strong>: aparece na área do condômino. <strong>Público</strong>: aparece no site e na área do condômino. Na primeira publicação os condôminos são avisados por e-mail e notificação.</p>
+  <div style="overflow-x:auto"><table>
+    <tr><th>Data</th><th>Título</th><th>Visibilidade</th><th>Ações</th></tr>
+    {% for c in comunicados %}<tr>
+      <td>{{ (c.publicado_em or c.criado_em).strftime('%d/%m/%Y') }}<br><small>{{ c.autor }}</small></td>
+      <td><a href="/admin/comunicados/{{ c.id }}">{{ c.titulo }}</a></td>
+      <td><span class="vis vis-{{ c.visibilidade }}">{{ rot[c.visibilidade] }}</span></td>
+      <td>{% for v in visibilidades if v != c.visibilidade %}<form class="inline" method="post" action="/admin/comunicados/{{ c.id }}/visibilidade"><input type="hidden" name="visibilidade" value="{{ v }}"><button class="btn sec" type="submit">{{ 'Tornar ' ~ rot[v]|lower if v != 'rascunho' else 'Voltar a rascunho' }}</button></form> {% endfor %}
+        <form class="inline" method="post" action="/admin/comunicados/{{ c.id }}/excluir" onsubmit="return confirm('Excluir o comunicado?')"><button class="btn sec" type="submit">Excluir</button></form></td>
+    </tr>{% else %}<tr><td colspan="4">Nenhum comunicado.</td></tr>{% endfor %}
+  </table></div>
+  <h2 style="margin-top:36px">Novo comunicado</h2>
+  <form class="card" method="post" action="/admin/comunicados">
+    <label>Título<input name="titulo" required maxlength="200"></label>
+    <label>Texto<textarea name="texto" rows="10" required maxlength="20000"></textarea></label>
+    <label>Visibilidade<select name="visibilidade">{% for v in visibilidades %}<option value="{{ v }}">{{ rot[v] }}</option>{% endfor %}</select></label>
+    <button class="btn" type="submit">Salvar</button>
+  </form>
+</div></section>
+{% endblock %}

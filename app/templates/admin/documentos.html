@@ -5,7 +5,7 @@
 <section><div class="container">
   {% include "admin/_menu.html" %}
   <h1>Documentos</h1>
-  <p style="max-width:60ch">Documentos digitalizados do condomínio. Só os marcados como <strong>públicos</strong> aparecem na área do condômino.</p>
+  <p style="max-width:60ch">Comunicados em texto ficam em <a href="/admin/comunicados">Comunicados</a>. Documentos digitalizados do condomínio. Só os marcados como <strong>públicos</strong> aparecem na área do condômino.</p>
   <div style="overflow-x:auto"><table>
     <tr><th>Data</th><th>Categoria</th><th>Título</th><th>Arquivo</th><th>Visível aos condôminos</th><th>Ações</th></tr>
     {% for d in documentos %}<tr>
