@@ -198,11 +198,15 @@ async def _gravar_em_blocos(arquivo: UploadFile, destino: Path, restante: int) -
 
 @router.post("/documentos")
 async def documento_enviar(request: Request, titulo: str = Form(""), categoria: str = Form(...), publico: str = Form(""),
-                           assembleia_id: str = Form(""), arquivos: list[UploadFile] = File(...),
+                           assembleia_id: str = Form(""), voltar: str = Form(""), arquivos: list[UploadFile] = File(...),
                            admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    """Vários arquivos num envio só, até MAX_TOTAL_MB no total, opcionalmente vinculados a uma assembleia."""
+    """Vários arquivos num envio só, até MAX_TOTAL_MB no total. Sem assembleia = documento avulso.
+    `voltar`: página de origem (a página da assembleia envia daqui e volta para lá)."""
+    destino_ok = voltar if voltar.startswith("/admin/") else "/admin/documentos"
+
     def falha(msg):
-        return RedirectResponse(f"/admin/documentos?erro={msg}", status_code=303)
+        sep = "&" if "?" in destino_ok else "?"
+        return RedirectResponse(f"{destino_ok}{sep}erro={msg}", status_code=303)
     arquivos = [a for a in arquivos if a.filename]
     if not arquivos:
         return falha("Selecione ao menos um arquivo")
@@ -236,8 +240,8 @@ async def documento_enviar(request: Request, titulo: str = Form(""), categoria: 
                                nome_original=Path(a.filename).name[:255], publico=bool(publico), assembleia_id=aid))
     db.add_all(novos)
     db.commit()
-    registrar("Documentos enviados", request, admin=admin.login, quantidade=len(novos), assembleia=str(aid or "-"))
-    return RedirectResponse("/admin/documentos", status_code=303)
+    registrar("Documentos enviados", request, admin=admin.login, quantidade=len(novos), assembleia=str(aid or "avulso"))
+    return RedirectResponse(destino_ok, status_code=303)
 
 
 @router.post("/documentos/{did}/publico")
@@ -250,13 +254,13 @@ def documento_publico(did: uuid.UUID, publico: str = Form(""), admin: AdminUser 
 
 
 @router.post("/documentos/{did}/excluir")
-def documento_excluir(did: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+def documento_excluir(did: uuid.UUID, voltar: str = Form(""), admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     d = db.get(Documento, did)
     if d:
         (Path(UPLOAD_DIR) / d.arquivo).unlink(missing_ok=True)
         db.delete(d)
         db.commit()
-    return RedirectResponse("/admin/documentos", status_code=303)
+    return RedirectResponse(voltar if voltar.startswith("/admin/") else "/admin/documentos", status_code=303)
 
 
 @router.get("/documentos/{did}")

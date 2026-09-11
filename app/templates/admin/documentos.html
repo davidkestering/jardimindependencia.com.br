@@ -5,13 +5,13 @@
 <section><div class="container">
   {% include "admin/_menu.html" %}
   <h1>Documentos</h1>
-  <p style="max-width:60ch">Comunicados em texto ficam em <a href="/admin/comunicados">Comunicados</a>. Documentos digitalizados do condomínio. Só os marcados como <strong>públicos</strong> aparecem na área do condômino.</p>
+  <p style="max-width:62ch">Documentos digitalizados do condomínio. Um documento pode ser <strong>avulso</strong> ou <strong>vinculado a uma assembleia</strong> (escolha no envio, ou envie direto pela página da assembleia). Comunicados em texto ficam em <a href="/admin/comunicados">Comunicados</a>. Só os marcados como <strong>públicos</strong> aparecem na área do condômino.</p>
   {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
   <div style="overflow-x:auto"><table>
     <tr><th>Data</th><th>Categoria</th><th>Título</th><th>Assembleia</th><th>Arquivo</th><th>Visível aos condôminos</th><th>Ações</th></tr>
     {% for d in documentos %}<tr>
       <td>{{ d.criado_em.strftime('%d/%m/%Y') }}</td><td>{{ d.categoria }}</td><td>{{ d.titulo }}</td>
-      <td>{% if d.assembleia %}<a href="/admin/assembleias/{{ d.assembleia.id }}">{{ d.assembleia.titulo }}</a>{% else %}—{% endif %}</td>
+      <td>{% if d.assembleia %}<a href="/admin/assembleias/{{ d.assembleia.id }}">{{ d.assembleia.titulo }}</a>{% else %}<span style="color:#6b5a4c">Avulso</span>{% endif %}</td>
       <td><a href="/admin/documentos/{{ d.id }}">{{ d.nome_original }}</a></td>
       <td>{% if d.publico %}Sim{% else %}Não{% endif %}</td>
       <td><form class="inline" method="post" action="/admin/documentos/{{ d.id }}/publico"><input type="hidden" name="publico" value="{{ '0' if d.publico else '1' }}"><button class="btn sec" type="submit">{{ 'Tornar privado' if d.publico else 'Publicar' }}</button></form>
@@ -25,7 +25,7 @@
     <label>Título (opcional; vazio usa o nome de cada arquivo)<input name="titulo" maxlength="200"></label>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <label>Categoria<select name="categoria">{% for c in categorias %}<option>{{ c }}</option>{% endfor %}</select></label>
-      <label>Assembleia (opcional)<select name="assembleia_id"><option value="">—</option>{% for a in assembleias %}<option value="{{ a.id }}">{{ a.titulo }} · {{ a.abre_em.strftime('%d/%m/%Y') }}</option>{% endfor %}</select></label>
+      <label>Assembleia (opcional)<select name="assembleia_id"><option value="">Documento avulso</option>{% for a in assembleias %}<option value="{{ a.id }}">{{ a.titulo }} · {{ a.abre_em.strftime('%d/%m/%Y') }}</option>{% endfor %}</select></label>
     </div>
     <label style="grid-template-columns:auto 1fr;align-items:center;gap:10px;display:grid"><input type="checkbox" name="publico" value="1" style="width:auto">Publicar para os condôminos agora</label>
     <button class="btn" type="submit" id="btn-enviar">Enviar</button>
