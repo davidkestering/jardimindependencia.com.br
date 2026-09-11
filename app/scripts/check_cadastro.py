@@ -5,6 +5,7 @@ sys.path.insert(0, "/app")
 import mail
 enviados = []
 mail.enviar = lambda para, assunto, corpo, responder_para=None: enviados.append((para, assunto, corpo)) or True  # sem e-mail real
+mail._gravar_historico = lambda *a, **k: None  # testes não entram no histórico de auditoria
 
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
