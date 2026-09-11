@@ -69,7 +69,7 @@ try:
 
     # público: home (antes dos cards de moradores), lista por mês, detalhe; sem reenvio
     ac.post(f"/admin/comunicados/{cid}/visibilidade", data={"visibilidade": "publico"}); time.sleep(0.3)
-    assert len(enviados) == 1 and len(pushes) == 1
+    assert len(enviados) == len(dest) and len(pushes) == 1  # nenhum reenvio ao mudar de nível
     home = pub.get("/").text; assert TIT in home and home.index("Comunicados públicos") < home.index("Para moradores") and TEXTO not in home
     lst = pub.get("/comunicados").text; assert TIT in lst and "Setembro de 2026" in lst
     assert TEXTO in pub.get(f"/comunicados/{cid}").text
