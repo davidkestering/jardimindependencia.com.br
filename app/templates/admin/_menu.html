@@ -1,12 +1,13 @@
 <p class="eyebrow" style="margin-bottom:4px">Administração</p>
 <nav style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px">
   <a class="btn sec" href="/admin">Painel</a>
-  <a class="btn sec" href="/admin/moradores?status=pendente">Solicitações de cadastro</a>
-  <a class="btn sec" href="/admin/moradores">Moradores</a>
-  <a class="btn sec" href="/admin/documentos">Documentos</a>
-  <a class="btn sec" href="/admin/comunicados">Comunicados</a>
-  <a class="btn sec" href="/admin/financeiro">Inadimplência</a>
-  <a class="btn sec" href="/admin/assembleias">Assembleias</a>
-  <a class="btn sec" href="/admin/interfone">Interfone</a>
+  {% if sessao.master or 'moradores' in sessao.areas %}<a class="btn sec" href="/admin/moradores?status=pendente">Solicitações de cadastro</a>
+  <a class="btn sec" href="/admin/moradores">Moradores</a>{% endif %}
+  {% if sessao.master or 'documentos' in sessao.areas %}<a class="btn sec" href="/admin/documentos">Documentos</a>{% endif %}
+  {% if sessao.master or 'comunicados' in sessao.areas %}<a class="btn sec" href="/admin/comunicados">Comunicados</a>{% endif %}
+  {% if sessao.master or 'financeiro' in sessao.areas %}<a class="btn sec" href="/admin/financeiro">Inadimplência</a>{% endif %}
+  {% if sessao.master or 'assembleias' in sessao.areas %}<a class="btn sec" href="/admin/assembleias">Assembleias</a>{% endif %}
+  {% if sessao.master or 'interfone' in sessao.areas %}<a class="btn sec" href="/admin/interfone">Interfone</a>{% endif %}
+  {% if sessao.master %}<a class="btn sec" href="/admin/usuarios">Usuários</a>{% endif %}
   <a class="btn sec" href="/admin/sair">Sair</a>
 </nav>

@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,7 +13,7 @@ from config import UPLOAD_DIR
 from db import get_db
 from config import SITE_URL
 from mail import ip_de, notificar, registrar
-from models import AdminUser, Documento, Morador, Unidade
+from models import AREAS_ADMIN, AdminUser, Documento, Morador, Unidade
 from routers.arquivos import servir_documento
 from routers.morador import msg_ocupado, ocupante, validar_contato
 
@@ -37,10 +38,17 @@ def render(request: Request, nome: str, **ctx):
     return templates.TemplateResponse(request, nome, {"sessao": request.state.sessao, "captcha": auth.captcha_novo(), **ctx})
 
 
-def admin_dep(sessao: dict = Depends(auth.exigir("admin")), db: Session = Depends(get_db)) -> AdminUser:
+def admin_dep(request: Request, sessao: dict = Depends(auth.exigir("admin")), db: Session = Depends(get_db)) -> AdminUser:
+    """Carrega o usuário e bloqueia áreas não liberadas: /admin/<area>/... exige a área; /admin/usuarios exige master."""
     a = db.get(AdminUser, sessao["id"])
     if not a:
         raise HTTPException(status_code=303, headers={"Location": "/admin/sair"})
+    partes = request.url.path.split("/")
+    area = partes[2] if len(partes) > 2 else ""
+    if area == "usuarios" and not a.master:
+        raise HTTPException(403, "Somente administradores mestres gerenciam usuários")
+    if area in AREAS_ADMIN and not a.pode(area):
+        raise HTTPException(403, "Área não liberada para o seu usuário")
     return a
 
 
@@ -187,6 +195,67 @@ def documento_excluir(did: uuid.UUID, admin: AdminUser = Depends(admin_dep), db:
 @router.get("/documentos/{did}")
 def documento_baixar(did: str, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     return servir_documento(db, did, apenas_publicos=False)
+
+
+# ---- usuários da administração (só master; a checagem está em admin_dep) ----
+@router.get("/usuarios")
+def usuarios(request: Request, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    lista = db.scalars(select(AdminUser).order_by(AdminUser.master.desc(), AdminUser.nome)).all()
+    return render(request, "admin/usuarios.html", usuarios=lista, areas=AREAS_ADMIN)
+
+
+def _areas_do_form(form) -> list[str]:
+    return [a for a in AREAS_ADMIN if form.get(f"area_{a}")]
+
+
+@router.post("/usuarios")
+async def usuario_criar(request: Request, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    form = await request.form()
+    login, nome, senha = str(form.get("login", "")).strip().lower(), str(form.get("nome", "")).strip()[:120], str(form.get("senha", ""))
+    if not re.fullmatch(r"[a-z0-9._-]{3,60}", login) or not nome or len(senha) < 8:
+        raise HTTPException(400, "Login (letras, números, ponto), nome e senha com 8+ caracteres são obrigatórios")
+    if db.scalar(select(AdminUser).where(AdminUser.login == login)):
+        raise HTTPException(400, "Já existe um usuário com este login")
+    db.add(AdminUser(login=login, nome=nome, senha_hash=auth.hash_senha(senha), master=False, areas=_areas_do_form(form)))
+    db.commit()
+    registrar("Usuário da administração criado", request, por=admin.login, login=login, nome=nome, areas=", ".join(_areas_do_form(form)))
+    return RedirectResponse("/admin/usuarios", status_code=303)
+
+
+def _usuario_editavel(db: Session, uid: uuid.UUID) -> AdminUser:
+    u = db.get(AdminUser, uid)
+    if not u or u.master:
+        raise HTTPException(404, "Usuário não encontrado ou é mestre")
+    return u
+
+
+@router.post("/usuarios/{uid}/areas")
+async def usuario_areas(request: Request, uid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    u = _usuario_editavel(db, uid)
+    u.areas = _areas_do_form(await request.form())
+    db.commit()
+    registrar("Áreas de usuário alteradas", request, por=admin.login, login=u.login, areas=", ".join(u.areas))
+    return RedirectResponse("/admin/usuarios", status_code=303)
+
+
+@router.post("/usuarios/{uid}/senha")
+def usuario_senha(request: Request, uid: uuid.UUID, senha: str = Form(...), admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    u = _usuario_editavel(db, uid)
+    if len(senha) < 8:
+        raise HTTPException(400, "Senha com menos de 8 caracteres")
+    u.senha_hash = auth.hash_senha(senha)
+    db.commit()
+    registrar("Senha de usuário redefinida", request, por=admin.login, login=u.login)
+    return RedirectResponse("/admin/usuarios", status_code=303)
+
+
+@router.post("/usuarios/{uid}/excluir")
+def usuario_excluir(request: Request, uid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    u = _usuario_editavel(db, uid)
+    registrar("Usuário da administração excluído", request, por=admin.login, login=u.login)
+    db.delete(u)
+    db.commit()
+    return RedirectResponse("/admin/usuarios", status_code=303)
 
 
 # ---- senha do admin ----

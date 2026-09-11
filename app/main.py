@@ -57,7 +57,12 @@ async def redireciona(request: Request, exc):
 
 @app.middleware("http")
 async def sessao_no_template(request: Request, call_next):
-    request.state.sessao = ler_sessao(request)
+    s = ler_sessao(request)
+    if s and s["t"] == "admin":  # menu da administração esconde o que o usuário não pode acessar
+        with SessionLocal() as db:
+            a = db.get(AdminUser, s["id"])
+            s = {**s, "master": bool(a and a.master), "areas": list(a.areas or []) if a else []} if a else None
+    request.state.sessao = s
     return await call_next(request)
 
 

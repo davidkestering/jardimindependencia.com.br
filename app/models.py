@@ -60,12 +60,23 @@ class Morador(Base):
         return f"{self.cpf[:3]}.{self.cpf[3:6]}.{self.cpf[6:9]}-{self.cpf[9:]}"
 
 
+# Áreas da administração que podem ser liberadas a um usuário (chave -> rótulo). Prefixo de rota = /admin/<chave>.
+AREAS_ADMIN = {"moradores": "Moradores e cadastros", "documentos": "Documentos", "comunicados": "Comunicados",
+               "financeiro": "Inadimplência", "assembleias": "Assembleias", "interfone": "Interfone"}
+
+
 class AdminUser(Base):
+    """master: pode tudo e gerencia usuários. Os demais só acessam as áreas listadas em `areas`."""
     __tablename__ = "admin_user"
     id: Mapped[uuid.UUID] = uuid_pk()
     login: Mapped[str] = mapped_column(String(60), unique=True)
     senha_hash: Mapped[str] = mapped_column(String(100))
     nome: Mapped[str] = mapped_column(String(120))
+    master: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    areas: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+
+    def pode(self, area: str) -> bool:
+        return self.master or area in (self.areas or [])
 
 
 class Documento(Base):
