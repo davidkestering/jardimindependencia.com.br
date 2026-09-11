@@ -124,9 +124,10 @@ def moradores(request: Request, status: str = "", q: str = "", bloco: str = "", 
                         papel=f"Residente · {r.tipo}", origem=f"Cadastrado pelo condômino {r.cadastrado_por}", status="", id=None)
                    for r in db.scalars(filtrar(select(Residente).join(Unidade), Residente))]
     linhas.sort(key=lambda l: (l["u"].bloco, l["u"].apto, l["nome"]))
-    blocos = sorted({u.bloco for u in db.scalars(select(Unidade).where(Unidade.apto != ""))})
-    return render(request, "admin/moradores.html", linhas=linhas, status=status, q=q, bloco=bloco, apto=apto,
-                  blocos=blocos, blocos_form=blocos + ["PORTARIA", "ADMINISTRACAO"])
+    from routers.financeiro import mapa_unidades
+    mapa = mapa_unidades(db)
+    return render(request, "admin/moradores.html", linhas=linhas, status=status, q=q, bloco=bloco, apto=apto_n,
+                  mapa=mapa, mapa_form={**mapa, "PORTARIA": [], "ADMINISTRACAO": []})
 
 
 @router.post("/moradores")
