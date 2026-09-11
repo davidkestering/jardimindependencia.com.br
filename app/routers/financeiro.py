@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 import auth
 from db import get_db
-from mail import registrar
+from mail import ip_de, registrar
 from models import AdminUser, Inadimplencia, Unidade
 from routers.admin import admin_dep
 
@@ -45,7 +45,7 @@ def admin_registrar(request: Request, bloco: str = Form(...), apto: str = Form(.
         return RedirectResponse("/admin/financeiro?erro=Unidade+não+encontrada", status_code=303)
     if not observacao:
         return RedirectResponse("/admin/financeiro?erro=A+observação+é+obrigatória", status_code=303)
-    db.add(Inadimplencia(unidade_id=u.id, observacao=observacao, registrado_por=admin.login))
+    db.add(Inadimplencia(unidade_id=u.id, observacao=observacao, registrado_por=admin.login, registrado_ip=ip_de(request)))
     try:
         db.commit()
     except IntegrityError:
@@ -60,7 +60,7 @@ def admin_encerrar(request: Request, iid: uuid.UUID, admin: AdminUser = Depends(
     i = db.get(Inadimplencia, iid)
     if not i or i.encerrado_em:
         raise HTTPException(404)
-    i.encerrado_em, i.encerrado_por = datetime.now(timezone.utc), admin.login
+    i.encerrado_em, i.encerrado_por, i.encerrado_ip = datetime.now(timezone.utc), admin.login, ip_de(request)
     db.commit()
     registrar("Inadimplência encerrada", request, admin=admin.login, unidade=i.unidade.rotulo)
     return RedirectResponse("/admin/financeiro", status_code=303)

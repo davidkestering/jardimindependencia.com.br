@@ -117,10 +117,12 @@ try:
     assert "já está registrada" in ac.post("/admin/financeiro", data={"bloco": "01", "apto": "101", "observacao": "de novo"}).text
     with SessionLocal() as db:
         assert unidade_inadimplente(db, a.unidade_id)
-        iid = db.scalar(select(Inadimplencia.id).where(Inadimplencia.unidade_id == a.unidade_id, Inadimplencia.encerrado_em.is_(None)))
+        ina = db.scalar(select(Inadimplencia).where(Inadimplencia.unidade_id == a.unidade_id, Inadimplencia.encerrado_em.is_(None))); iid = ina.id
+        assert ina.registrado_ip and ina.registrado_por
+    assert "Registrado por · quando · IP" in ac.get("/admin/financeiro").text
     assert ac.post(f"/admin/financeiro/{iid}/encerrar", follow_redirects=False).status_code == 303
     with SessionLocal() as db:
-        assert not unidade_inadimplente(db, a.unidade_id)
+        assert not unidade_inadimplente(db, a.unidade_id) and db.get(Inadimplencia, iid).encerrado_ip
     assert "Histórico" in ac.get("/admin/financeiro").text
     # habilitar novo registro (revogar) libera o apto e derruba o login
     assert ac.post(f"/admin/moradores/{a.id}/status", data={"status": "bloqueado"}).status_code == 400  # status extinto
