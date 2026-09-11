@@ -1,104 +1,66 @@
 import uuid
-from datetime import date, datetime, timezone
-from decimal import Decimal, InvalidOperation
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import func, select
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import auth
 from db import get_db
-from financeiro import em_atraso, gerar_cobranca
-from models import AdminUser, Cobranca, Unidade
+from mail import registrar
+from models import AdminUser, Inadimplencia, Unidade
 from routers.admin import admin_dep
-from routers.morador import morador_atual
 
 router = APIRouter()
 
 
 def render(request: Request, nome: str, **ctx):
     from main import templates
-    return templates.TemplateResponse(request, nome, {"sessao": request.state.sessao, "hoje": date.today(), "em_atraso": em_atraso, **ctx})
+    return templates.TemplateResponse(request, nome, {"sessao": request.state.sessao, **ctx})
 
 
-def parse_valor(v: str) -> Decimal:
-    try:
-        d = Decimal(v.replace(".", "").replace(",", ".")) if "," in v else Decimal(v)
-    except InvalidOperation:
-        raise HTTPException(400, "Valor inválido")
-    if d <= 0:
-        raise HTTPException(400, "Valor deve ser positivo")
-    return d.quantize(Decimal("0.01"))
+def mapa_unidades(db: Session) -> dict[str, list[str]]:
+    mapa: dict[str, list[str]] = {}
+    for u in db.scalars(select(Unidade).where(Unidade.apto != "", Unidade.ativa).order_by(Unidade.bloco, Unidade.apto)):
+        mapa.setdefault(u.bloco, []).append(u.apto)
+    return mapa
 
 
-# ---------- administração ----------
 @router.get("/admin/financeiro")
-def admin_lista(request: Request, status: str = "aberta", bloco: str = "", apto: str = "", atraso: str = "",
-                admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    stmt = select(Cobranca).join(Unidade).order_by(Cobranca.vencimento.desc(), Unidade.bloco, Unidade.apto)
-    if status:
-        stmt = stmt.where(Cobranca.status == status)
-    if bloco:
-        stmt = stmt.where(Unidade.bloco == bloco)
-    if apto:
-        stmt = stmt.where(Unidade.apto == auth.so_digitos(apto).zfill(3))
-    if atraso:
-        stmt = stmt.where(Cobranca.status == "aberta", Cobranca.vencimento < date.today())
-    cobrancas = db.scalars(stmt.limit(500)).all()
-    inadimplentes = db.execute(
-        select(Unidade.bloco, Unidade.apto, func.count(), func.sum(Cobranca.valor)).join(Cobranca)
-        .where(Cobranca.status == "aberta", Cobranca.vencimento < date.today())
-        .group_by(Unidade.bloco, Unidade.apto).order_by(Unidade.bloco, Unidade.apto)).all()
-    blocos = sorted({u.bloco for u in db.scalars(select(Unidade).where(Unidade.apto != ""))})
-    return render(request, "admin/financeiro.html", cobrancas=cobrancas, inadimplentes=inadimplentes, blocos=blocos,
-                  status=status, bloco=bloco, apto=apto, atraso=atraso, total=sum((c.valor for c in cobrancas), Decimal(0)))
+def admin_lista(request: Request, erro: str = "", admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    base = select(Inadimplencia).join(Unidade)
+    ativas = db.scalars(base.where(Inadimplencia.encerrado_em.is_(None)).order_by(Unidade.bloco, Unidade.apto)).all()
+    historico = db.scalars(base.where(Inadimplencia.encerrado_em.is_not(None)).order_by(Inadimplencia.encerrado_em.desc()).limit(200)).all()
+    return render(request, "admin/financeiro.html", ativas=ativas, historico=historico, mapa=mapa_unidades(db), erro=erro)
 
 
 @router.post("/admin/financeiro")
-def admin_criar(descricao: str = Form(...), valor: str = Form(...), vencimento: str = Form(...),
-                bloco: str = Form(""), apto: str = Form(""), lote: str = Form(""),
-                admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    venc = auth.parse_data(vencimento)
-    if not venc:
-        raise HTTPException(400, "Vencimento inválido")
-    val = parse_valor(valor)
-    if lote:
-        unidades = db.scalars(select(Unidade).where(Unidade.ativa, Unidade.apto != "")).all()
-    else:
-        u = db.scalar(select(Unidade).where(Unidade.bloco == bloco, Unidade.apto == auth.so_digitos(apto).zfill(3)))
-        if not u:
-            raise HTTPException(400, "Unidade não encontrada")
-        unidades = [u]
-    for u in unidades:
-        c = Cobranca(unidade_id=u.id, descricao=descricao.strip()[:200], valor=val, vencimento=venc)
-        gerar_cobranca(c)
-        db.add(c)
-    db.commit()
+def admin_registrar(request: Request, bloco: str = Form(...), apto: str = Form(...), observacao: str = Form(...),
+                    admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    observacao = observacao.strip()[:2000]
+    u = db.scalar(select(Unidade).where(Unidade.bloco == bloco, Unidade.apto == auth.so_digitos(apto).zfill(3)[-3:], Unidade.ativa))
+    if not u:
+        return RedirectResponse("/admin/financeiro?erro=Unidade+não+encontrada", status_code=303)
+    if not observacao:
+        return RedirectResponse("/admin/financeiro?erro=A+observação+é+obrigatória", status_code=303)
+    db.add(Inadimplencia(unidade_id=u.id, observacao=observacao, registrado_por=admin.login))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return RedirectResponse(f"/admin/financeiro?erro={u.rotulo}+já+está+registrada+como+inadimplente", status_code=303)
+    registrar("Inadimplência registrada", request, admin=admin.login, unidade=u.rotulo, observacao=observacao)
     return RedirectResponse("/admin/financeiro", status_code=303)
 
 
-@router.post("/admin/financeiro/{cid}/status")
-def admin_status(cid: uuid.UUID, status: str = Form(...), admin: AdminUser = Depends(admin_dep),
-                 db: Session = Depends(get_db)):
-    if status not in ("paga", "aberta", "cancelada"):
-        raise HTTPException(400)
-    c = db.get(Cobranca, cid)
-    if not c:
+@router.post("/admin/financeiro/{iid}/encerrar")
+def admin_encerrar(request: Request, iid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    i = db.get(Inadimplencia, iid)
+    if not i or i.encerrado_em:
         raise HTTPException(404)
-    c.status = status
-    c.pago_em = datetime.now(timezone.utc) if status == "paga" else None
+    i.encerrado_em, i.encerrado_por = datetime.now(timezone.utc), admin.login
     db.commit()
+    registrar("Inadimplência encerrada", request, admin=admin.login, unidade=i.unidade.rotulo)
     return RedirectResponse("/admin/financeiro", status_code=303)
-
-
-# ---------- condômino ----------
-@router.get("/morador/financeiro")
-def morador_financeiro(request: Request, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
-    m = morador_atual(request, db, sessao)
-    cobrancas = db.scalars(select(Cobranca).where(Cobranca.unidade_id == m.unidade_id)
-                           .order_by(Cobranca.vencimento.desc())).all()
-    abertas = [c for c in cobrancas if c.status == "aberta"]
-    atrasadas = [c for c in abertas if em_atraso(c)]
-    return render(request, "morador/financeiro.html", morador=m, cobrancas=cobrancas, abertas=abertas, atrasadas=atrasadas,
-                  total_atraso=sum((c.valor for c in atrasadas), Decimal(0)))

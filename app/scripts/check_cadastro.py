@@ -11,7 +11,7 @@ from sqlalchemy import delete, select
 import auth
 from db import SessionLocal
 from main import app
-from models import AdminUser, Morador, Unidade
+from models import AdminUser, Inadimplencia, Morador, Unidade
 
 CPF1, CPF2, CPF3 = "52998224725", "11144477735", "16899535009"
 BASE = dict(nascimento="1980-05-10", email="teste@example.com", telefone="(91) 99999-0000", declaracao="sim")
@@ -20,6 +20,7 @@ c = TestClient(app, base_url="https://t")
 
 def limpar():
     with SessionLocal() as db:
+        db.execute(delete(Inadimplencia).where(Inadimplencia.observacao.in_(["taxa 08/2026", "de novo"])))
         db.execute(delete(Morador).where(Morador.cpf.in_([CPF1, CPF2, CPF3]))); db.commit()
 
 
@@ -93,6 +94,19 @@ try:
     assert "Mensagem enviada" in lc.post("/contato", data={**ct, **captcha(), "bloco": "01", "apto": "101"}).text
     assert "Condômino logado: Ana Teste" in enviados[-1][2]
     d = morador(CPF3, "02"); assert lc.get(f"/morador/trocar/{d.id}", follow_redirects=False).status_code == 403
+    # inadimplência: registro manual com observação obrigatória, único por unidade, reflete na votação
+    from financeiro import unidade_inadimplente
+    assert "não encontrada" in ac.post("/admin/financeiro", data={"bloco": "01", "apto": "201", "observacao": "x"}).text
+    assert "obrigatória" in ac.post("/admin/financeiro", data={"bloco": "01", "apto": "101", "observacao": "  "}).text
+    assert "Bloco 01 · Apto 101" in ac.post("/admin/financeiro", data={"bloco": "01", "apto": "101", "observacao": "taxa 08/2026"}).text
+    assert "já está registrada" in ac.post("/admin/financeiro", data={"bloco": "01", "apto": "101", "observacao": "de novo"}).text
+    with SessionLocal() as db:
+        assert unidade_inadimplente(db, a.unidade_id)
+        iid = db.scalar(select(Inadimplencia.id).where(Inadimplencia.unidade_id == a.unidade_id, Inadimplencia.encerrado_em.is_(None)))
+    assert ac.post(f"/admin/financeiro/{iid}/encerrar", follow_redirects=False).status_code == 303
+    with SessionLocal() as db:
+        assert not unidade_inadimplente(db, a.unidade_id)
+    assert "Histórico" in ac.get("/admin/financeiro").text
     # habilitar novo registro (revogar) libera o apto e derruba o login
     assert ac.post(f"/admin/moradores/{a.id}/status", data={"status": "revogado"}, follow_redirects=False).status_code == 303
     _, r = login(CPF1); assert "não autorizado" in r.text

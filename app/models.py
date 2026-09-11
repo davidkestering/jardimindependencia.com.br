@@ -94,6 +94,20 @@ class Cobranca(Base):
     unidade: Mapped[Unidade] = relationship()
 
 
+class Inadimplencia(Base):
+    """Registro manual de unidade inadimplente. Ativa enquanto encerrado_em for nulo; só uma ativa por unidade."""
+    __tablename__ = "inadimplencia"
+    __table_args__ = (Index("uq_inadimplencia_ativa", "unidade_id", unique=True, postgresql_where=text("encerrado_em IS NULL")),)
+    id: Mapped[uuid.UUID] = uuid_pk()
+    unidade_id: Mapped[uuid.UUID] = fk("unidade")
+    observacao: Mapped[str] = mapped_column(Text)
+    registrado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    registrado_por: Mapped[str] = mapped_column(String(60))
+    encerrado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    encerrado_por: Mapped[str | None] = mapped_column(String(60))
+    unidade: Mapped[Unidade] = relationship()
+
+
 class Assembleia(Base):
     __tablename__ = "assembleia"
     id: Mapped[uuid.UUID] = uuid_pk()

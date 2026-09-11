@@ -1,48 +1,40 @@
 {% extends "base.html" %}
-{% block titulo %}Financeiro · Administração{% endblock %}
-{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px;font-variant-numeric:tabular-nums}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}td.num,th.num{text-align:right}.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-aberta{background:#fff0c2;color:#6b4b00}.st-paga{background:#e6f0e8;color:#1d4d2a}.st-cancelada{background:#eee;color:#555}.st-atraso{background:#fbe9e3;color:#7a2e12}form.inline{display:inline}form.inline button{padding:5px 10px;font-size:13px}</style>{% endblock %}
+{% block titulo %}Inadimplência · Administração{% endblock %}
+{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}form.inline{display:inline}form.inline button{padding:5px 10px;font-size:13px}td.obs{white-space:pre-wrap;max-width:48ch}</style>{% endblock %}
 {% block conteudo %}
 <section><div class="container">
   {% include "admin/_menu.html" %}
-  <h1>Financeiro</h1>
-  <h2 style="font-size:22px">Inadimplência ({{ inadimplentes|length }} unidade(s))</h2>
-  {% if inadimplentes %}<div style="overflow-x:auto;margin-bottom:28px"><table><tr><th>Unidade</th><th class="num">Cobranças em atraso</th><th class="num">Total (R$)</th></tr>
-  {% for b, a, n, t in inadimplentes %}<tr><td>Bloco {{ b }} · Apto {{ a }}</td><td class="num">{{ n }}</td><td class="num">{{ '%.2f'|format(t)|replace('.', ',') }}</td></tr>{% endfor %}</table></div>
-  {% else %}<p>Nenhuma unidade com cobrança em atraso.</p>{% endif %}
+  <h1>Inadimplência</h1>
+  <p style="max-width:60ch">Unidades registradas aqui votam nas assembleias, mas o voto fica registrado sem ser computado. Ao regularizar, encerre o registro.</p>
+  {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
 
-  <h2 style="font-size:22px">Cobranças</h2>
-  <form method="get" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
-    <select name="status"><option value="">Todas</option>{% for s in ['aberta','paga','cancelada'] %}<option value="{{ s }}" {% if s==status %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
-    <select name="bloco"><option value="">Bloco</option>{% for b in blocos %}<option {% if b==bloco %}selected{% endif %}>{{ b }}</option>{% endfor %}</select>
-    <input name="apto" value="{{ apto }}" placeholder="Apto" style="width:90px">
-    <label style="display:flex;gap:6px;align-items:center;font-weight:600"><input type="checkbox" name="atraso" value="1" {% if atraso %}checked{% endif %} style="width:auto">só em atraso</label>
-    <button class="btn" type="submit">Filtrar</button>
+  <h2 style="font-size:22px">Registrar unidade inadimplente</h2>
+  <form class="card" method="post" action="/admin/financeiro">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <label>Bloco<select name="bloco" id="bloco" required>{% for b in mapa %}<option value="{{ b }}">{{ b }}</option>{% endfor %}</select></label>
+      <label>Apartamento<select name="apto" id="apto" required>{% for a in mapa[mapa|first] %}<option value="{{ a }}">{{ a }}</option>{% endfor %}</select></label>
+    </div>
+    <label>Observação (obrigatória)<textarea name="observacao" rows="3" required maxlength="2000" placeholder="Ex.: taxas de condomínio de 06/2026 a 08/2026 em aberto"></textarea></label>
+    <button class="btn" type="submit">Registrar</button>
   </form>
+
+  <h2 style="font-size:22px;margin-top:36px">Unidades inadimplentes ({{ ativas|length }})</h2>
   <div style="overflow-x:auto"><table>
-    <tr><th>Vencimento</th><th>Unidade</th><th>Descrição</th><th class="num">Valor (R$)</th><th>Status</th><th>Ações</th></tr>
-    {% for c in cobrancas %}<tr>
-      <td>{{ c.vencimento.strftime('%d/%m/%Y') }}</td><td>{{ c.unidade.bloco }} / {{ c.unidade.apto }}</td><td>{{ c.descricao }}</td>
-      <td class="num">{{ '%.2f'|format(c.valor)|replace('.', ',') }}</td>
-      <td>{% if em_atraso(c) %}<span class="st st-atraso">em atraso</span>{% else %}<span class="st st-{{ c.status }}">{{ c.status }}</span>{% endif %}{% if c.pago_em %}<br><small>{{ c.pago_em.strftime('%d/%m/%Y') }}</small>{% endif %}</td>
-      <td>{% if c.status == 'aberta' %}<form class="inline" method="post" action="/admin/financeiro/{{ c.id }}/status"><input type="hidden" name="status" value="paga"><button class="btn" type="submit">Marcar paga</button></form>
-        <form class="inline" method="post" action="/admin/financeiro/{{ c.id }}/status"><input type="hidden" name="status" value="cancelada"><button class="btn sec" type="submit">Cancelar</button></form>
-        {% else %}<form class="inline" method="post" action="/admin/financeiro/{{ c.id }}/status"><input type="hidden" name="status" value="aberta"><button class="btn sec" type="submit">Reabrir</button></form>{% endif %}</td>
-    </tr>{% else %}<tr><td colspan="6">Nenhuma cobrança.</td></tr>{% endfor %}
-    {% if cobrancas %}<tr><th colspan="3">Total listado</th><th class="num">{{ '%.2f'|format(total)|replace('.', ',') }}</th><th colspan="2"></th></tr>{% endif %}
+    <tr><th>Unidade</th><th>Observação</th><th>Registrado</th><th>Ações</th></tr>
+    {% for i in ativas %}<tr>
+      <td>{{ i.unidade.rotulo }}</td><td class="obs">{{ i.observacao }}</td><td>{{ i.registrado_em.strftime('%d/%m/%Y') }}<br><small>{{ i.registrado_por }}</small></td>
+      <td><form class="inline" method="post" action="/admin/financeiro/{{ i.id }}/encerrar" onsubmit="return confirm('Encerrar a inadimplência de {{ i.unidade.rotulo }}?')"><button class="btn" type="submit">Regularizada</button></form></td>
+    </tr>{% else %}<tr><td colspan="4">Nenhuma unidade inadimplente.</td></tr>{% endfor %}
   </table></div>
 
-  <h2 style="margin-top:36px;font-size:22px">Lançar cobrança</h2>
-  <form class="card" method="post" action="/admin/financeiro">
-    <label>Descrição<input name="descricao" required maxlength="200" placeholder="Ex.: Taxa de condomínio 09/2026"></label>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-      <label>Valor (R$)<input name="valor" required inputmode="decimal" placeholder="250,00"></label>
-      <label>Vencimento<input name="vencimento" type="date" required></label>
-      <label>Bloco<select name="bloco"><option value="">—</option>{% for b in blocos %}<option>{{ b }}</option>{% endfor %}</select></label>
-      <label>Apartamento<input name="apto" maxlength="3" placeholder="004"></label>
-    </div>
-    <label style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center"><input type="checkbox" name="lote" value="1" style="width:auto">Lançar em lote para <strong>todas as unidades ativas</strong> (ignora bloco/apto)</label>
-    <button class="btn" type="submit">Lançar</button>
-  </form>
-  <p style="font-size:14px;color:#6b5a4c;max-width:60ch">PIX e boleto automáticos entram quando o provedor de cobrança for definido. Até lá, a baixa é manual com "Marcar paga".</p>
+  {% if historico %}<h2 style="font-size:22px;margin-top:36px">Histórico (regularizadas)</h2>
+  <div style="overflow-x:auto"><table>
+    <tr><th>Unidade</th><th>Observação</th><th>Período</th></tr>
+    {% for i in historico %}<tr><td>{{ i.unidade.rotulo }}</td><td class="obs">{{ i.observacao }}</td><td>{{ i.registrado_em.strftime('%d/%m/%Y') }} ({{ i.registrado_por }}) → {{ i.encerrado_em.strftime('%d/%m/%Y') }} ({{ i.encerrado_por }})</td></tr>{% endfor %}
+  </table></div>{% endif %}
+  <script>
+    const mapa = {{ mapa|tojson }}, bloco = document.getElementById('bloco'), apto = document.getElementById('apto');
+    bloco.addEventListener('change', () => { apto.innerHTML = (mapa[bloco.value] || []).map(a => `<option value="${a}">${a}</option>`).join(''); });
+  </script>
 </div></section>
 {% endblock %}
