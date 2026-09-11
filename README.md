@@ -2,7 +2,7 @@
 
 Site institucional e sistemas internos do **Condomínio Residencial Jardim Independência** (Ananindeua, PA), em produção em [jardimindependencia.com.br](https://jardimindependencia.com.br).
 
-Desenvolvido por **David Alexandre de Souza Kestering** ([davidkestering.com](https://davidkestering.com)). O uso pelo condomínio é regido pela [Declaração de Doação](https://jardimindependencia.com.br/doacao); o código é publicado sob a licença descrita em [LICENSE](LICENSE), com a autoria preservada em [NOTICE](NOTICE).
+Desenvolvido por **David Alexandre de Souza Kestering** ([davidkestering.com](https://davidkestering.com)). O uso pelo condomínio é regido pela [Declaração de Doação](https://jardimindependencia.com.br/doacao), documento pessoal mantido apenas no servidor; o código é publicado sob a licença descrita em [LICENSE](LICENSE), com a autoria preservada em [NOTICE](NOTICE).
 
 ## O que o sistema faz
 
@@ -33,7 +33,7 @@ cp .env.example .env        # preencha senhas, SECRET_KEY e SMTP
 docker compose up -d --build
 ```
 
-O app aplica as migrações (`alembic upgrade head`) ao subir, cria as 396 unidades (blocos 01–27) mais Portaria e Administração, e cria o primeiro usuário da administração apenas se não existir nenhum (`ADMIN_LOGIN` / `ADMIN_SENHA_INICIAL`). As fotos da galeria (`app/static/img/condominio/`) e os documentos enviados **não** estão no repositório. Uploads ficam em `data/uploads`, assinaturas do ClamAV em `data/clamav`, chaves VAPID em `data/vapid`. O proxy deve repassar `Upgrade`/`Connection: "upgrade"` para o WebSocket do interfone e aceitar corpo de até 100 MB.
+O app aplica as migrações (`alembic upgrade head`) ao subir, cria as 396 unidades (blocos 01–27) mais Portaria e Administração, e cria o primeiro usuário da administração apenas se não existir nenhum (`ADMIN_LOGIN` / `ADMIN_SENHA_INICIAL`). As fotos da galeria (`app/static/img/condominio/`), a página da Declaração de Doação com a assinatura do autor e os documentos enviados **não** estão no repositório. Uploads ficam em `data/uploads`, assinaturas do ClamAV em `data/clamav`, chaves VAPID em `data/vapid`. O proxy deve repassar `Upgrade`/`Connection: "upgrade"` para o WebSocket do interfone e aceitar corpo de até 100 MB.
 
 ## Checagens
 

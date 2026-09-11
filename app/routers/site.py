@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -89,6 +89,10 @@ def contexto_contato(request: Request, db: Session) -> dict:
 
 @router.get("/doacao")
 def doacao(request: Request):
+    """Declaração de Doação: documento pessoal do autor, mantido só no servidor (fora do repositório)."""
+    from pathlib import Path
+    if not (Path(__file__).resolve().parent.parent / "templates" / "site" / "doacao.html").is_file():
+        raise HTTPException(404)
     return render(request, "site/doacao.html")
 
 
