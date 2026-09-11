@@ -10,12 +10,23 @@
     {% else %}
     {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
     <form class="card" method="post">
-      <label>Nome<input name="nome" required maxlength="120"></label>
-      <label>E-mail<input name="email" type="email" required maxlength="160"></label>
-      <label>Bloco e apartamento (opcional)<input name="unidade" maxlength="40" placeholder="Ex.: Bloco 17, apto 004"></label>
+      <label>Nome<input name="nome" required maxlength="120" value="{{ morador.nome if morador else '' }}"></label>
+      <label>E-mail<input name="email" type="email" required maxlength="160" value="{{ morador.email if morador else '' }}"></label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <label>Bloco{% if not morador %} (opcional){% endif %}<select name="bloco" id="bloco">{% if not morador %}<option value="">—</option>{% endif %}{% for b in mapa %}<option value="{{ b }}" {% if b == sel[0] %}selected{% endif %}>{{ b }}</option>{% endfor %}</select></label>
+        <label>Apartamento<select name="apto" id="apto">{% if not morador %}<option value="">—</option>{% endif %}{% for a in mapa.get(sel[0], []) %}<option value="{{ a }}" {% if a == sel[1] %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></label>
+      </div>
       <label>Mensagem<textarea name="mensagem" rows="6" required maxlength="4000"></textarea></label>
+      {% include "_captcha.html" %}
       <button class="btn" type="submit">Enviar mensagem</button>
     </form>
+    <script>
+      const mapa = {{ mapa|tojson }}, bloco = document.getElementById('bloco'), apto = document.getElementById('apto');
+      bloco.addEventListener('change', () => {
+        const aptos = mapa[bloco.value] || [];
+        apto.innerHTML = (bloco.value ? '' : '<option value="">—</option>') + aptos.map(a => `<option value="${a}">${a}</option>`).join('');
+      });
+    </script>
     {% endif %}
   </div>
 </section>

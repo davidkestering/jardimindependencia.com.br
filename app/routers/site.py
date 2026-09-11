@@ -1,7 +1,12 @@
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Depends, Form, Request
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+import auth
 from config import MAIL_CONTATO
+from db import get_db
 from mail import enviar
+from models import Morador, Unidade
 
 router = APIRouter()
 
@@ -64,19 +69,44 @@ def localizacao(request: Request):
     return render(request, "site/localizacao.html")
 
 
+def contexto_contato(request: Request, db: Session) -> dict:
+    """Mapa bloco -> aptos para os selects. Condômino logado vê só as unidades aprovadas do seu CPF, já selecionadas."""
+    m, sessao = None, request.state.sessao
+    if sessao and sessao["t"] == "morador":
+        m = db.get(Morador, sessao["id"])
+        m = m if m and m.status == "aprovado" else None
+    if m:
+        unidades = [x.unidade for x in db.scalars(select(Morador).join(Unidade).where(Morador.cpf == m.cpf, Morador.status == "aprovado")
+                                                  .order_by(Unidade.bloco, Unidade.apto))]
+    else:
+        unidades = db.scalars(select(Unidade).where(Unidade.apto != "", Unidade.ativa).order_by(Unidade.bloco, Unidade.apto)).all()
+    mapa: dict[str, list[str]] = {}
+    for u in unidades:
+        mapa.setdefault(u.bloco, []).append(u.apto)
+    return {"mapa": mapa, "morador": m, "sel": (m.unidade.bloco, m.unidade.apto) if m else ("", ""), "captcha": auth.captcha_novo()}
+
+
 @router.get("/contato")
-def contato(request: Request):
-    return render(request, "site/contato.html")
+def contato(request: Request, db: Session = Depends(get_db)):
+    return render(request, "site/contato.html", **contexto_contato(request, db))
 
 
 @router.post("/contato")
 def contato_enviar(request: Request, nome: str = Form(...), email: str = Form(...), mensagem: str = Form(...),
-                   unidade: str = Form("")):
+                   bloco: str = Form(""), apto: str = Form(""), captcha: str = Form(""), captcha_token: str = Form(""),
+                   db: Session = Depends(get_db)):
+    ctx = contexto_contato(request, db)
     nome, email, mensagem = nome.strip()[:120], email.strip()[:160], mensagem.strip()[:4000]
+    if not auth.captcha_ok(captcha_token, captcha):
+        return render(request, "site/contato.html", erro="Resposta da conta de verificação incorreta. Tente novamente.", **ctx)
     if not (nome and "@" in email and mensagem):
-        return render(request, "site/contato.html", erro="Preencha nome, e-mail válido e mensagem.")
-    corpo = f"Nome: {nome}\nE-mail: {email}\nUnidade: {unidade.strip()[:40] or '-'}\n\n{mensagem}"
+        return render(request, "site/contato.html", erro="Preencha nome, e-mail válido e mensagem.", **ctx)
+    if bloco and apto not in ctx["mapa"].get(bloco, []):
+        return render(request, "site/contato.html", erro="Bloco e apartamento não conferem.", **ctx)
+    unidade = f"Bloco {bloco} · Apto {apto}" if bloco else "-"
+    logado = f"\nCondômino logado: {m.nome} (CPF {m.cpf_fmt})" if (m := ctx["morador"]) else ""
+    corpo = f"Nome: {nome}\nE-mail: {email}\nUnidade: {unidade}{logado}\n\n{mensagem}"
     ok = enviar(MAIL_CONTATO, f"[Site] Contato de {nome}", corpo, responder_para=email)
     if not ok:
-        return render(request, "site/contato.html", erro="Não foi possível enviar agora. Tente novamente em instantes.")
-    return render(request, "site/contato.html", sucesso=True)
+        return render(request, "site/contato.html", erro="Não foi possível enviar agora. Tente novamente em instantes.", **ctx)
+    return render(request, "site/contato.html", sucesso=True, **ctx)

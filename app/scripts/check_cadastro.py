@@ -4,7 +4,7 @@ import sys, time
 sys.path.insert(0, "/app")
 import mail
 enviados = []
-mail.enviar = lambda para, assunto, corpo, responder_para=None: enviados.append((para, assunto)) or True  # sem e-mail real
+mail.enviar = lambda para, assunto, corpo, responder_para=None: enviados.append((para, assunto, corpo)) or True  # sem e-mail real
 
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
@@ -23,8 +23,13 @@ def limpar():
         db.execute(delete(Morador).where(Morador.cpf.in_([CPF1, CPF2, CPF3]))); db.commit()
 
 
+def captcha(certo=True):
+    cp = auth.captcha_novo(); r = auth._captcha.loads(cp["token"])["r"]
+    return {"captcha_token": cp["token"], "captcha": str(r if certo else r + 1)}
+
+
 def cadastrar(nome, cpf, bloco, apto, **extra):
-    return c.post("/morador/cadastro", data={**BASE, "nome": nome, "cpf": cpf, "bloco": bloco, "apto": apto, **extra}).text
+    return c.post("/morador/cadastro", data={**BASE, **captcha(), "nome": nome, "cpf": cpf, "bloco": bloco, "apto": apto, **extra}).text
 
 
 def morador(cpf, bloco):
@@ -50,6 +55,13 @@ try:
     # obrigatórios
     assert c.post("/morador/cadastro", data={"nome": "X", "cpf": CPF1, "nascimento": "1980-05-10", "bloco": "01", "apto": "101"}).status_code == 422
     assert "aceitar a declaração" in cadastrar("Sem aceite", CPF1, "01", "101", declaracao="")
+    assert "verificação incorreta" in cadastrar("Captcha ruim", CPF1, "01", "101", **captcha(certo=False))
+    # contato: captcha, selects e unidade do condômino logado
+    ct = dict(nome="Zé", email="ze@example.com", mensagem="oi")
+    assert "verificação incorreta" in c.post("/contato", data={**ct, **captcha(False)}).text
+    assert "não conferem" in c.post("/contato", data={**ct, **captcha(), "bloco": "01", "apto": "201"}).text
+    assert "Mensagem enviada" in c.post("/contato", data={**ct, **captcha(), "bloco": "01", "apto": "101"}).text
+    assert 'name="bloco"' in c.get("/contato").text and 'value="27"' in c.get("/contato").text
     assert "Telefone inválido" in cadastrar("Tel ruim", CPF1, "01", "101", telefone="123")
     # A ok, B mesmo apto bloqueado, C mesmo CPF outro apto ok
     assert "Solicitação enviada" in cadastrar("Ana Teste", CPF1, "01", "101")
@@ -73,6 +85,9 @@ try:
     assert "Solicitação enviada" in cadastrar("Duda Teste", CPF3, "02", "102")
     # login aprovado + trocar unidade
     lc, r = login(CPF1); assert r.status_code == 303 and lc.get("/morador").status_code == 200
+    pg = lc.get("/contato").text; assert 'value="01" selected' in pg and 'value="101" selected' in pg and 'value="27"' not in pg and "Ana Teste" in pg
+    assert "Mensagem enviada" in lc.post("/contato", data={**ct, **captcha(), "bloco": "01", "apto": "101"}).text
+    assert "Condômino logado: Ana Teste" in enviados[-1][2]
     d = morador(CPF3, "02"); assert lc.get(f"/morador/trocar/{d.id}", follow_redirects=False).status_code == 403
     # habilitar novo registro (revogar) libera o apto e derruba o login
     assert ac.post(f"/admin/moradores/{a.id}/status", data={"status": "revogado"}, follow_redirects=False).status_code == 303
@@ -80,7 +95,7 @@ try:
     assert lc.get("/morador", follow_redirects=False).status_code == 303  # sessão antiga cai
     assert "Solicitação enviada" in cadastrar("Bia Teste", CPF2, "01", "101")
     time.sleep(0.3)
-    assuntos = " | ".join(s for _, s in enviados)
+    assuntos = " | ".join(a for _, a, _ in enviados)
     assert "Acesso liberado" in assuntos and "não aprovada" in assuntos and "Acesso encerrado" in assuntos, assuntos
     print("check_cadastro ok")
 finally:

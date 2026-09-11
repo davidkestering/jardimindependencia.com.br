@@ -49,7 +49,7 @@ def cookie_sessao(resp, m: Morador):
 
 def render(request: Request, nome: str, **ctx):
     from main import templates
-    return templates.TemplateResponse(request, nome, {"sessao": request.state.sessao, **ctx})
+    return templates.TemplateResponse(request, nome, {"sessao": request.state.sessao, "captcha": auth.captcha_novo(), **ctx})
 
 
 def morador_atual(request: Request, db: Session, sessao: dict) -> Morador:
@@ -116,13 +116,16 @@ def cadastro(request: Request, db: Session = Depends(get_db)):
 @router.post("/cadastro")
 def cadastro_post(request: Request, nome: str = Form(...), cpf: str = Form(...), nascimento: str = Form(...),
                   bloco: str = Form(...), apto: str = Form(...), email: str = Form(...), telefone: str = Form(...),
-                  declaracao: str = Form(""), db: Session = Depends(get_db)):
+                  declaracao: str = Form(""), captcha: str = Form(""), captcha_token: str = Form(""),
+                  db: Session = Depends(get_db)):
     blocos = sorted({u.bloco for u in db.scalars(select(Unidade).where(Unidade.apto != ""))})
     cpf_d, nasc = auth.so_digitos(cpf), auth.parse_data(nascimento)
     apto = auth.so_digitos(apto).zfill(3)[-3:]
     dados = dict(nome=nome, cpf=cpf, nascimento=nascimento, bloco=bloco, apto=apto, email=email, telefone=telefone)
     erro = None
-    if not declaracao:
+    if not auth.captcha_ok(captcha_token, captcha):
+        erro = "Resposta da conta de verificação incorreta. Tente novamente."
+    elif not declaracao:
         erro = "É preciso aceitar a declaração de veracidade das informações."
     elif not auth.cpf_valido(cpf_d):
         erro = "CPF inválido."
