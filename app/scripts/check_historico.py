@@ -26,7 +26,7 @@ def limpar():
             for p in db.scalars(select(Pauta).where(Pauta.assembleia_id == a.id)):
                 db.execute(delete(Voto).where(Voto.pauta_id == p.id)); db.delete(p)
             db.delete(a)
-        db.execute(delete(Historico).where(Historico.detalhe.cast(__import__("sqlalchemy").String).ilike("%hist teste%") | Historico.detalhe.cast(__import__("sqlalchemy").String).ilike("%hist-doc%")))
+        db.execute(delete(Historico).where(Historico.ip == "203.0.113.9"))  # tudo que este script gerou (IP fictício)
         db.commit()
 
 
