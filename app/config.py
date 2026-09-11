@@ -17,7 +17,7 @@ CONDOMINIO = {
     "nome": "Condomínio Residencial Jardim Independência",
     "endereco": "Av. Governador Hélio Gueiros, 48 — Quarenta Horas (Coqueiro)",
     "cidade": "Ananindeua — PA",
-    "cep": "67120-370",
+    "cep": "67120-370 e 67120-942",
     "referencia": "Em frente ao Colégio La Salle",
     "cnpj": "24.592.077/0001-66",
 }
