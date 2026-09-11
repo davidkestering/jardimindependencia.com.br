@@ -18,7 +18,7 @@ from routers.arquivos import servir_documento
 from routers.morador import msg_ocupado, ocupante, validar_contato
 
 router = APIRouter(prefix="/admin")
-CATEGORIAS = ["Convenção", "Regimento interno", "Atas de assembleia", "Balancetes", "Comunicados", "Outros"]
+CATEGORIAS = ["Convenção", "Regimento interno", "Atas de assembleia", "Balancetes", "Contratos com Administradora de Condomínio", "Contratos com Terceiros", "Comunicados", "Outros"]
 EXT_OK = {".pdf", ".jpg", ".jpeg", ".png"}
 MAX_TOTAL_MB = 100   # soma de todos os arquivos de um envio
 BLOCO = 1024 * 1024  # gravação em blocos de 1 MB: nunca carrega o arquivo inteiro em memória
