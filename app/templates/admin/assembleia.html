@@ -7,8 +7,21 @@
   <div class="eyebrow">{% if a.abre_em <= agora <= a.fecha_em %}Votação aberta{% elif agora < a.abre_em %}Agendada{% else %}Encerrada{% endif %} · {{ unidades_ativas }} unidades aptas</div>
   <h1>{{ a.titulo }}</h1>
   <p>{{ a.abre_em.strftime('%d/%m/%Y %H:%M') }} até {{ a.fecha_em.strftime('%d/%m/%Y %H:%M') }} (horário de Brasília)</p>
-  {% if documentos %}<h2 style="margin-top:24px;font-size:22px">Documentos da assembleia</h2>
-  <ul>{% for d in documentos %}<li><a href="/admin/documentos/{{ d.id }}">{{ d.titulo }}</a> <small>({{ d.categoria }}{% if not d.publico %} · não publicado{% endif %})</small></li>{% endfor %}</ul>{% endif %}
+  <h2 style="margin-top:24px;font-size:22px">Documentos da assembleia</h2>
+  {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
+  {% if documentos %}<ul>{% for d in documentos %}<li><a href="/admin/documentos/{{ d.id }}">{{ d.titulo }}</a> <small>({{ d.categoria }}{% if not d.publico %} · não publicado{% endif %})</small>
+    <form method="post" action="/admin/documentos/{{ d.id }}/publico" style="display:inline"><input type="hidden" name="publico" value="{{ '0' if d.publico else '1' }}"><button class="btn sec" type="submit" style="padding:3px 9px;font-size:12px">{{ 'Tornar privado' if d.publico else 'Publicar' }}</button></form>
+    <form method="post" action="/admin/documentos/{{ d.id }}/excluir" style="display:inline" onsubmit="return confirm('Excluir este documento?')"><input type="hidden" name="voltar" value="/admin/assembleias/{{ a.id }}"><button class="btn sec" type="submit" style="padding:3px 9px;font-size:12px">Excluir</button></form></li>{% endfor %}</ul>
+  {% else %}<p>Nenhum documento nesta assembleia.</p>{% endif %}
+  <details style="margin:8px 0 20px"><summary style="cursor:pointer;font-weight:600;color:var(--terracota)">Enviar documentos para esta assembleia</summary>
+  <form class="card" method="post" action="/admin/documentos" enctype="multipart/form-data" style="margin-top:10px">
+    <input type="hidden" name="assembleia_id" value="{{ a.id }}"><input type="hidden" name="voltar" value="/admin/assembleias/{{ a.id }}">
+    <label>Arquivos (PDF, JPG ou PNG; vários de uma vez, até {{ max_mb }} MB no total)<input name="arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple required></label>
+    <label>Título (opcional; vazio usa o nome de cada arquivo)<input name="titulo" maxlength="200"></label>
+    <label>Categoria<select name="categoria">{% for c in categorias %}<option {% if c == 'Atas de assembleia' %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+    <label style="grid-template-columns:auto 1fr;align-items:center;gap:10px;display:grid"><input type="checkbox" name="publico" value="1" style="width:auto" checked>Publicar para os condôminos agora</label>
+    <button class="btn" type="submit">Enviar</button>
+  </form></details>
   {% for p in a.pautas %}
   <div class="item" style="margin:14px 0">
     <div class="eyebrow">Pauta {{ p.ordem }}</div>

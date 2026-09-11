@@ -49,7 +49,10 @@ try:
         assert por_nome["teste-ata.pdf"].assembleia_id == asm.id and por_nome["teste-ata.pdf"].titulo == "teste-ata"
         assert por_nome["teste-b.png"].assembleia_id is None and por_nome["teste-b.png"].titulo == "Balancete"
         assert all((Path(UPLOAD_DIR) / d.arquivo).stat().st_size > 0 for d in docs)
-    pg = ac.get(f"/admin/assembleias/{asm.id}").text; assert "Documentos da assembleia" in pg and "teste-ata" in pg and "teste-lista" in pg
+    pg = ac.get(f"/admin/assembleias/{asm.id}").text; assert "Documentos da assembleia" in pg and "teste-ata" in pg and "teste-lista" in pg and 'name="assembleia_id" value="' + str(asm.id) in pg
+    r = ac.post("/admin/documentos", data={"categoria": "Outros", "assembleia_id": str(asm.id), "voltar": f"/admin/assembleias/{asm.id}"}, files=[("arquivos", ("teste-viaasm.pdf", pdf, "application/pdf"))], follow_redirects=False)
+    assert r.headers["location"] == f"/admin/assembleias/{asm.id}" and "teste-viaasm" in ac.get(f"/admin/assembleias/{asm.id}").text
+    assert "Avulso" in ac.get("/admin/documentos").text
     pg = ac.get("/admin/documentos").text; assert TIT in pg and 'multiple' in pg
 
     # extensão inválida e assembleia inexistente
