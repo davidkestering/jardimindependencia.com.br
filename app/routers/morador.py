@@ -164,7 +164,9 @@ def painel(request: Request, sessao: dict = Depends(auth.exigir("morador")), db:
     docs = db.scalars(select(Documento).where(Documento.publico).order_by(Documento.criado_em.desc())).all()
     outras = db.scalars(select(Morador).join(Unidade).where(Morador.cpf == m.cpf, Morador.status == "aprovado", Morador.id != m.id)
                         .order_by(Unidade.bloco, Unidade.apto)).all()
-    return render(request, "morador/painel.html", morador=m, documentos=docs, outras=outras)
+    from routers.comunicados import novos_para, resumo
+    novos = novos_para(db, m)
+    return render(request, "morador/painel.html", morador=m, documentos=docs, outras=outras, novos=novos, resumo=resumo)
 
 
 @router.get("/documentos/{doc_id}")

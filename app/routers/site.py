@@ -50,8 +50,9 @@ def render(request: Request, nome: str, **ctx):
 
 
 @router.get("/")
-def home(request: Request):
-    return render(request, "site/home.html", fotos=FOTOS, areas=AREAS[:6])
+def home(request: Request, db: Session = Depends(get_db)):
+    from routers.comunicados import publicos, resumo
+    return render(request, "site/home.html", fotos=FOTOS, areas=AREAS[:6], comunicados=publicos(db, 3), resumo=resumo)
 
 
 @router.get("/condominio")

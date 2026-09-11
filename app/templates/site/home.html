@@ -11,6 +11,15 @@
   <div class="pontos" aria-label="Escolher foto"></div>
 </section>
 
+{% if comunicados %}<section class="alt">
+  <div class="container">
+    <div class="eyebrow">Administração</div>
+    <h2>Comunicados públicos do condomínio</h2>
+    <div class="grade">{% for c in comunicados %}<div class="item"><div class="eyebrow">{{ c.publicado_em.strftime('%d/%m/%Y') }}</div><h3><a href="/comunicados/{{ c.id }}">{{ c.titulo }}</a></h3><p>{{ resumo(c.texto) }}</p><p style="margin-top:10px"><a class="btn sec" href="/comunicados/{{ c.id }}">Ler comunicado</a></p></div>{% endfor %}</div>
+    <p style="margin-top:20px"><a class="btn sec" href="/comunicados">Ver todos os comunicados</a></p>
+  </div>
+</section>{% endif %}
+
 <section>
   <div class="container">
     <div class="eyebrow">Para moradores</div>

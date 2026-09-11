@@ -65,22 +65,32 @@ def remover(unidade_id: uuid.UUID, ws: WebSocket):
             conexoes.pop(unidade_id, None)
 
 
-def push_para_unidade(unidade_id: uuid.UUID, payload: dict):
-    """Web push para todos os moradores da unidade (executado em thread para não travar o loop)."""
+def push_para(db, subs, payload: dict, ttl: int) -> None:
     from pywebpush import WebPushException, webpush
     pem, _ = vapid_keys()
+    for s in subs:
+        try:
+            webpush({"endpoint": s.endpoint, "keys": s.keys}, json.dumps(payload), vapid_private_key=pem,
+                    vapid_claims={"sub": f"mailto:{MAIL_CONTATO}"}, ttl=ttl)
+        except WebPushException as e:
+            log.warning("push falhou (%s): %s", s.endpoint[:40], e)
+            if e.response is not None and e.response.status_code in (404, 410):
+                db.delete(s)
+    db.commit()
+
+
+def push_para_unidade(unidade_id: uuid.UUID, payload: dict):
+    """Web push para todos os moradores da unidade (executado em thread para não travar o loop)."""
     with SessionLocal() as db:
-        subs = db.scalars(select(PushSubscription).join(Morador, Morador.id == PushSubscription.morador_id)
-                          .where(Morador.unidade_id == unidade_id)).all()
-        for s in subs:
-            try:
-                webpush({"endpoint": s.endpoint, "keys": s.keys}, json.dumps(payload), vapid_private_key=pem,
-                        vapid_claims={"sub": f"mailto:{MAIL_CONTATO}"}, ttl=TOQUE_S)
-            except WebPushException as e:
-                log.warning("push falhou (%s): %s", s.endpoint[:40], e)
-                if e.response is not None and e.response.status_code in (404, 410):
-                    db.delete(s)
-        db.commit()
+        push_para(db, db.scalars(select(PushSubscription).join(Morador, Morador.id == PushSubscription.morador_id)
+                                 .where(Morador.unidade_id == unidade_id)).all(), payload, TOQUE_S)
+
+
+def push_para_todos(payload: dict, ttl: int = 24 * 3600):
+    """Web push para todos os condôminos aprovados com notificação ativada (comunicados)."""
+    with SessionLocal() as db:
+        push_para(db, db.scalars(select(PushSubscription).join(Morador, Morador.id == PushSubscription.morador_id)
+                                 .where(Morador.status == "aprovado")).all(), payload, ttl)
 
 
 def rotulo(db, unidade_id) -> str:

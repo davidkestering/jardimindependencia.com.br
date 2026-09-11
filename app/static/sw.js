@@ -6,7 +6,7 @@ self.addEventListener('push', e => {
   let d = {}; try { d = e.data.json(); } catch (_) {}
   e.waitUntil(self.registration.showNotification(d.titulo || 'Interfone', {
     body: d.corpo || 'Chamada recebida', icon: '/static/img/icon-192.png', badge: '/static/img/icon-192.png',
-    tag: 'interfone', renotify: true, requireInteraction: true, vibrate: [500, 300, 500, 300, 500], data: { url: d.url || '/morador/interfone' }
+    tag: d.tag || 'interfone', renotify: true, requireInteraction: (d.tag || 'interfone') === 'interfone', vibrate: [500, 300, 500, 300, 500], data: { url: d.url || '/morador/interfone' }
   }));
 });
 self.addEventListener('notificationclick', e => {

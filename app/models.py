@@ -52,6 +52,7 @@ class Morador(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     decidido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     decidido_por: Mapped[str | None] = mapped_column(String(60))  # login do admin que decidiu
+    comunicados_vistos_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # até quando já viu os comunicados
     unidade: Mapped[Unidade] = relationship(back_populates="moradores")
 
     @property
@@ -92,6 +93,18 @@ class Cobranca(Base):
     gateway_ref: Mapped[str | None] = mapped_column(String(120))
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     unidade: Mapped[Unidade] = relationship()
+
+
+class Comunicado(Base):
+    """visibilidade: rascunho (só admin) | condominos (área logada) | publico (site). publicado_em marca a 1ª publicação."""
+    __tablename__ = "comunicado"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    titulo: Mapped[str] = mapped_column(String(200))
+    texto: Mapped[str] = mapped_column(Text)
+    visibilidade: Mapped[str] = mapped_column(String(12), default="rascunho", server_default="rascunho")
+    autor: Mapped[str] = mapped_column(String(60))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    publicado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class Inadimplencia(Base):
