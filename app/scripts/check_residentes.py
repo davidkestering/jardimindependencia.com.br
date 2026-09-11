@@ -63,6 +63,7 @@ try:
 
     # admin: lista unificada e filtros
     lst = ac.get("/admin/moradores?bloco=01&apto=101").text
+    assert "Cadastrado por <strong>Ana Titular</strong>" in lst and "· IP " in lst
     assert "Ana Titular" in lst and "Rui Inquilino" in lst and "Residente · inquilino" in lst and "Cadastrado pelo condômino Ana Titular" in lst and "Solicitou no site" in lst
     so_res = ac.get("/admin/moradores?status=residente&bloco=01").text; assert "Rui Inquilino" in so_res and "Titular do acesso" not in so_res
     assert "Rui Inquilino" not in ac.get("/admin/moradores?bloco=02").text

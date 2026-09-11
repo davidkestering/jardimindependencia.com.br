@@ -14,13 +14,14 @@
     {% if status or bloco or apto or q %}<a class="btn sec" href="/admin/moradores">Limpar</a>{% endif %}
   </form>
   <div style="overflow-x:auto"><table>
-    <tr><th>Unidade</th><th>Nome</th><th>CPF</th><th>Nascimento</th><th>Contato</th><th>Papel</th><th>Origem</th><th>Situação</th><th>Ações</th></tr>
+    <tr><th>Unidade</th><th>Nome</th><th>CPF</th><th>Nascimento</th><th>Contato</th><th>Papel</th><th>Origem</th><th>Situação</th><th>Registro (quem · quando · IP)</th><th>Ações</th></tr>
     {% for l in linhas %}<tr>
       <td>{{ l.u.bloco }} / {{ l.u.apto }}</td><td>{{ l.nome }}</td><td>{{ l.cpf }}</td><td>{{ l.nasc.strftime('%d/%m/%Y') }}</td>
       <td>{{ l.email }}<br>{{ l.tel }}</td><td>{{ l.papel }}</td><td>{{ l.origem }}</td>
       <td>{% if l.status %}<span class="st st-{{ l.status }}">{{ l.status }}</span>{% else %}—{% endif %}</td>
+      <td style="font-size:13px">Solicitado {{ l.quando|local }}{% if l.registro %}<br>{{ 'Decidido por' if l.id else 'Cadastrado por' }} <strong>{{ l.registro[0] }}</strong><br>{{ l.registro[1]|local }} · IP {{ l.registro[2] or '?' }}{% endif %}</td>
       <td>{% if l.id %}<a class="btn sec" href="/admin/moradores/{{ l.id }}">Ver</a>{% endif %}</td></tr>
-    {% else %}<tr><td colspan="9">Ninguém encontrado.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="10">Ninguém encontrado.</td></tr>{% endfor %}
   </table></div>
   <h2 style="margin-top:36px">Cadastrar morador</h2>
   <form class="card" method="post" action="/admin/moradores">

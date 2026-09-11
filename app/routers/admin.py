@@ -119,10 +119,12 @@ def moradores(request: Request, status: str = "", q: str = "", bloco: str = "", 
         if status:
             stmt = stmt.where(Morador.status == status)
         linhas += [dict(u=m.unidade, nome=m.nome, cpf=m.cpf_fmt, nasc=m.nascimento, email=m.email, tel=m.telefone,
-                        papel="Titular do acesso", origem=ORIGEM.get(m.origem, m.origem), status=m.status, id=m.id) for m in db.scalars(stmt)]
+                        papel="Titular do acesso", origem=ORIGEM.get(m.origem, m.origem), status=m.status, id=m.id,
+                        quando=m.criado_em, registro=(m.decidido_por, m.decidido_em, m.decidido_ip) if m.decidido_em else None) for m in db.scalars(stmt)]
     if status in ("", "residente"):
         linhas += [dict(u=r.unidade, nome=r.nome, cpf=r.cpf_fmt, nasc=r.nascimento, email=r.email, tel=r.telefone,
-                        papel=f"Residente · {r.tipo}", origem=f"Cadastrado pelo condômino {r.cadastrado_por}", status="", id=None)
+                        papel=f"Residente · {r.tipo}", origem=f"Cadastrado pelo condômino {r.cadastrado_por}", status="", id=None,
+                        quando=r.criado_em, registro=(r.cadastrado_por, r.criado_em, r.cadastrado_ip))
                    for r in db.scalars(filtrar(select(Residente).join(Unidade), Residente))]
     linhas.sort(key=lambda l: (l["u"].bloco, l["u"].apto, l["nome"]))
     from routers.financeiro import mapa_unidades
@@ -146,7 +148,7 @@ def morador_criar(request: Request, nome: str = Form(...), cpf: str = Form(...),
         raise HTTPException(400, msg_ocupado(u, ocup))
     db.add(Morador(unidade_id=u.id, nome=nome.strip()[:120], cpf=cpf_d, nascimento=nasc, status="aprovado", origem="admin",
                    email=email.strip()[:160], telefone=telefone.strip()[:20],
-                   decidido_em=datetime.now(timezone.utc), decidido_por=admin.login))
+                   decidido_em=datetime.now(timezone.utc), decidido_por=admin.login, decidido_ip=ip_de(request)))
     db.commit()
     return RedirectResponse("/admin/moradores", status_code=303)
 
@@ -166,7 +168,7 @@ def morador_status(request: Request, mid: uuid.UUID, status: str = Form(...), ad
     if status not in TRANSICOES.get(m.status, ()):
         raise HTTPException(400, f"Não é possível passar de {m.status} para {status}")
     aviso = "encerrado" if (m.status, status) == ("aprovado", "negado") else status
-    m.status, m.decidido_em, m.decidido_por = status, datetime.now(timezone.utc), admin.login
+    m.status, m.decidido_em, m.decidido_por, m.decidido_ip = status, datetime.now(timezone.utc), admin.login, ip_de(request)
     db.commit()
     assunto, corpo = AVISO[aviso]
     notificar(m.email, f"[{CONDOMINIO_CURTO}] {assunto}", corpo.format(u=m.unidade.rotulo, site=SITE_URL))
