@@ -212,8 +212,8 @@ def _areas_do_form(form) -> list[str]:
 async def usuario_criar(request: Request, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     form = await request.form()
     login, nome, senha = str(form.get("login", "")).strip().lower(), str(form.get("nome", "")).strip()[:120], str(form.get("senha", ""))
-    if not re.fullmatch(r"[a-z0-9._-]{3,60}", login) or not nome or len(senha) < 8:
-        raise HTTPException(400, "Login (letras, números, ponto), nome e senha com 8+ caracteres são obrigatórios")
+    if not re.fullmatch(r"[a-z]+(\.[a-z]+)+", login) or len(login) > 60 or not nome or len(senha) < 8:
+        raise HTTPException(400, "Login no formato nome.sobrenome (só letras minúsculas), nome e senha com 8+ caracteres são obrigatórios")
     if db.scalar(select(AdminUser).where(AdminUser.login == login)):
         raise HTTPException(400, "Já existe um usuário com este login")
     db.add(AdminUser(login=login, nome=nome, senha_hash=auth.hash_senha(senha), master=False, areas=_areas_do_form(form)))
