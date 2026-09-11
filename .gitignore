@@ -1,10 +1,32 @@
+# ---- Segredos e dados: nunca versionar ----
 .env
+.env.*
+!.env.example
 data/
-tmp_galeria/
 uploads/
-__pycache__/
-*.pyc
+**/uploads/
+tmp_galeria/
+
+# ---- Fotos e documentos do condomínio: existem só no disco do servidor ----
 app/static/img/condominio/
 docs/referencia/prancha-imagens.jpg
+*.pdf
+*.jpg
+*.jpeg
+*.webp
+*.gif
+# imagens permitidas: só os ícones e o favicon do próprio app
+*.png
+!app/static/img/icon-192.png
+!app/static/img/icon-512.png
+!docs/referencia/paleta-mediancut.png
+*.svg
+!app/static/img/favicon.svg
+
+# ---- Documento pessoal do autor (Declaração de Doação com assinatura) ----
 app/templates/site/doacao.html
 app/static/img/assinatura/
+
+# ---- Python ----
+__pycache__/
+*.pyc
