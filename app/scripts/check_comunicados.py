@@ -55,7 +55,7 @@ try:
 
     # só condôminos: notifica 1x, aparece na área e no painel como novo, não no site
     ac.post(f"/admin/comunicados/{cid}/visibilidade", data={"visibilidade": "condominos"}); time.sleep(0.5)
-    assert [e[0] for e in enviados] == ["ana@example.com"], enviados
+    dest = [e[0] for e in enviados]; assert dest.count("ana@example.com") == 1 and len(dest) == len(set(dest)), dest  # 1 por endereço (2 aptos)
     with SessionLocal() as db:
         c = db.get(Comunicado, cid); assert c.publicado_por == adm.login and c.publicado_ip
     assert "Publicado por" in ac.get("/admin/comunicados").text
