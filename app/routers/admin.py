@@ -144,8 +144,10 @@ def morador_criar(request: Request, nome: str = Form(...), cpf: str = Form(...),
     cpf_d, nasc = auth.so_digitos(cpf), auth.parse_data(nascimento)
     apto = "" if bloco in ("PORTARIA", "ADMINISTRACAO") else auth.so_digitos(apto).zfill(3)[-3:]
     u = db.scalar(select(Unidade).where(Unidade.bloco == bloco, Unidade.apto == apto))
-    if not auth.cpf_valido(cpf_d) or not nasc or not u:
-        raise HTTPException(400, "CPF, data ou unidade inválidos")
+    if not auth.cpf_valido(cpf_d):
+        raise HTTPException(400, "CPF inválido")
+    if not nasc or not u:
+        raise HTTPException(400, "Data ou unidade inválidos")
     if erro := validar_contato(email, telefone):
         raise HTTPException(400, erro)
     if ocup := ocupante(db, u.id):
