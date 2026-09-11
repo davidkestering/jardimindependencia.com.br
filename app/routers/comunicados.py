@@ -113,6 +113,13 @@ def admin_editar(request: Request, cid: uuid.UUID, admin: AdminUser = Depends(ad
     return render(request, "admin/comunicado.html", c=c, visibilidades=VISIBILIDADES)
 
 
+@router.get("/admin/comunicados/{cid}/preview")
+def admin_preview(request: Request, cid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    """Mostra o comunicado como o leitor verá, mesmo em rascunho, com os botões de publicação."""
+    c = db.get(Comunicado, cid) or (_ for _ in ()).throw(HTTPException(404))
+    return render(request, "admin/comunicado_preview.html", c=c, visibilidades=VISIBILIDADES)
+
+
 @router.post("/admin/comunicados/{cid}")
 def admin_salvar(request: Request, cid: uuid.UUID, titulo: str = Form(...), texto: str = Form(...),
                  admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):

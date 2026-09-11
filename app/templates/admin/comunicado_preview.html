@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titulo %}Pré-visualização · {{ c.titulo }}{% endblock %}
+{% block head %}<style>.faixa{background:#fff0c2;color:#6b4b00;border:1px solid #e8d27a;border-radius:8px;padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:20px}.faixa form{display:inline}.faixa .btn{padding:7px 12px;font-size:14px}.leitor{background:#fff;border-radius:12px;padding:28px;max-width:76ch;box-shadow:0 1px 3px rgba(0,0,0,.08)}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "admin/_menu.html" %}
+  {% set rot = {'rascunho': 'Rascunho', 'condominos': 'Só condôminos', 'publico': 'Público'} %}
+  <div class="faixa">
+    <strong>Pré-visualização</strong> · situação atual: <strong>{{ rot[c.visibilidade] }}</strong>{% if c.visibilidade == 'rascunho' %} (só a administração vê){% endif %}
+    <span style="flex:1"></span>
+    {% for v in visibilidades if v != c.visibilidade %}<form method="post" action="/admin/comunicados/{{ c.id }}/visibilidade"{% if c.publicado_em is none and v != 'rascunho' %} onsubmit="return confirm('Publicar para {{ rot[v]|lower }}? Os condôminos serão avisados por e-mail e notificação.')"{% endif %}><input type="hidden" name="visibilidade" value="{{ v }}"><button class="btn{% if v == 'rascunho' %} sec{% endif %}" type="submit">{{ 'Publicar: ' ~ rot[v]|lower if v != 'rascunho' else 'Voltar a rascunho' }}</button></form>{% endfor %}
+    <a class="btn sec" href="/admin/comunicados/{{ c.id }}">Editar</a>
+    <a class="btn sec" href="/admin/comunicados">Voltar</a>
+  </div>
+  <div class="leitor">
+    <div class="eyebrow">{{ (c.publicado_em or c.criado_em).strftime('%d/%m/%Y') }} · Administração</div>
+    <h1>{{ c.titulo }}</h1>
+    <div style="white-space:pre-wrap;line-height:1.6">{{ c.texto }}</div>
+  </div>
+  <p style="font-size:13px;color:#6b5a4c;margin-top:12px">É assim que o comunicado aparece na página do site e na área do condômino.</p>
+</div></section>
+{% endblock %}

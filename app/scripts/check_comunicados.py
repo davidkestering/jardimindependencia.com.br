@@ -44,7 +44,9 @@ try:
     assert ac.post("/admin/comunicados", data={"titulo": TIT, "texto": TEXTO, "visibilidade": "rascunho"}, follow_redirects=False).status_code == 303
     with SessionLocal() as db:
         c = db.scalar(select(Comunicado).where(Comunicado.titulo == TIT)); cid = c.id; assert c.publicado_em is None
-    assert TIT in ac.get("/admin/comunicados").text
+    assert TIT in ac.get("/admin/comunicados").text and f"/admin/comunicados/{cid}/preview" in ac.get("/admin/comunicados").text
+    pv = ac.get(f"/admin/comunicados/{cid}/preview").text
+    assert TEXTO in pv and "Pré-visualização" in pv and "Publicar: só condôminos" in pv and "Publicar: público" in pv and "Voltar a rascunho" not in pv
     assert TIT not in pub.get("/comunicados").text and TIT not in mc.get("/morador/comunicados").text
     assert pub.get(f"/comunicados/{cid}").status_code == 404 and mc.get(f"/morador/comunicados/{cid}").status_code == 404
     assert not enviados and not pushes
