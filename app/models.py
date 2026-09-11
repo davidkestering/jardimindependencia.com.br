@@ -183,8 +183,10 @@ class Inadimplencia(Base):
     observacao: Mapped[str] = mapped_column(Text)
     registrado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     registrado_por: Mapped[str] = mapped_column(String(60))
+    registrado_ip: Mapped[str | None] = mapped_column(String(45))
     encerrado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     encerrado_por: Mapped[str | None] = mapped_column(String(60))
+    encerrado_ip: Mapped[str | None] = mapped_column(String(45))
     unidade: Mapped[Unidade] = relationship()
 
 

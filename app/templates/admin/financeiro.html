@@ -20,17 +20,19 @@
 
   <h2 style="font-size:22px;margin-top:36px">Unidades inadimplentes ({{ ativas|length }})</h2>
   <div style="overflow-x:auto"><table>
-    <tr><th>Unidade</th><th>Observação</th><th>Registrado</th><th>Ações</th></tr>
+    <tr><th>Unidade</th><th>Observação</th><th>Registrado por · quando · IP</th><th>Ações</th></tr>
     {% for i in ativas %}<tr>
-      <td>{{ i.unidade.rotulo }}</td><td class="obs">{{ i.observacao }}</td><td>{{ i.registrado_em.strftime('%d/%m/%Y') }}<br><small>{{ i.registrado_por }}</small></td>
+      <td>{{ i.unidade.rotulo }}</td><td class="obs">{{ i.observacao }}</td><td style="font-size:13px"><strong>{{ i.registrado_por }}</strong><br>{{ i.registrado_em|local }}<br>IP {{ i.registrado_ip or '?' }}</td>
       <td><form class="inline" method="post" action="/admin/financeiro/{{ i.id }}/encerrar" onsubmit="return confirm('Encerrar a inadimplência de {{ i.unidade.rotulo }}?')"><button class="btn" type="submit">Regularizada</button></form></td>
     </tr>{% else %}<tr><td colspan="4">Nenhuma unidade inadimplente.</td></tr>{% endfor %}
   </table></div>
 
   {% if historico %}<h2 style="font-size:22px;margin-top:36px">Histórico (regularizadas)</h2>
   <div style="overflow-x:auto"><table>
-    <tr><th>Unidade</th><th>Observação</th><th>Período</th></tr>
-    {% for i in historico %}<tr><td>{{ i.unidade.rotulo }}</td><td class="obs">{{ i.observacao }}</td><td>{{ i.registrado_em.strftime('%d/%m/%Y') }} ({{ i.registrado_por }}) → {{ i.encerrado_em.strftime('%d/%m/%Y') }} ({{ i.encerrado_por }})</td></tr>{% endfor %}
+    <tr><th>Unidade</th><th>Observação</th><th>Registrado por · quando · IP</th><th>Regularizada por · quando · IP</th></tr>
+    {% for i in historico %}<tr><td>{{ i.unidade.rotulo }}</td><td class="obs">{{ i.observacao }}</td>
+      <td style="font-size:13px"><strong>{{ i.registrado_por }}</strong><br>{{ i.registrado_em|local }}<br>IP {{ i.registrado_ip or '?' }}</td>
+      <td style="font-size:13px"><strong>{{ i.encerrado_por }}</strong><br>{{ i.encerrado_em|local }}<br>IP {{ i.encerrado_ip or '?' }}</td></tr>{% endfor %}
   </table></div>{% endif %}
   <script>
     const mapa = {{ mapa|tojson }}, bloco = document.getElementById('bloco'), apto = document.getElementById('apto');
