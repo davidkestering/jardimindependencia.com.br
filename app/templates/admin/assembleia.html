@@ -10,6 +10,7 @@
   <p>{{ a.abre_em.strftime('%d/%m/%Y %H:%M') }} até {{ a.fecha_em.strftime('%d/%m/%Y %H:%M') }} (horário de Brasília)<br><span style="font-size:13px;color:#6b5a4c">Criada por <strong>{{ a.criado_por or '—' }}</strong> · {{ a.criado_em|local if a.criado_em else '—' }} · IP {{ a.criado_ip or '?' }}</span></p>
   <h2 style="margin-top:24px;font-size:22px">Documentos da assembleia</h2>
   {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
+  {% if ok %}<p class="aviso ok" style="max-width:560px">✓ {{ ok }}</p>{% endif %}
   {% if documentos %}<ul>{% for d in documentos %}<li><a href="/admin/documentos/{{ d.id }}">{{ d.titulo }}</a> <small>({{ d.categoria }}{% if not d.publico %} · não publicado{% endif %})</small>
     <form method="post" action="/admin/documentos/{{ d.id }}/publico" style="display:inline"><input type="hidden" name="publico" value="{{ '0' if d.publico else '1' }}"><button class="btn sec" type="submit" style="padding:3px 9px;font-size:12px">{{ 'Tornar privado' if d.publico else 'Publicar' }}</button></form>
     <form method="post" action="/admin/documentos/{{ d.id }}/excluir" style="display:inline" onsubmit="return confirm('Excluir este documento?')"><input type="hidden" name="voltar" value="/admin/assembleias/{{ a.id }}"><button class="btn sec" type="submit" style="padding:3px 9px;font-size:12px">Excluir</button></form></li>{% endfor %}</ul>
@@ -19,6 +20,7 @@
     <input type="hidden" name="assembleia_id" value="{{ a.id }}"><input type="hidden" name="voltar" value="/admin/assembleias/{{ a.id }}">
     <label>Arquivos (PDF, JPG ou PNG; vários de uma vez, até {{ max_mb }} MB no total)<input name="arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple required></label>
     <label>Título (opcional; vazio usa o nome de cada arquivo)<input name="titulo" maxlength="200"></label>
+    <label>Competência (data de assinatura ou de referência do documento)<input name="competencia" type="date" required value="{{ a.abre_em.strftime('%Y-%m-%d') }}" min="1900-01-01" style="max-width:220px"></label>
     <label><span>Categoria{% include "admin/_nova_categoria.html" %}</span><select name="categoria">{% for c in categorias %}<option {% if c == 'Atas de assembleia' %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
     <label style="grid-template-columns:auto 1fr;align-items:center;gap:10px;display:grid"><input type="checkbox" name="publico" value="1" style="width:auto" checked>Publicar para os condôminos agora</label>
     <button class="btn" type="submit">Enviar</button>

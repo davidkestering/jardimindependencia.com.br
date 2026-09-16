@@ -4,10 +4,11 @@ import sys
 sys.path.insert(0, "/app")
 import mail
 mail.enviar = lambda *a, **k: True
-mail._gravar_historico = lambda *a, **k: None  # testes não entram no histórico de auditoria
+_hist_real, mail._gravar_historico = mail._gravar_historico, lambda *a, **k: None  # testes não entram no histórico de auditoria
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import unquote
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, func, select
 import auth
@@ -15,7 +16,10 @@ from config import UPLOAD_DIR
 from db import SessionLocal
 from main import app
 import routers.admin as adm
-from models import AdminUser, Assembleia, Documento
+from models import AdminUser, Assembleia, Documento, Historico, Morador, Unidade
+from termo import TERMO
+
+CPF = "52998224725"  # condômino de teste (área do condômino: resumo por competência e filtro)
 
 TIT = "Assembleia doc teste"
 
@@ -25,6 +29,8 @@ def limpar():
         for d in db.scalars(select(Documento).where(Documento.nome_original.like("teste-%"))):
             (Path(UPLOAD_DIR) / d.arquivo).unlink(missing_ok=True); db.delete(d)
         db.execute(delete(Assembleia).where(Assembleia.titulo == TIT))
+        db.execute(delete(Morador).where(Morador.cpf == CPF))
+        db.execute(delete(Historico).where(Historico.acao.in_(("Competência do documento alterada", "Categoria do documento alterada")), Historico.detalhe["justificativa"].astext.like("teste:%")))
         from models import CategoriaDocumento
         db.execute(delete(CategoriaDocumento).where(CategoriaDocumento.nome.ilike("laudos teste"))); db.commit()
 
@@ -59,7 +65,7 @@ try:
             assert str(d.id)[14] == "7"  # UUID v7
     pg = ac.get(f"/admin/assembleias/{asm.id}").text; assert "Documentos da assembleia" in pg and "teste-ata" in pg and "teste-lista" in pg and 'name="assembleia_id" value="' + str(asm.id) in pg
     r = ac.post("/admin/documentos", data={"categoria": "Outros", "assembleia_id": str(asm.id), "voltar": f"/admin/assembleias/{asm.id}"}, files=[("arquivos", ("teste-viaasm.pdf", pdf, "application/pdf"))], follow_redirects=False)
-    assert r.headers["location"] == f"/admin/assembleias/{asm.id}" and "teste-viaasm" in ac.get(f"/admin/assembleias/{asm.id}").text
+    assert r.headers["location"].startswith(f"/admin/assembleias/{asm.id}?ok=") and "teste-viaasm" in ac.get(f"/admin/assembleias/{asm.id}").text
     assert "Avulso" in ac.get("/admin/documentos").text
     pg = ac.get("/admin/documentos").text; assert TIT in pg and 'multiple' in pg and "dlg-cat" in pg and f"<strong>{a.login}</strong>" in pg and "IP " in pg
     import re
@@ -83,12 +89,95 @@ try:
     r = ac.post("/admin/documentos", data={"categoria": "Laudos teste"}, files=[("arquivos", ("teste-cat.pdf", pdf, "application/pdf"))], follow_redirects=False)
     with SessionLocal() as db: assert db.scalar(select(Documento).where(Documento.nome_original == "teste-cat.pdf")).categoria == "Laudos teste"
 
+    # competência: informada no envio (data de assinatura/referência), vazia = hoje, inválida = erro
+    hoje = datetime.now(mail.FUSO).date()
+    with SessionLocal() as db:
+        assert db.scalar(select(Documento).where(Documento.nome_original == "teste-cat.pdf")).competencia == hoje
+    r = ac.post("/admin/documentos", data={"categoria": "Outros", "competencia": "2023-01-05", "titulo": "Contrato antigo"}, files=[("arquivos", ("teste-comp.pdf", pdf, "application/pdf"))], follow_redirects=False)
+    assert "erro" not in r.headers["location"]
+    with SessionLocal() as db:
+        dc = db.scalar(select(Documento).where(Documento.nome_original == "teste-comp.pdf")); assert dc.competencia == date(2023, 1, 5); dc_id = dc.id
+    assert "Informe uma data de compet" in unquote(ac.post("/admin/documentos", data={"categoria": "Outros", "competencia": "05/01/2023"}, files=[("arquivos", ("teste-z.pdf", pdf, "application/pdf"))], follow_redirects=False).headers["location"])
+    pg = ac.get("/admin/documentos").text; assert "05/01/2023" in pg and 'id="dlg-comp"' in pg and f'data-id="{dc_id}" data-comp="2023-01-05" data-titulo="Contrato antigo"' in pg
+    # alteração da competência: exige justificativa e fica no histórico (de/para/justificativa)
+    assert "erro=Informe a justificativa" in unquote(ac.post(f"/admin/documentos/{dc_id}/competencia", data={"competencia": "2023-02-10", "justificativa": "x"}, follow_redirects=False).headers["location"])
+    assert "erro=Informe uma data" in unquote(ac.post(f"/admin/documentos/{dc_id}/competencia", data={"competencia": "1800-01-01", "justificativa": "teste: data errada"}, follow_redirects=False).headers["location"])
+    mail._gravar_historico = _hist_real  # só aqui o histórico grava de verdade (a limpeza apaga as linhas "teste:")
+    loc = unquote(ac.post(f"/admin/documentos/{dc_id}/competencia", data={"competencia": "2023-02-10", "justificativa": "  teste: data   de assinatura "}, follow_redirects=False).headers["location"])
+    assert loc.startswith("/admin/documentos?ok=") and "05/01/2023 para 10/02/2023" in loc, loc
+    assert "✓ Competência de «Contrato antigo» alterada" in ac.get(loc).text  # toda ação dá retorno na tela
+    # categoria: mesma regra (categoria válida + justificativa), com log de/para
+    assert "Escolha uma categoria" in unquote(ac.post(f"/admin/documentos/{dc_id}/categoria", data={"categoria": "Inexistente", "justificativa": "teste: x"}, follow_redirects=False).headers["location"])
+    assert "erro=Informe a justificativa" in unquote(ac.post(f"/admin/documentos/{dc_id}/categoria", data={"categoria": "Balancetes", "justificativa": "x"}, follow_redirects=False).headers["location"])
+    assert "ok=" in ac.post(f"/admin/documentos/{dc_id}/categoria", data={"categoria": "Balancetes", "justificativa": "teste: categoria errada"}, follow_redirects=False).headers["location"]
+    mail._gravar_historico = lambda *a, **k: None
+    with SessionLocal() as db:
+        assert db.get(Documento, dc_id).categoria == "Balancetes"
+        h = db.scalar(select(Historico).where(Historico.acao == "Categoria do documento alterada").order_by(Historico.quando.desc()))
+        assert h and h.detalhe["de"] == "Outros" and h.detalhe["para"] == "Balancetes" and h.detalhe["justificativa"] == "teste: categoria errada", h.detalhe
+    ac.post(f"/admin/documentos/{dc_id}/categoria", data={"categoria": "Outros", "justificativa": "teste: volta"})
+    assert 'id="dlg-catdoc"' in ac.get("/admin/documentos").text and f'data-id="{dc_id}" data-cat="Outros"' in ac.get("/admin/documentos").text
+    with SessionLocal() as db:
+        assert db.get(Documento, dc_id).competencia == date(2023, 2, 10)
+        h = db.scalar(select(Historico).where(Historico.acao == "Competência do documento alterada").order_by(Historico.quando.desc()))
+        assert h and h.detalhe["de"] == "05/01/2023" and h.detalhe["para"] == "10/02/2023" and h.detalhe["justificativa"] == "teste: data de assinatura" and h.login == a.login, h.detalhe
+    # filtros da administração: cadastro, competência, assembleia, categoria; total; paginação; ações voltam ao filtro
+    def lista(**q): return ac.get("/admin/documentos", params=q).text
+    t = lista(comp_de="2023-02-10", comp_ate="2023-02-10"); assert "Contrato antigo" in t and "teste-ata" not in t and "documento(s) com este filtro" in t
+    assert "Contrato antigo" not in lista(comp_de="2024-01-01")
+    t = lista(assembleia=str(asm.id)); assert "teste-ata" in t and "teste-lista" in t and "Contrato antigo" not in t
+    t = lista(assembleia="avulso"); assert "Contrato antigo" in t and "teste-ata" not in t
+    t = lista(categoria="Atas de assembleia"); assert "teste-ata" in t and "Contrato antigo" not in t
+    assert "Contrato antigo" in lista(cad_de=hoje.isoformat(), cad_ate=hoje.isoformat()) and "Contrato antigo" not in lista(cad_ate="2000-01-01")
+    assert "Contrato antigo" in lista(comp_de="lixo")  # data inválida é ignorada (= todos)
+    adm.POR_PAGINA = 2
+    try:
+        t = lista(categoria="Atas de assembleia"); assert "página 1 de" in t and "pagina=2" in t
+        t2 = lista(categoria="Atas de assembleia", pagina=2); assert "página 2 de" in t2
+        assert lista(categoria="Atas de assembleia", pagina=99).count("<tr>") == lista(categoria="Atas de assembleia", pagina=1).count("<tr>") or "página" in lista(categoria="Atas de assembleia", pagina=99)
+        # ação com voltar mantém filtro e página
+        loc = ac.post(f"/admin/documentos/{dc_id}/publico", data={"publico": "1", "voltar": "/admin/documentos?categoria=Outros&pagina=1"}, follow_redirects=False).headers["location"]
+        assert loc.startswith("/admin/documentos?categoria=Outros&pagina=1&ok=") and 'name="voltar" value="/admin/documentos?categoria=Outros' in ac.get(loc).text, loc
+        ac.post(f"/admin/documentos/{dc_id}/publico", data={"publico": "0"})
+    finally:
+        adm.POR_PAGINA = 10
+
+    # área do condômino: painel com quantitativo por ano/mês de competência (só publicados) e lista filtrada por período
+    loc = unquote(ac.post(f"/admin/documentos/{dc_id}/publico", data={"publico": "1"}, follow_redirects=False).headers["location"])
+    assert "publicado: já aparece" in loc and "✓" in ac.get(loc).text, loc
+    loc = unquote(ac.post(f"/admin/documentos/{dc_id}/publico", data={"publico": "0"}, follow_redirects=False).headers["location"]); assert "tornado privado" in loc
+    ac.post(f"/admin/documentos/{dc_id}/publico", data={"publico": "1"})
+    with SessionLocal() as db:
+        u = db.scalar(select(Unidade).order_by(Unidade.bloco, Unidade.apto))
+        db.add(Morador(unidade_id=u.id, nome="Ana Teste", cpf=CPF, nascimento=auth.parse_data("1980-05-10"), email="ana@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO)); db.commit()
+        m = db.scalar(select(Morador).where(Morador.cpf == CPF))
+    mc = TestClient(app, base_url="https://t"); mc.cookies.set(auth.COOKIE, auth.criar_sessao("morador", str(m.id)))
+    pg = mc.get("/morador").text
+    assert "<h3>2023</h3>" in pg and 'href="/morador/documentos?de=2023-02&ate=2023-02">Fevereiro</a>' in pg and "Contrato antigo" not in pg and 'href="/morador/documentos"' in pg
+    lst = mc.get("/morador/documentos?de=2023-02&ate=2023-02").text; assert "Contrato antigo" in lst and "<dt>Competência</dt><dd>10/02/2023</dd>" in lst and "teste-ata" not in lst
+    assert "Contrato antigo" not in mc.get("/morador/documentos?de=2023-03&ate=2023-12").text
+    import routers.morador as mor
+    mor.POR_PAGINA = 1000  # sem filtro lista tudo (paginado em produção; aqui numa página só para conferir)
+    tudo = mc.get("/morador/documentos").text; assert "Contrato antigo" in tudo and "teste-ata" in tudo
+    assert "Contrato antigo" in mc.get("/morador/documentos?categoria=Inexistente").text  # categoria desconhecida é ignorada
+    mor.POR_PAGINA = 10
+    # filtro por categoria, independente da competência: lista da categoria por ordem de cadastro, com competência e data de cadastro
+    cat = mc.get("/morador/documentos?categoria=Outros").text
+    assert "Contrato antigo" in cat and "teste-ata" not in cat and "<dt>Competência</dt><dd>10/02/2023</dd>" in cat and f"<dt>Cadastro</dt><dd>{hoje:%d/%m/%Y}" in cat and '<option selected>Outros</option>' in cat
+    assert "Contrato antigo" not in mc.get("/morador/documentos?categoria=Outros&de=2024-01").text  # categoria + período combinam
+    mor.POR_PAGINA = 1
+    try:
+        t = mc.get("/morador/documentos?categoria=Outros").text; assert "página 1 de" in t and "categoria=Outros&pagina=2" in t
+        assert "página 2 de" in mc.get("/morador/documentos?categoria=Outros&pagina=2").text
+    finally:
+        mor.POR_PAGINA = 10
+    assert "Contrato antigo" in mc.get("/morador/documentos?de=lixo&ate=2023-02").text  # período inválido é ignorado
+
     # extensão inválida e assembleia inexistente
     assert "erro=Envie" in ac.post("/admin/documentos", data={"categoria": "Outros"}, files=[("arquivos", ("teste-x.exe", b"1", "application/octet-stream"))], follow_redirects=False).headers["location"]
     assert "erro=Assembleia" in ac.post("/admin/documentos", data={"categoria": "Outros", "assembleia_id": "nao-uuid"}, files=[("arquivos", ("teste-y.pdf", pdf, "application/pdf"))], follow_redirects=False).headers["location"]
 
     # conteúdo: executável disfarçado de PNG e PDF com JavaScript são recusados sem deixar arquivo
-    from urllib.parse import unquote
     for nome, dados in (("teste-falso.png", b"MZ\x90\x00" + b"0" * 100), ("teste-js.pdf", b"%PDF-1.7\n1 0 obj << /OpenAction << /S /JavaScript /JS (app.alert(1)) >> >> endobj"),
                         ("teste-exe.pdf", b"#!/bin/sh\necho x")):
         r = ac.post("/admin/documentos", data={"categoria": "Outros"}, files=[("arquivos", (nome, dados, "application/octet-stream"))], follow_redirects=False)

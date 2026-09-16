@@ -1,3 +1,4 @@
+import calendar
 import uuid
 from datetime import date, datetime, timezone
 
@@ -210,15 +211,62 @@ def cadastro_post(request: Request, nome: str = Form(...), cpf: str = Form(...),
     return render(request, "morador/cadastro.html", sucesso=True, mapa=mapa)
 
 
+MESES = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+DOCS_PUBLICOS = (Documento.publico, Documento.excluido_em.is_(None))
+POR_PAGINA = 10
+
+
+def _mes(texto: str, fim: bool = False):
+    """'AAAA-MM' (input type=month) -> primeiro dia do mês, ou último se `fim`. None se vazio/inválido."""
+    try:
+        d = date.fromisoformat(texto + "-01")
+    except ValueError:
+        return None
+    return d.replace(day=calendar.monthrange(d.year, d.month)[1]) if fim else d
+
+
 @router.get("")
 def painel(request: Request, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
     m = morador_atual(request, db, sessao)
-    docs = db.scalars(select(Documento).where(Documento.publico, Documento.excluido_em.is_(None)).order_by(Documento.criado_em.desc())).all()
+    # quantidade de documentos publicados por ano/mês de competência: [(ano, [(mês, nome, qtd), ...]), ...] do mais recente ao mais antigo
+    ano, mes = func.extract("year", Documento.competencia), func.extract("month", Documento.competencia)
+    linhas = db.execute(select(ano, mes, func.count()).where(*DOCS_PUBLICOS).group_by(ano, mes).order_by(ano.desc(), mes.desc())).all()
+    por_ano: dict[int, list] = {}
+    for a, me, n in linhas:
+        por_ano.setdefault(int(a), []).append((int(me), MESES[int(me)], n))
     from routers.comunicados import novos_para, resumo
     from models import Residente
     novos = novos_para(db, m)
     n_res = db.scalar(select(func.count()).select_from(Residente).where(Residente.unidade_id == m.unidade_id, Residente.excluido_em.is_(None)))
-    return render(request, "morador/painel.html", morador=m, documentos=docs, novos=novos, resumo=resumo, n_residentes=n_res)
+    return render(request, "morador/painel.html", morador=m, docs_por_ano=list(por_ano.items()), total_docs=sum(n for *_, n in linhas),
+                  novos=novos, resumo=resumo, n_residentes=n_res)
+
+
+@router.get("/documentos")
+def documentos(request: Request, de: str = "", ate: str = "", categoria: str = "", pagina: int = 1, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
+    """Documentos publicados, filtrados pelo período de competência (mês inicial e final, inclusive) e/ou pela categoria.
+    Com categoria a lista sai por ordem de cadastro (mais recente primeiro); sem, por competência."""
+    from routers.admin import categorias
+    morador_atual(request, db, sessao)
+    cats = categorias(db)
+    categoria = categoria if categoria in cats else ""
+    q = select(Documento).where(*DOCS_PUBLICOS)
+    d1, d2 = _mes(de), _mes(ate, fim=True)
+    if d1:
+        q = q.where(Documento.competencia >= d1)
+    if d2:
+        q = q.where(Documento.competencia <= d2)
+    if categoria:
+        q = q.where(Documento.categoria == categoria).order_by(Documento.criado_em.desc())
+    else:
+        q = q.order_by(Documento.competencia.desc(), Documento.criado_em.desc())
+    total = db.scalar(select(func.count()).select_from(q.order_by(None).subquery()))
+    paginas = max(1, -(-total // POR_PAGINA))
+    pagina = min(max(1, pagina), paginas)
+    docs = db.scalars(q.offset((pagina - 1) * POR_PAGINA).limit(POR_PAGINA)).all()
+    filtro = {k: v for k, v in (("de", de if d1 else ""), ("ate", ate if d2 else ""), ("categoria", categoria)) if v}
+    return render(request, "morador/documentos.html", documentos=docs, total=total, pagina=pagina, paginas=paginas, filtro=filtro,
+                  de=filtro.get("de", ""), ate=filtro.get("ate", ""), categoria=categoria, categorias=cats, meses=MESES)
 
 
 @router.get("/documentos/{doc_id}")
