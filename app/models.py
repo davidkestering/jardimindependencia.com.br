@@ -137,6 +137,7 @@ class Documento(Base):
     nome_original: Mapped[str] = mapped_column(String(255))
     publico: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     assembleia_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("assembleia.id", ondelete="SET NULL"), index=True)
+    competencia: Mapped[date] = mapped_column(Date, index=True)  # data de assinatura/referência do documento (não a do envio)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     enviado_por: Mapped[str | None] = mapped_column(String(60))   # login do admin
     enviado_ip: Mapped[str | None] = mapped_column(String(45))

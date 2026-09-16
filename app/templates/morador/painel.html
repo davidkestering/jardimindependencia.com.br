@@ -12,14 +12,17 @@
   <div class="grade" style="margin:24px 0">
     <div class="item"><h3>Comunicados</h3><p>Avisos da administração.</p><p><a href="/morador/comunicados">Abrir</a></p></div>
     <div class="item"><h3>Residentes</h3><p>{{ n_residentes }} residente(s) cadastrado(s) no apartamento.</p><p><a href="/morador/residentes">Abrir</a></p></div>
-    <div class="item"><h3>Documentos</h3><p>{{ documentos|length }} documento(s) publicado(s) pela administração.</p></div>
+    <div class="item"><h3>Documentos</h3><p>{{ total_docs }} documento(s) publicado(s) pela administração.</p><p><a href="/morador/documentos">Abrir</a></p></div>
     <div class="item"><h3>Assembleias</h3><p>Votações abertas e resultados.</p><p><a href="/morador/assembleias">Abrir</a></p></div>
     <div class="item"><h3>Ocorrências</h3><p>Registre problemas e acompanhe as respostas.</p><p><a href="/morador/ocorrencias">Abrir</a></p></div>
     <div class="item"><h3>Enquetes</h3><p>Consultas rápidas da administração.</p><p><a href="/morador/enquetes">Abrir</a></p></div>
   </div>
-  <h2>Documentos do condomínio</h2>
-  {% if not documentos %}<p>Nenhum documento publicado até o momento.</p>{% else %}
-  <div class="grade">{% for d in documentos %}<div class="item"><div class="eyebrow">{{ d.categoria }}{% if d.assembleia %} · {{ d.assembleia.titulo }}{% endif %}</div><h3>{{ d.titulo }}</h3><p>{{ d.criado_em.strftime('%d/%m/%Y') }}</p><p style="margin-top:10px"><a class="btn sec" href="/morador/documentos/{{ d.id }}">Abrir</a></p></div>{% endfor %}</div>
+  <h2>Documentos do condomínio por competência</h2>
+  <p style="max-width:62ch">Quantidade de documentos publicados por ano e mês de competência (data de assinatura ou de referência do documento). Clique num mês para ver a lista, ou use <a href="/morador/documentos">Documentos</a> para filtrar um período.</p>
+  {% if not docs_por_ano %}<p>Nenhum documento publicado até o momento.</p>{% else %}
+  <div class="grade">{% for ano, meses in docs_por_ano %}<div class="item"><h3>{{ ano }}</h3>
+    <ul style="margin:6px 0 0;padding-left:18px">{% for m, nome, n in meses %}<li><a href="/morador/documentos?de={{ ano }}-{{ '%02d' % m }}&ate={{ ano }}-{{ '%02d' % m }}">{{ nome }}</a> · {{ n }} documento{{ 's' if n != 1 }}</li>{% endfor %}</ul>
+    <p style="margin-top:10px"><a class="btn sec" href="/morador/documentos?de={{ ano }}-01&ate={{ ano }}-12">Ver o ano</a></p></div>{% endfor %}</div>
   {% endif %}
 </div></section>
 {% endblock %}

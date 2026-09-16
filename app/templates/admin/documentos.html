@@ -7,23 +7,39 @@
   <h1>Documentos</h1>
   <p style="max-width:62ch">Documentos digitalizados do condomínio. Um documento pode ser <strong>avulso</strong> ou <strong>vinculado a uma assembleia</strong> (escolha no envio, ou envie direto pela página da assembleia). Comunicados em texto ficam em <a href="/admin/comunicados">Comunicados</a>. Só os marcados como <strong>públicos</strong> aparecem na área do condômino.</p>
   {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
+  {% if ok %}<p class="aviso ok" style="max-width:560px">✓ {{ ok }}</p>{% endif %}
+  <form method="get" action="/admin/documentos" class="card" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end;margin-bottom:14px">
+    <label style="margin:0">Cadastro de<input name="cad_de" type="date" value="{{ filtro.cad_de or '' }}"></label>
+    <label style="margin:0">Cadastro até<input name="cad_ate" type="date" value="{{ filtro.cad_ate or '' }}"></label>
+    <label style="margin:0">Competência de<input name="comp_de" type="date" value="{{ filtro.comp_de or '' }}"></label>
+    <label style="margin:0">Competência até<input name="comp_ate" type="date" value="{{ filtro.comp_ate or '' }}"></label>
+    <label style="margin:0">Assembleia<select name="assembleia"><option value="">Todas</option><option value="avulso" {% if filtro.assembleia == 'avulso' %}selected{% endif %}>Só avulsos</option>{% for a in assembleias %}<option value="{{ a.id }}" {% if filtro.assembleia == a.id|string %}selected{% endif %}>{{ a.titulo }} · {{ a.abre_em.strftime('%d/%m/%Y') }}</option>{% endfor %}</select></label>
+    <label style="margin:0">Categoria<select name="categoria"><option value="">Todas</option>{% for c in categorias %}<option {% if c == filtro.categoria %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+    <p style="display:flex;gap:8px;margin:0"><button class="btn" type="submit">Filtrar</button>{% if filtro %}<a class="btn sec" href="/admin/documentos">Todos</a>{% endif %}</p>
+  </form>
+  <p style="font-size:14px;color:#6b5a4c;margin:0 0 8px"><strong>{{ total }}</strong> documento(s){% if filtro %} com este filtro{% endif %}{% if paginas > 1 %} · página {{ pagina }} de {{ paginas }}{% endif %}</p>
   <div style="overflow-x:auto"><table>
-    <tr><th>Enviado por · quando · IP</th><th>Categoria</th><th>Título</th><th>Assembleia</th><th>Arquivo</th><th>Visível aos condôminos</th><th>Ações</th></tr>
+    <tr><th>Enviado por · quando · IP</th><th>Competência</th><th>Categoria</th><th>Título</th><th>Assembleia</th><th>Arquivo</th><th>Visível aos condôminos</th><th>Ações</th></tr>
     {% for d in documentos %}<tr>
-      <td style="font-size:13px"><strong>{{ d.enviado_por or '—' }}</strong><br>{{ d.criado_em|local }}<br>IP {{ d.enviado_ip or '?' }}</td><td>{{ d.categoria }}</td><td>{{ d.titulo }}</td>
+      <td style="font-size:13px"><strong>{{ d.enviado_por or '—' }}</strong><br>{{ d.criado_em|local }}<br>IP {{ d.enviado_ip or '?' }}</td>
+      <td style="white-space:nowrap">{{ d.competencia.strftime('%d/%m/%Y') }}<br><button type="button" class="btn sec alterar-comp" style="padding:3px 8px;font-size:12px;margin-top:4px" data-id="{{ d.id }}" data-comp="{{ d.competencia.isoformat() }}" data-titulo="{{ d.titulo }}">Alterar</button></td>
+      <td>{{ d.categoria }}<br><button type="button" class="btn sec alterar-cat" style="padding:3px 8px;font-size:12px;margin-top:4px" data-id="{{ d.id }}" data-cat="{{ d.categoria }}" data-titulo="{{ d.titulo }}">Alterar</button></td><td>{{ d.titulo }}</td>
       <td>{% if d.assembleia %}<a href="/admin/assembleias/{{ d.assembleia.id }}">{{ d.assembleia.titulo }}</a>{% else %}<span style="color:#6b5a4c">Avulso</span>{% endif %}</td>
       <td><a href="/admin/documentos/{{ d.id }}">{{ d.nome_original }}</a></td>
       <td>{% if d.publico %}Sim{% else %}Não{% endif %}</td>
-      <td><form class="inline" method="post" action="/admin/documentos/{{ d.id }}/publico"><input type="hidden" name="publico" value="{{ '0' if d.publico else '1' }}"><button class="btn sec" type="submit">{{ 'Tornar privado' if d.publico else 'Publicar' }}</button></form>
-      <form class="inline" method="post" action="/admin/documentos/{{ d.id }}/excluir" onsubmit="return confirm('Excluir este documento?')"><button class="btn sec" type="submit">Excluir</button></form></td>
-    </tr>{% else %}<tr><td colspan="7">Nenhum documento enviado.</td></tr>{% endfor %}
+      <td><form class="inline" method="post" action="/admin/documentos/{{ d.id }}/publico"><input type="hidden" name="publico" value="{{ '0' if d.publico else '1' }}"><input type="hidden" name="voltar" value="{{ voltar }}"><button class="btn sec" type="submit">{{ 'Tornar privado' if d.publico else 'Publicar' }}</button></form>
+      <form class="inline" method="post" action="/admin/documentos/{{ d.id }}/excluir" onsubmit="return confirm('Excluir este documento?')"><input type="hidden" name="voltar" value="{{ voltar }}"><button class="btn sec" type="submit">Excluir</button></form></td>
+    </tr>{% else %}<tr><td colspan="8">Nenhum documento {% if filtro %}com este filtro{% else %}enviado{% endif %}.</td></tr>{% endfor %}
   </table></div>
+  {% if paginas > 1 %}<p style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:12px 0">
+    {% for n in range(1, paginas + 1) %}{% if n == pagina %}<strong style="padding:6px 10px">{{ n }}</strong>{% else %}<a class="btn sec" style="padding:5px 10px;font-size:13px" href="/admin/documentos?{{ filtro|urlencode }}{% if filtro %}&{% endif %}pagina={{ n }}">{{ n }}</a>{% endif %}{% endfor %}
+  </p>{% endif %}
   {% if excluidos %}<details style="margin-top:24px"><summary style="cursor:pointer;font-weight:600">Histórico: {{ excluidos|length }} documento(s) excluído(s) (continuam acessíveis à administração)</summary>
   <div style="overflow-x:auto;margin-top:10px"><table>
-    <tr><th>Excluído por · quando · IP</th><th>Enviado por · quando</th><th>Categoria</th><th>Título</th><th>Arquivo</th></tr>
+    <tr><th>Excluído por · quando · IP</th><th>Enviado por · quando</th><th>Competência</th><th>Categoria</th><th>Título</th><th>Arquivo</th></tr>
     {% for d in excluidos %}<tr style="color:#6b5a4c">
       <td style="font-size:13px"><strong>{{ d.excluido_por }}</strong><br>{{ d.excluido_em|local }}<br>IP {{ d.excluido_ip or '?' }}</td>
-      <td style="font-size:13px">{{ d.enviado_por or '—' }}<br>{{ d.criado_em|local }}</td><td>{{ d.categoria }}</td><td>{{ d.titulo }}</td>
+      <td style="font-size:13px">{{ d.enviado_por or '—' }}<br>{{ d.criado_em|local }}</td><td>{{ d.competencia.strftime('%d/%m/%Y') }}</td><td>{{ d.categoria }}</td><td>{{ d.titulo }}</td>
       <td><a href="/admin/documentos/{{ d.id }}">{{ d.nome_original }}</a></td></tr>{% endfor %}
   </table></div></details>{% endif %}
   <h2 style="margin-top:36px">Enviar documentos</h2>
@@ -31,6 +47,7 @@
     <label>Arquivos (PDF, JPG ou PNG; vários de uma vez, até {{ max_mb }} MB no total)<input name="arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple required id="arquivos"></label>
     <p id="resumo" style="font-size:13px;color:#6b5a4c;margin:-6px 0 10px"></p>
     <label>Título (opcional; vazio usa o nome de cada arquivo)<input name="titulo" maxlength="200"></label>
+    <label>Competência (data de assinatura ou de referência do documento, não a de hoje)<input name="competencia" type="date" required value="{{ hoje.isoformat() }}" min="1900-01-01" style="max-width:220px"></label>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <label><span>Categoria{% include "admin/_nova_categoria.html" %}</span><select name="categoria">{% for c in categorias %}<option>{{ c }}</option>{% endfor %}</select></label>
       <label>Assembleia (opcional)<select name="assembleia_id"><option value="">Documento avulso</option>{% for a in assembleias %}<option value="{{ a.id }}">{{ a.titulo }} · {{ a.abre_em.strftime('%d/%m/%Y') }}</option>{% endfor %}</select></label>
@@ -39,7 +56,35 @@
     <button class="btn" type="submit" id="btn-enviar">Enviar</button>
   </form>
   {% with voltar='/admin/documentos' %}{% include "admin/_nova_categoria_dialog.html" %}{% endwith %}
+  <dialog id="dlg-comp" style="border:0;border-radius:12px;padding:24px;max-width:460px;width:92%;box-shadow:0 10px 40px rgba(0,0,0,.25)">
+    <form method="post" id="f-comp"><input type="hidden" name="voltar" value="{{ voltar }}">
+      <h3 style="margin-top:0">Alterar competência</h3>
+      <p id="comp-titulo" style="font-size:14px;color:#6b5a4c"></p>
+      <label>Nova data de competência<input name="competencia" type="date" required min="1900-01-01"></label>
+      <label>Justificativa (fica registrada no histórico)<input name="justificativa" required minlength="5" maxlength="500" placeholder="Ex.: data de assinatura do contrato"></label>
+      <p style="display:flex;gap:8px;margin:12px 0 0"><button class="btn" type="submit">Salvar</button><button class="btn sec" type="button" onclick="document.getElementById('dlg-comp').close()">Cancelar</button></p>
+    </form>
+  </dialog>
+  <dialog id="dlg-catdoc" style="border:0;border-radius:12px;padding:24px;max-width:460px;width:92%;box-shadow:0 10px 40px rgba(0,0,0,.25)">
+    <form method="post" id="f-catdoc"><input type="hidden" name="voltar" value="{{ voltar }}">
+      <h3 style="margin-top:0">Alterar categoria</h3>
+      <p id="catdoc-titulo" style="font-size:14px;color:#6b5a4c"></p>
+      <label>Nova categoria<select name="categoria">{% for c in categorias %}<option>{{ c }}</option>{% endfor %}</select></label>
+      <label>Justificativa (fica registrada no histórico)<input name="justificativa" required minlength="5" maxlength="500" placeholder="Ex.: classificado na categoria errada"></label>
+      <p style="display:flex;gap:8px;margin:12px 0 0"><button class="btn" type="submit">Salvar</button><button class="btn sec" type="button" onclick="document.getElementById('dlg-catdoc').close()">Cancelar</button></p>
+    </form>
+  </dialog>
   <script>
+    document.querySelectorAll('.alterar-comp').forEach(b => b.addEventListener('click', () => {
+      const f = document.getElementById('f-comp'); f.action = '/admin/documentos/' + b.dataset.id + '/competencia';
+      f.competencia.value = b.dataset.comp; f.justificativa.value = ''; document.getElementById('comp-titulo').textContent = b.dataset.titulo;
+      document.getElementById('dlg-comp').showModal();
+    }));
+    document.querySelectorAll('.alterar-cat').forEach(b => b.addEventListener('click', () => {
+      const f = document.getElementById('f-catdoc'); f.action = '/admin/documentos/' + b.dataset.id + '/categoria';
+      f.categoria.value = b.dataset.cat; f.justificativa.value = ''; document.getElementById('catdoc-titulo').textContent = b.dataset.titulo;
+      document.getElementById('dlg-catdoc').showModal();
+    }));
     const MAX = {{ max_mb }} * 1024 * 1024, inp = document.getElementById('arquivos'), res = document.getElementById('resumo'), btn = document.getElementById('btn-enviar');
     inp.addEventListener('change', () => {
       const fs = [...inp.files], total = fs.reduce((s, f) => s + f.size, 0), mb = (total / 1048576).toFixed(1);

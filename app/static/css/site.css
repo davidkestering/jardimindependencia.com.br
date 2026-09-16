@@ -42,7 +42,7 @@ section.alt{background:var(--branco)}
 .grade{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .item{background:var(--branco);border:1px solid var(--bege-claro);border-radius:10px;padding:20px}
 section.alt .item{background:var(--creme-fundo)}
-.item h3{margin-bottom:6px}
+.item h3{margin-bottom:6px;overflow-wrap:anywhere}
 .item p{margin:0;color:#6b5a4c}
 .galeria{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
 .galeria figure{margin:0;border-radius:8px;overflow:hidden;background:var(--bege-claro)}

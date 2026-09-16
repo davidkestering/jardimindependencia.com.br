@@ -1,8 +1,9 @@
 import logging
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -188,13 +189,48 @@ def morador_status(request: Request, mid: uuid.UUID, status: str = Form(...), ad
 
 
 # ---- documentos ----
+POR_PAGINA = 10
+
+
+def _data(texto: str) -> date | None:
+    try:
+        return date.fromisoformat(texto) if texto else None
+    except ValueError:
+        return None
+
+
 @router.get("/documentos")
-def documentos(request: Request, erro: str = "", admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    todos = db.scalars(select(Documento).order_by(Documento.criado_em.desc())).all()
-    docs, excluidos = [d for d in todos if not d.excluido_em], [d for d in todos if d.excluido_em]
+def documentos(request: Request, erro: str = "", ok: str = "", cad_de: str = "", cad_ate: str = "", comp_de: str = "", comp_ate: str = "",
+               assembleia: str = "", categoria: str = "", pagina: int = 1, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    """Lista com filtros (período de cadastro, de competência, assembleia, categoria), total e paginação de POR_PAGINA. Sem filtro = todos."""
+    cats = categorias(db)
     assembleias = db.scalars(select(Assembleia).where(Assembleia.excluido_em.is_(None)).order_by(Assembleia.abre_em.desc())).all()
-    return render(request, "admin/documentos.html", documentos=docs, excluidos=excluidos, categorias=categorias(db), assembleias=assembleias,
-                  max_mb=MAX_TOTAL_MB, erro=erro)
+    f = {"cad_de": _data(cad_de), "cad_ate": _data(cad_ate), "comp_de": _data(comp_de), "comp_ate": _data(comp_ate),
+         "categoria": categoria if categoria in cats else "", "assembleia": assembleia if assembleia in ("avulso", *[str(a.id) for a in assembleias]) else ""}
+    cond = [Documento.excluido_em.is_(None)]
+    if f["cad_de"]:
+        cond.append(Documento.criado_em >= datetime.combine(f["cad_de"], datetime.min.time(), FUSO))
+    if f["cad_ate"]:
+        cond.append(Documento.criado_em < datetime.combine(f["cad_ate"] + timedelta(days=1), datetime.min.time(), FUSO))
+    if f["comp_de"]:
+        cond.append(Documento.competencia >= f["comp_de"])
+    if f["comp_ate"]:
+        cond.append(Documento.competencia <= f["comp_ate"])
+    if f["categoria"]:
+        cond.append(Documento.categoria == f["categoria"])
+    if f["assembleia"] == "avulso":
+        cond.append(Documento.assembleia_id.is_(None))
+    elif f["assembleia"]:
+        cond.append(Documento.assembleia_id == uuid.UUID(f["assembleia"]))
+    total = db.scalar(select(func.count()).select_from(Documento).where(*cond))
+    paginas = max(1, -(-total // POR_PAGINA))
+    pagina = min(max(1, pagina), paginas)
+    docs = db.scalars(select(Documento).where(*cond).order_by(Documento.criado_em.desc()).offset((pagina - 1) * POR_PAGINA).limit(POR_PAGINA)).all()
+    excluidos = db.scalars(select(Documento).where(Documento.excluido_em.is_not(None)).order_by(Documento.excluido_em.desc())).all()
+    filtro = {k: (v.isoformat() if isinstance(v, date) else v) for k, v in f.items() if v}
+    voltar = "/admin/documentos" + ("?" + urlencode({**filtro, "pagina": pagina}) if filtro or pagina > 1 else "")
+    return render(request, "admin/documentos.html", documentos=docs, total=total, pagina=pagina, paginas=paginas, filtro=filtro, voltar=voltar,
+                  excluidos=excluidos, categorias=cats, assembleias=assembleias, max_mb=MAX_TOTAL_MB, erro=erro, ok=ok, hoje=datetime.now(FUSO).date())
 
 
 ASSINATURAS = {".pdf": (b"%PDF",), ".jpg": (b"\xff\xd8\xff",), ".jpeg": (b"\xff\xd8\xff",), ".png": (b"\x89PNG\r\n\x1a\n",)}
@@ -242,12 +278,34 @@ async def _gravar_em_blocos(arquivo: UploadFile, destino: Path, restante: int) -
     return total
 
 
+def _destino(voltar: str) -> str:
+    return voltar if voltar.startswith("/admin/") else "/admin/documentos"
+
+
+def _voltar_ok(destino: str, msg: str) -> RedirectResponse:
+    """Volta à página de origem com a confirmação da ação (toda ação da administração dá retorno na tela)."""
+    return RedirectResponse(f"{destino}{'&' if '?' in destino else '?'}ok={quote(msg)}", status_code=303)
+
+
+def _voltar_erro(destino: str, msg: str) -> RedirectResponse:
+    return RedirectResponse(f"{destino}{'&' if '?' in destino else '?'}erro={quote(msg)}", status_code=303)
+
+
+def _competencia(texto: str) -> date | None:
+    """Data de competência vinda do form (AAAA-MM-DD); vazio = hoje. None se inválida ou fora de faixa plausível."""
+    try:
+        d = date.fromisoformat(texto) if texto else datetime.now(FUSO).date()
+    except ValueError:
+        return None
+    return d if 1900 <= d.year <= datetime.now(FUSO).year + 1 else None
+
+
 @router.post("/documentos")
 async def documento_enviar(request: Request, titulo: str = Form(""), categoria: str = Form(...), publico: str = Form(""),
-                           assembleia_id: str = Form(""), voltar: str = Form(""), arquivos: list[UploadFile] = File(...),
-                           admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+                           assembleia_id: str = Form(""), voltar: str = Form(""), competencia: str = Form(""),
+                           arquivos: list[UploadFile] = File(...), admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     """Vários arquivos num envio só, até MAX_TOTAL_MB no total. Sem assembleia = documento avulso.
-    `voltar`: página de origem (a página da assembleia envia daqui e volta para lá)."""
+    `voltar`: página de origem (a página da assembleia envia daqui e volta para lá). `competencia`: data de assinatura/referência."""
     destino_ok = voltar if voltar.startswith("/admin/") else "/admin/documentos"
 
     def falha(msg):
@@ -256,6 +314,9 @@ async def documento_enviar(request: Request, titulo: str = Form(""), categoria: 
     arquivos = [a for a in arquivos if a.filename]
     if not arquivos:
         return falha("Selecione ao menos um arquivo")
+    comp = _competencia(competencia)
+    if not comp:
+        return falha("Informe uma data de competência válida")
     if any(Path(a.filename).suffix.lower() not in EXT_OK for a in arquivos):
         return falha("Envie apenas PDF, JPG ou PNG")
     aid = None
@@ -286,22 +347,56 @@ async def documento_enviar(request: Request, titulo: str = Form(""), categoria: 
         base = titulo.strip()[:200] or Path(a.filename).stem[:200]
         t = base if len(arquivos) == 1 or not titulo.strip() else f"{base} ({len(novos) + 1})"
         novos.append(Documento(id=doc_id, titulo=t, categoria=categoria if categoria in cats else "Outros", arquivo=nome,
-                               nome_original=Path(a.filename).name[:255], publico=bool(publico), assembleia_id=aid,
+                               nome_original=Path(a.filename).name[:255], publico=bool(publico), assembleia_id=aid, competencia=comp,
                                enviado_por=admin.login, enviado_ip=ip_de(request)))
     db.add_all(novos)
     db.commit()
-    registrar("Documentos enviados", request, admin=admin.login, quantidade=len(novos), assembleia=str(aid or "avulso"))
-    return RedirectResponse(destino_ok, status_code=303)
+    registrar("Documentos enviados", request, admin=admin.login, quantidade=len(novos), assembleia=str(aid or "avulso"), competencia=comp.strftime("%d/%m/%Y"))
+    return _voltar_ok(destino_ok, f"{len(novos)} documento(s) enviado(s)" + (" e publicado(s)" if publico else " (ainda não publicado(s))"))
 
 
 @router.post("/documentos/{did}/publico")
-def documento_publico(request: Request, did: uuid.UUID, publico: str = Form(""), admin: AdminUser = Depends(admin_dep),
+def documento_publico(request: Request, did: uuid.UUID, publico: str = Form(""), voltar: str = Form(""), admin: AdminUser = Depends(admin_dep),
                       db: Session = Depends(get_db)):
     d = db.get(Documento, did) or (_ for _ in ()).throw(HTTPException(404))
     d.publico = publico == "1"
     db.commit()
     registrar("Documento " + ("publicado" if d.publico else "tornado privado"), request, admin=admin.login, titulo=d.titulo, arquivo=d.nome_original)
-    return RedirectResponse("/admin/documentos", status_code=303)
+    return _voltar_ok(_destino(voltar), f"«{d.titulo}» " + ("publicado: já aparece para os condôminos" if d.publico else "tornado privado: não aparece mais para os condôminos"))
+
+
+@router.post("/documentos/{did}/competencia")
+def documento_competencia(request: Request, did: uuid.UUID, competencia: str = Form(""), justificativa: str = Form(""), voltar: str = Form(""),
+                          admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    """Corrige a data de competência (assinatura/referência) de um documento. Exige justificativa; fica no histórico com a data anterior."""
+    d = db.get(Documento, did) or (_ for _ in ()).throw(HTTPException(404))
+    comp, just = _competencia(competencia), " ".join(justificativa.split())[:500]
+    if not comp:
+        return _voltar_erro(_destino(voltar), "Informe uma data de competência válida")
+    if len(just) < 5:
+        return _voltar_erro(_destino(voltar), "Informe a justificativa da alteração")
+    anterior, d.competencia = d.competencia, comp
+    db.commit()
+    registrar("Competência do documento alterada", request, admin=admin.login, titulo=d.titulo, arquivo=d.nome_original,
+              de=anterior.strftime("%d/%m/%Y"), para=comp.strftime("%d/%m/%Y"), justificativa=just)
+    return _voltar_ok(_destino(voltar), f"Competência de «{d.titulo}» alterada de {anterior:%d/%m/%Y} para {comp:%d/%m/%Y}")
+
+
+@router.post("/documentos/{did}/categoria")
+def documento_categoria(request: Request, did: uuid.UUID, categoria: str = Form(""), justificativa: str = Form(""), voltar: str = Form(""),
+                        admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    """Muda a categoria de um documento. Exige justificativa; fica no histórico com a categoria anterior."""
+    d = db.get(Documento, did) or (_ for _ in ()).throw(HTTPException(404))
+    just = " ".join(justificativa.split())[:500]
+    if categoria not in categorias(db):
+        return _voltar_erro(_destino(voltar), "Escolha uma categoria válida")
+    if len(just) < 5:
+        return _voltar_erro(_destino(voltar), "Informe a justificativa da alteração")
+    anterior, d.categoria = d.categoria, categoria
+    db.commit()
+    registrar("Categoria do documento alterada", request, admin=admin.login, titulo=d.titulo, arquivo=d.nome_original,
+              de=anterior, para=categoria, justificativa=just)
+    return _voltar_ok(_destino(voltar), f"Categoria de «{d.titulo}» alterada de {anterior} para {categoria}")
 
 
 @router.post("/documentos/{did}/excluir")
@@ -312,7 +407,8 @@ def documento_excluir(request: Request, did: uuid.UUID, voltar: str = Form(""), 
         d.publico, d.excluido_em, d.excluido_por, d.excluido_ip = False, datetime.now(timezone.utc), admin.login, ip_de(request)
         db.commit()
         registrar("Documento excluído (lógico)", request, admin=admin.login, titulo=d.titulo, arquivo=d.nome_original)
-    return RedirectResponse(voltar if voltar.startswith("/admin/") else "/admin/documentos", status_code=303)
+        return _voltar_ok(_destino(voltar), f"«{d.titulo}» excluído: foi para o histórico")
+    return RedirectResponse(_destino(voltar), status_code=303)
 
 
 @router.get("/documentos/{did}")
