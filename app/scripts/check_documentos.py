@@ -75,6 +75,11 @@ try:
     ac.post("/admin/categorias", data={"nome": "laudos TESTE"})
     with SessionLocal() as db: assert db.scalar(select(func.count()).select_from(CategoriaDocumento).where(CategoriaDocumento.nome.ilike("laudos teste"))) == 1
     assert "Laudos teste" in ac.get("/admin/documentos").text and "Laudos teste" in ac.get(f"/admin/assembleias/{asm.id}").text
+    # via fetch (Accept: application/json) responde JSON em vez de redirect: o modal atualiza o select sem recarregar a página
+    j = ac.post("/admin/categorias", data={"nome": "LAUDOS teste"}, headers={"Accept": "application/json"}).json()
+    assert j["nome"] == "Laudos teste" and "Laudos teste" in j["categorias"] and j["categorias"] == sorted(j["categorias"]), j
+    r = ac.post("/admin/categorias", data={"nome": "   "}, headers={"Accept": "application/json"}); assert r.status_code == 400 and "erro" in r.json()
+    assert 'id="f-cat"' in ac.get("/admin/documentos").text
     r = ac.post("/admin/documentos", data={"categoria": "Laudos teste"}, files=[("arquivos", ("teste-cat.pdf", pdf, "application/pdf"))], follow_redirects=False)
     with SessionLocal() as db: assert db.scalar(select(Documento).where(Documento.nome_original == "teste-cat.pdf")).categoria == "Laudos teste"
 
