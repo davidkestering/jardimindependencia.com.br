@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import String, func, select, text
 from sqlalchemy.orm import Session
 
@@ -326,13 +326,21 @@ def categoria_criar(request: Request, nome: str = Form(...), voltar: str = Form(
     if not admin.pode("documentos"):
         raise HTTPException(403, "Área não liberada para o seu usuário")
     destino = voltar if voltar.startswith("/admin/") else "/admin/documentos"
+    via_fetch = "application/json" in request.headers.get("accept", "")
     nome = " ".join(nome.split())[:80]
     if not nome:
+        if via_fetch:
+            return JSONResponse({"erro": "Informe o nome da categoria"}, status_code=400)
         return RedirectResponse(f"{destino}?erro=Informe+o+nome+da+categoria", status_code=303)
-    if not db.scalar(select(CategoriaDocumento).where(func.lower(CategoriaDocumento.nome) == nome.lower())):
+    existente = db.scalar(select(CategoriaDocumento).where(func.lower(CategoriaDocumento.nome) == nome.lower()))
+    if existente:
+        nome = existente.nome
+    else:
         db.add(CategoriaDocumento(nome=nome))
         db.commit()
         registrar("Categoria de documento criada", request, admin=admin.login, categoria=nome)
+    if via_fetch:  # o modal atualiza o select na hora, sem recarregar a página (não perde o form de envio)
+        return JSONResponse({"nome": nome, "categorias": categorias(db)})
     return RedirectResponse(destino, status_code=303)
 
 
