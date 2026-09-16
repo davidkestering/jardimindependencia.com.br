@@ -23,6 +23,10 @@ docs/referencia/prancha-imagens.jpg
 *.svg
 !app/static/img/favicon.svg
 
+# ---- Logo oficial do condomínio (imagem exclusiva, só no servidor) ----
+app/static/logos/
+app/static/img/logo.svg
+
 # ---- Documento pessoal do autor (Declaração de Doação com assinatura) ----
 app/templates/site/doacao.html
 app/static/img/assinatura/
