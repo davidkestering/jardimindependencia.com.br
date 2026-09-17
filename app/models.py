@@ -144,6 +144,7 @@ class Documento(Base):
     excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
     excluido_por: Mapped[str | None] = mapped_column(String(120))
     excluido_ip: Mapped[str | None] = mapped_column(String(45))
+    excluido_motivo: Mapped[str | None] = mapped_column(String(500))  # justificativa obrigatória na exclusão
     assembleia: Mapped["Assembleia | None"] = relationship()
 
 

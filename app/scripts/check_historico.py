@@ -43,18 +43,22 @@ try:
         d = db.scalar(select(Documento).where(Documento.nome_original == "hist-a.pdf")); did = d.id; caminho = Path(UPLOAD_DIR) / d.arquivo
     pub = TestClient(app, base_url="https://t")
     ac.post(f"/admin/documentos/{did}/publico", data={"publico": "0"})
-    ac.post(f"/admin/documentos/{did}/excluir")
+    ac.post(f"/admin/documentos/{did}/excluir")  # sem justificativa: não exclui
+    with SessionLocal() as db: assert not db.get(Documento, did).excluido_em
+    ac.post(f"/admin/documentos/{did}/excluir", data={"justificativa": "hist: substituído"})
     with SessionLocal() as db:
         d = db.get(Documento, did); assert d and d.excluido_em and d.excluido_por == adm.login and d.excluido_ip == "203.0.113.9" and not d.publico
+        assert d.excluido_motivo == "hist: substituído"
     assert caminho.is_file()  # nunca apaga o arquivo
     assert ac.get(f"/admin/documentos/{did}").status_code == 200  # administração ainda baixa
-    pg = ac.get("/admin/documentos").text; assert "documento(s) excluído(s)" in pg and "hist-doc" in pg
+    assert "hist-doc" not in ac.get("/admin/documentos").text  # ativos: some
+    pg = ac.get("/admin/documentos?situacao=excluidos").text; assert "documento(s) excluído(s)" in pg and "hist-doc" in pg and "hist: substituído" in pg
     time.sleep(0.3)
     with SessionLocal() as db:
         acoes = [h.acao for h in db.scalars(select(Historico).where(Historico.login == adm.login, Historico.ip == "203.0.113.9").order_by(Historico.quando))]
         assert "Documentos enviados" in acoes and "Documento tornado privado" in acoes and "Documento excluído (lógico)" in acoes, acoes
         h = db.scalar(select(Historico).where(Historico.acao == "Documento excluído (lógico)").order_by(Historico.quando.desc()))
-        assert h.detalhe["titulo"] == "hist-doc" and h.tipo == "admin"
+        assert h.detalhe["titulo"] == "hist-doc" and h.tipo == "admin" and h.detalhe["justificativa"] == "hist: substituído"
 
     # assembleia + pauta: exclusão lógica mantém votos
     agora = datetime.now(timezone.utc)

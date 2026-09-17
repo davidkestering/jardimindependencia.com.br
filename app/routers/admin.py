@@ -201,13 +201,16 @@ def _data(texto: str) -> date | None:
 
 @router.get("/documentos")
 def documentos(request: Request, erro: str = "", ok: str = "", cad_de: str = "", cad_ate: str = "", comp_de: str = "", comp_ate: str = "",
-               assembleia: str = "", categoria: str = "", pagina: int = 1, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    """Lista com filtros (período de cadastro, de competência, assembleia, categoria), total e paginação de POR_PAGINA. Sem filtro = todos."""
+               assembleia: str = "", categoria: str = "", situacao: str = "", pagina: int = 1, admin: AdminUser = Depends(admin_dep),
+               db: Session = Depends(get_db)):
+    """Lista com filtros (período de cadastro, de competência, assembleia, categoria, situação), total e paginação de POR_PAGINA.
+    Sem filtro = todos os ativos; situacao=excluidos lista só os excluídos logicamente (só a administração vê), com os mesmos filtros."""
     cats = categorias(db)
     assembleias = db.scalars(select(Assembleia).where(Assembleia.excluido_em.is_(None)).order_by(Assembleia.abre_em.desc())).all()
     f = {"cad_de": _data(cad_de), "cad_ate": _data(cad_ate), "comp_de": _data(comp_de), "comp_ate": _data(comp_ate),
-         "categoria": categoria if categoria in cats else "", "assembleia": assembleia if assembleia in ("avulso", *[str(a.id) for a in assembleias]) else ""}
-    cond = [Documento.excluido_em.is_(None)]
+         "categoria": categoria if categoria in cats else "", "assembleia": assembleia if assembleia in ("avulso", *[str(a.id) for a in assembleias]) else "",
+         "situacao": "excluidos" if situacao == "excluidos" else ""}
+    cond = [Documento.excluido_em.is_not(None) if f["situacao"] else Documento.excluido_em.is_(None)]
     if f["cad_de"]:
         cond.append(Documento.criado_em >= datetime.combine(f["cad_de"], datetime.min.time(), FUSO))
     if f["cad_ate"]:
@@ -225,12 +228,12 @@ def documentos(request: Request, erro: str = "", ok: str = "", cad_de: str = "",
     total = db.scalar(select(func.count()).select_from(Documento).where(*cond))
     paginas = max(1, -(-total // POR_PAGINA))
     pagina = min(max(1, pagina), paginas)
-    docs = db.scalars(select(Documento).where(*cond).order_by(Documento.criado_em.desc()).offset((pagina - 1) * POR_PAGINA).limit(POR_PAGINA)).all()
-    excluidos = db.scalars(select(Documento).where(Documento.excluido_em.is_not(None)).order_by(Documento.excluido_em.desc())).all()
+    ordem = Documento.excluido_em.desc() if f["situacao"] else Documento.criado_em.desc()
+    docs = db.scalars(select(Documento).where(*cond).order_by(ordem).offset((pagina - 1) * POR_PAGINA).limit(POR_PAGINA)).all()
     filtro = {k: (v.isoformat() if isinstance(v, date) else v) for k, v in f.items() if v}
     voltar = "/admin/documentos" + ("?" + urlencode({**filtro, "pagina": pagina}) if filtro or pagina > 1 else "")
     return render(request, "admin/documentos.html", documentos=docs, total=total, pagina=pagina, paginas=paginas, filtro=filtro, voltar=voltar,
-                  excluidos=excluidos, categorias=cats, assembleias=assembleias, max_mb=MAX_TOTAL_MB, erro=erro, ok=ok, hoje=datetime.now(FUSO).date())
+                  excluidos=bool(f["situacao"]), categorias=cats, assembleias=assembleias, max_mb=MAX_TOTAL_MB, erro=erro, ok=ok, hoje=datetime.now(FUSO).date())
 
 
 ASSINATURAS = {".pdf": (b"%PDF",), ".jpg": (b"\xff\xd8\xff",), ".jpeg": (b"\xff\xd8\xff",), ".png": (b"\x89PNG\r\n\x1a\n",)}
@@ -400,14 +403,19 @@ def documento_categoria(request: Request, did: uuid.UUID, categoria: str = Form(
 
 
 @router.post("/documentos/{did}/excluir")
-def documento_excluir(request: Request, did: uuid.UUID, voltar: str = Form(""), admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    """Exclusão lógica: o arquivo e o registro ficam; sai da área do condômino e vai para o histórico da administração."""
+def documento_excluir(request: Request, did: uuid.UUID, justificativa: str = Form(""), voltar: str = Form(""), admin: AdminUser = Depends(admin_dep),
+                      db: Session = Depends(get_db)):
+    """Exclusão lógica com justificativa obrigatória: o arquivo e o registro ficam; sai da área do condômino e passa a aparecer
+    na lista da administração com o filtro «Situação: excluídos»."""
     d = db.get(Documento, did)
+    just = " ".join(justificativa.split())[:500]
     if d and not d.excluido_em:
-        d.publico, d.excluido_em, d.excluido_por, d.excluido_ip = False, datetime.now(timezone.utc), admin.login, ip_de(request)
+        if len(just) < 5:
+            return _voltar_erro(_destino(voltar), "Informe a justificativa da exclusão")
+        d.publico, d.excluido_em, d.excluido_por, d.excluido_ip, d.excluido_motivo = False, datetime.now(timezone.utc), admin.login, ip_de(request), just
         db.commit()
-        registrar("Documento excluído (lógico)", request, admin=admin.login, titulo=d.titulo, arquivo=d.nome_original)
-        return _voltar_ok(_destino(voltar), f"«{d.titulo}» excluído: foi para o histórico")
+        registrar("Documento excluído (lógico)", request, admin=admin.login, titulo=d.titulo, arquivo=d.nome_original, justificativa=just)
+        return _voltar_ok(_destino(voltar), f"«{d.titulo}» excluído: continua acessível à administração no filtro «Situação: excluídos»")
     return RedirectResponse(_destino(voltar), status_code=303)
 
 
