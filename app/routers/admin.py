@@ -100,7 +100,8 @@ def painel(request: Request, admin: AdminUser = Depends(admin_dep), db: Session 
     return render(request, "admin/painel.html", admin=admin, contagem=contagem,
                   aptos=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.ativa, Unidade.apto != "")),
                   areas=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.ativa, Unidade.apto == "")),
-                  documentos=db.scalar(select(func.count()).select_from(Documento)))
+                  documentos=db.scalar(select(func.count()).select_from(Documento).where(Documento.excluido_em.is_(None))),
+                  excluidos=db.scalar(select(func.count()).select_from(Documento).where(Documento.excluido_em.is_not(None))))
 
 
 # ---- moradores ----
