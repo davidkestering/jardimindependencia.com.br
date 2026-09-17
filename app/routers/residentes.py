@@ -2,6 +2,7 @@
 Regra: por apto só 1 CPF entra na área do condômino (o titular). Residentes não fazem login."""
 import uuid
 from datetime import date, datetime, timezone
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -22,6 +23,12 @@ TIPOS = {"morador": "Morador", "inquilino": "Inquilino"}
 
 def lista(db: Session, unidade_id):
     return db.scalars(select(Residente).where(Residente.unidade_id == unidade_id, Residente.excluido_em.is_(None)).order_by(Residente.nome)).all()
+
+
+def _justificativa(texto: str) -> str | None:
+    """Justificativa obrigatória (remoção/transferência): normaliza espaços; None se curta demais."""
+    j = " ".join(texto.split())[:500]
+    return j if len(j) >= 5 else None
 
 
 def _residente_do_apto(db: Session, rid: uuid.UUID, m: Morador) -> Residente:
@@ -78,26 +85,32 @@ def cadastrar(request: Request, nome: str = Form(...), cpf: str = Form(...), nas
 
 
 @router.post("/{rid}/excluir")
-def excluir(request: Request, rid: uuid.UUID, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
+def excluir(request: Request, rid: uuid.UUID, justificativa: str = Form(""), sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
     m = morador_atual(request, db, sessao)
     r = _residente_do_apto(db, rid, m)
-    r.excluido_em, r.excluido_por, r.excluido_ip = datetime.now(timezone.utc), f"condômino {m.nome}", ip_de(request)  # lógico
+    if not (just := _justificativa(justificativa)):
+        return RedirectResponse(f"/morador/residentes?erro={quote('Informe a justificativa da remoção (mínimo 5 caracteres).')}", status_code=303)
+    r.excluido_em, r.excluido_por, r.excluido_ip, r.excluido_motivo = datetime.now(timezone.utc), f"condômino {m.nome}", ip_de(request), just  # lógico
     db.commit()
-    registrar("Residente removido pelo condômino (lógico)", request, titular=m.nome, unidade=m.unidade.rotulo, nome=r.nome, cpf=r.cpf_fmt)
+    registrar("Residente removido pelo condômino (lógico)", request, titular=m.nome, unidade=m.unidade.rotulo, nome=r.nome, cpf=r.cpf_fmt, justificativa=just)
     notificar(MAIL_CONTATO, f"[Site] Residente removido: {r.nome} ({m.unidade.rotulo})",
               f"O condômino {m.nome} removeu o residente {r.nome} (CPF {r.cpf_fmt}, {TIPOS.get(r.tipo, r.tipo)}) do {m.unidade.rotulo}.\n"
+              f"Justificativa: {just}\n"
               f"O registro fica no histórico: {SITE_URL}/admin/moradores/{m.id}")
     return RedirectResponse("/morador/residentes", status_code=303)
 
 
 @router.post("/{rid}/transferir")
-def transferir(request: Request, rid: uuid.UUID, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
+def transferir(request: Request, rid: uuid.UUID, justificativa: str = Form(""), sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
     """Uma transação: titular atual -> 'transferido' (histórico); residente -> novo titular PENDENTE de aprovação da
-    administração; os dois trocam de lugar na lista de residentes."""
+    administração; os dois trocam de lugar na lista de residentes. Exige justificativa (fica no registro do titular)."""
     m = morador_atual(request, db, sessao)
     r = _residente_do_apto(db, rid, m)
+    if not (just := _justificativa(justificativa)):
+        return RedirectResponse(f"/morador/residentes?erro={quote('Informe a justificativa da transferência (mínimo 5 caracteres).')}", status_code=303)
     agora, ip = datetime.now(timezone.utc), ip_de(request)
     m.status, m.decidido_em, m.decidido_por, m.decidido_ip = "transferido", agora, f"transferido para {r.nome} (CPF {r.cpf_fmt})", ip
+    m.transferido_motivo = just
     db.flush()  # libera o índice único do apto antes de inserir o novo titular
     novo = Morador(unidade_id=m.unidade_id, nome=r.nome, cpf=r.cpf, nascimento=r.nascimento, email=r.email, telefone=r.telefone,
                    status="pendente", origem="transferencia")
@@ -115,8 +128,8 @@ def transferir(request: Request, rid: uuid.UUID, sessao: dict = Depends(auth.exi
               f"A administração vai conferir a transferência. Aguarde o e-mail de liberação de acesso; só depois dele será possível entrar.\n"
               f"Seu login será sempre o seu CPF registrado ({novo.cpf_fmt}) e a sua data de nascimento, em {SITE_URL}/morador/login.")
     notificar(MAIL_CONTATO, f"[Site] Acesso transferido, aguardando aprovação: {novo.nome} ({rot})",
-              f"{m.nome} transferiu o acesso de {rot} para {novo.nome} (CPF {novo.cpf_fmt}) em {quando}.\nRevise em {SITE_URL}/admin/moradores/{novo.id}")
-    registrar("Acesso TRANSFERIDO pelo condômino (pendente)", request, unidade=rot, de=f"{m.nome} ({m.cpf_fmt})", para=f"{novo.nome} ({novo.cpf_fmt})")
+              f"{m.nome} transferiu o acesso de {rot} para {novo.nome} (CPF {novo.cpf_fmt}) em {quando}.\nJustificativa: {just}\nRevise em {SITE_URL}/admin/moradores/{novo.id}")
+    registrar("Acesso TRANSFERIDO pelo condômino (pendente)", request, unidade=rot, de=f"{m.nome} ({m.cpf_fmt})", para=f"{novo.nome} ({novo.cpf_fmt})", justificativa=just)
     resp = render(request, "morador/transferido.html", apto=rot, novo=novo)
     resp.delete_cookie(auth.COOKIE)
     return resp

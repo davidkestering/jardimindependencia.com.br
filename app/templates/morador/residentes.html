@@ -11,10 +11,32 @@
     <tr><th>Nome</th><th>Tipo</th><th>CPF</th><th>Nascimento</th><th>Contato</th><th>Ações</th></tr>
     {% for r in residentes %}<tr>
       <td>{{ r.nome }}</td><td>{{ tipos[r.tipo] }}</td><td>{{ r.cpf_fmt }}</td><td>{{ r.nascimento.strftime('%d/%m/%Y') }}</td><td>{{ r.email }}<br>{{ r.telefone }}</td>
-      <td><form class="inline" method="post" action="/morador/residentes/{{ r.id }}/transferir" onsubmit="return confirm('Transferir o acesso à área do condômino para {{ r.nome }}? Você deixará de ter acesso ao {{ morador.unidade.rotulo }} e o novo acesso ficará pendente de aprovação da administração.')"><button class="btn sec" type="submit">Transferir acesso</button></form>
-        <form class="inline" method="post" action="/morador/residentes/{{ r.id }}/excluir" onsubmit="return confirm('Remover {{ r.nome }} da lista?')"><button class="btn sec" type="submit">Remover</button></form></td>
+      <td><button class="btn sec transferir" type="button" data-id="{{ r.id }}" data-nome="{{ r.nome }}">Transferir acesso</button>
+        <button class="btn sec remover" type="button" data-id="{{ r.id }}" data-nome="{{ r.nome }}">Remover</button></td>
     </tr>{% else %}<tr><td colspan="6">Nenhum residente cadastrado.</td></tr>{% endfor %}
   </table></div>
+  <dialog id="dlg-transferir" style="border:0;border-radius:12px;padding:24px;max-width:460px;width:92%;box-shadow:0 10px 40px rgba(0,0,0,.25)">
+    <form method="post" id="f-transferir">
+      <h3 style="margin-top:0">Transferir acesso</h3>
+      <p style="font-size:14px;color:#6b5a4c">Transferir o acesso à área do condômino para <strong id="transferir-nome"></strong>? Você deixará de ter acesso ao {{ morador.unidade.rotulo }} e o novo acesso ficará pendente de aprovação da administração.</p>
+      <label>Justificativa (fica registrada)<textarea name="justificativa" required minlength="5" maxlength="500" rows="3" placeholder="Ex.: mudança de titularidade do apartamento"></textarea></label>
+      <p style="display:flex;gap:8px;margin:12px 0 0"><button class="btn" type="submit">Transferir</button><button class="btn sec" type="button" onclick="document.getElementById('dlg-transferir').close()">Cancelar</button></p>
+    </form>
+  </dialog>
+  <dialog id="dlg-remover" style="border:0;border-radius:12px;padding:24px;max-width:460px;width:92%;box-shadow:0 10px 40px rgba(0,0,0,.25)">
+    <form method="post" id="f-remover">
+      <h3 style="margin-top:0">Remover residente</h3>
+      <p style="font-size:14px;color:#6b5a4c">Remover <strong id="remover-nome"></strong> da lista? O registro fica no histórico da administração.</p>
+      <label>Justificativa (fica registrada)<textarea name="justificativa" required minlength="5" maxlength="500" rows="3" placeholder="Ex.: deixou de morar no apartamento"></textarea></label>
+      <p style="display:flex;gap:8px;margin:12px 0 0"><button class="btn" type="submit">Remover</button><button class="btn sec" type="button" onclick="document.getElementById('dlg-remover').close()">Cancelar</button></p>
+    </form>
+  </dialog>
+  <script>
+    for (const [cls, acao] of [['transferir', 'transferir'], ['remover', 'excluir']]) document.querySelectorAll('button.' + cls).forEach(b => b.addEventListener('click', () => {
+      const f = document.getElementById('f-' + cls); f.action = '/morador/residentes/' + b.dataset.id + '/' + acao; f.justificativa.value = '';
+      document.getElementById(cls + '-nome').textContent = b.dataset.nome; document.getElementById('dlg-' + cls).showModal();
+    }));
+  </script>
   <h2 style="margin-top:36px">Cadastrar residente</h2>
   <form class="card" method="post" action="/morador/residentes">
     <p style="margin:0 0 6px">Apartamento: <strong>{{ morador.unidade.rotulo }}</strong></p>

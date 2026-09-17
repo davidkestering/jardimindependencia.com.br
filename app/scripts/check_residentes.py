@@ -1,6 +1,7 @@
 """Residentes, transferência de acesso, escolha/troca de apto. Regra: só 1 CPF entra por apto. Limpa o que cria:
 docker exec condominio-app python scripts/check_residentes.py"""
 import sys, time
+from urllib.parse import unquote
 sys.path.insert(0, "/app")
 import mail
 enviados = []
@@ -66,16 +67,18 @@ try:
     assert "2 residente(s)" in mc.get("/morador").text and "administrando <strong>Bloco 01 · Apto 101" in mc.get("/morador").text
     with SessionLocal() as db:
         rs = {r.cpf: r.id for r in db.scalars(select(Residente).where(Residente.unidade_id == u1.id))}
-    mc.post(f"/morador/residentes/{rs[S]}/excluir")
+    r = mc.post(f"/morador/residentes/{rs[S]}/excluir", data={"justificativa": "x"}, follow_redirects=False)  # sem justificativa: não remove
+    assert r.status_code == 303 and "justificativa" in unquote(r.headers["location"]) and "Sol Moradora" in mc.get("/morador/residentes").text
+    mc.post(f"/morador/residentes/{rs[S]}/excluir", data={"justificativa": "  teste:  mudou   de apto "})
     assert "Sol Moradora" not in mc.get("/morador/residentes").text
     time.sleep(0.3); assert any(p == mail.MAIL_CONTATO and "Residente removido: Sol Moradora" in a for p, a, _ in enviados)
     with SessionLocal() as db:
-        sr = db.get(Residente, rs[S]); assert sr and sr.excluido_em and "Ana Titular" in sr.excluido_por and sr.excluido_ip  # lógico
-    assert "removido por condômino Ana Titular" in ac.get(f"/admin/moradores/{ma.id}").text
+        sr = db.get(Residente, rs[S]); assert sr and sr.excluido_em and "Ana Titular" in sr.excluido_por and sr.excluido_ip and sr.excluido_motivo == "teste: mudou de apto"  # lógico
+    pg = ac.get(f"/admin/moradores/{ma.id}").text; assert "removido por condômino Ana Titular" in pg and "justificativa: teste: mudou de apto" in pg
     # recadastrar o mesmo CPF reativa a linha (unique unidade+cpf)
     assert mc.post("/morador/residentes", data={**base, "nome": "Sol Moradora", "cpf": S, "tipo": "inquilino"}, follow_redirects=False).status_code == 303
     assert "Sol Moradora" in mc.get("/morador/residentes").text
-    mc.post(f"/morador/residentes/{rs[S]}/excluir")
+    mc.post(f"/morador/residentes/{rs[S]}/excluir", data={"justificativa": "teste: de novo"})
 
     # admin: lista unificada e filtros
     lst = ac.get("/admin/moradores?bloco=01&apto=101").text
@@ -86,11 +89,13 @@ try:
     assert "Rui Inquilino" in ac.get(f"/admin/moradores/{ma.id}").text
 
     # transferência: A -> transferido (com CPF/data), R -> PENDENTE; admin aprova; só R loga
-    r = mc.post(f"/morador/residentes/{rs[R]}/transferir"); assert r.status_code == 200 and "Acesso transferido" in r.text and "pendente de aprovação" in r.text
+    r = mc.post(f"/morador/residentes/{rs[R]}/transferir", follow_redirects=False)  # sem justificativa: não transfere
+    assert r.status_code == 303 and "justificativa" in unquote(r.headers["location"]) and mc.get("/morador", follow_redirects=False).status_code == 200
+    r = mc.post(f"/morador/residentes/{rs[R]}/transferir", data={"justificativa": "teste: vendi o apartamento"}); assert r.status_code == 200 and "Acesso transferido" in r.text and "pendente de aprovação" in r.text
     assert mc.get("/morador", follow_redirects=False).status_code == 303  # sessão de A caiu
     with SessionLocal() as db:
         ma2 = db.get(Morador, ma.id); mr = db.scalar(select(Morador).where(Morador.cpf == R, Morador.unidade_id == u1.id))
-        assert ma2.status == "transferido" and "111.444.777-35" in ma2.decidido_por and ma2.decidido_em and ma2.decidido_ip
+        assert ma2.status == "transferido" and "111.444.777-35" in ma2.decidido_por and ma2.decidido_em and ma2.decidido_ip and ma2.transferido_motivo == "teste: vendi o apartamento"
         assert mr.status == "pendente" and mr.origem == "transferencia"
         rr = db.scalar(select(Residente).where(Residente.cpf == R)); assert rr and rr.excluido_em and "virou titular" in rr.excluido_por
         ares = db.scalar(select(Residente).where(Residente.cpf == A, Residente.unidade_id == u1.id)); assert ares and ares.tipo == "morador"
@@ -100,7 +105,7 @@ try:
     time.sleep(0.3); assuntos = {p: a for p, a, _ in enviados}
     assert "transferiu o acesso" in assuntos["ana@example.com"] and "aguarde a liberação" in assuntos["r@example.com"] and all(t in [c for p, _, c in enviados if p == "r@example.com"][0] for t in ("Aguarde o e-mail de liberação", "login será sempre o seu CPF", "111.444.777-35")) and any("[Site] Acesso transferido" in a for _, a, _ in enviados)
     corpo_a = [c for p, _, c in enviados if p == "ana@example.com"][0]; assert "111.444.777-35" in corpo_a and "pendente de aprovação" in corpo_a
-    assert "transferiu o acesso" in ac.get("/admin/moradores?status=transferido").text
+    assert "transferiu o acesso" in ac.get("/admin/moradores?status=transferido").text and "Justificativa: teste: vendi o apartamento" in ac.get(f"/admin/moradores/{ma.id}").text
     assert ac.post(f"/admin/moradores/{mr.id}/status", data={"status": "aprovado"}, follow_redirects=False).status_code == 303
     lc, r = login(R); assert r.status_code == 303
     assert lc.get("/morador", follow_redirects=False).headers["location"] == "/morador/termo"  # nunca aceitou a declaração
