@@ -158,6 +158,12 @@ try:
     assert "Doc excluído teste" in lista(situacao="excluidos", comp_de="2022-06-01", comp_ate="2022-06-30") and "Doc excluído teste" not in lista(situacao="excluidos", comp_de="2023-01-01")
     assert "Doc excluído teste" not in lista(situacao="lixo")  # valor desconhecido = ativos
     assert ac.post(f"/admin/documentos/{ex_id}/excluir", data={"justificativa": "teste: de novo"}, follow_redirects=False).headers["location"] == "/admin/documentos"  # já excluído: nada muda
+    # painel da administração: KPI conta só ativos; card separado conta excluídos e leva ao filtro
+    with SessionLocal() as db:
+        n_ativos = db.scalar(select(func.count()).select_from(Documento).where(Documento.excluido_em.is_(None)))
+        n_exc = db.scalar(select(func.count()).select_from(Documento).where(Documento.excluido_em.is_not(None)))
+    pa = ac.get("/admin").text
+    assert f"<h3>{n_ativos}</h3><p>documentos ativos" in pa and f"<h3>{n_exc}</h3><p>documentos excluídos" in pa and "/admin/documentos?situacao=excluidos" in pa and n_exc >= 1
 
     # área do condômino: painel com quantitativo por ano/mês de competência (só publicados) e lista filtrada por período
     loc = unquote(ac.post(f"/admin/documentos/{dc_id}/publico", data={"publico": "1"}, follow_redirects=False).headers["location"])
