@@ -141,6 +141,23 @@ try:
         ac.post(f"/admin/documentos/{dc_id}/publico", data={"publico": "0"})
     finally:
         adm.POR_PAGINA = 10
+    # exclusão lógica exige justificativa; excluídos saem da lista normal e aparecem só com situacao=excluidos (demais filtros combinam)
+    ac.post("/admin/documentos", data={"categoria": "Outros", "titulo": "Doc excluído teste", "competencia": "2022-06-15"}, files=[("arquivos", ("teste-excl.pdf", pdf, "application/pdf"))])
+    with SessionLocal() as db: ex_id = db.scalar(select(Documento.id).where(Documento.nome_original == "teste-excl.pdf"))
+    r = ac.post(f"/admin/documentos/{ex_id}/excluir", data={"justificativa": "x", "voltar": "/admin/documentos?categoria=Outros"}, follow_redirects=False)
+    assert "justificativa" in unquote(r.headers["location"]) and "?categoria=Outros&erro=" in r.headers["location"], r.headers["location"]
+    with SessionLocal() as db: assert db.get(Documento, ex_id).excluido_em is None
+    r = ac.post(f"/admin/documentos/{ex_id}/excluir", data={"justificativa": "  teste:  versão   sem CNPJ "}, follow_redirects=False)
+    assert "excluídos" in unquote(r.headers["location"])
+    with SessionLocal() as db:
+        d = db.get(Documento, ex_id); assert d.excluido_em and d.excluido_motivo == "teste: versão sem CNPJ" and not d.publico
+    assert "Doc excluído teste" not in lista() and "Doc excluído teste" not in lista(categoria="Outros")
+    t = lista(situacao="excluidos"); assert "Doc excluído teste" in t and "teste: versão sem CNPJ" in t and "Contrato antigo" not in t and "documento(s) excluído(s)" in t
+    assert 'value="excluidos" selected' in t and "sec excluir-doc" not in t and "sec alterar-comp" not in t and "Tornar privado" not in t  # sem ações sobre excluídos
+    assert "Doc excluído teste" in lista(situacao="excluidos", categoria="Outros") and "Doc excluído teste" not in lista(situacao="excluidos", categoria="Atas de assembleia")
+    assert "Doc excluído teste" in lista(situacao="excluidos", comp_de="2022-06-01", comp_ate="2022-06-30") and "Doc excluído teste" not in lista(situacao="excluidos", comp_de="2023-01-01")
+    assert "Doc excluído teste" not in lista(situacao="lixo")  # valor desconhecido = ativos
+    assert ac.post(f"/admin/documentos/{ex_id}/excluir", data={"justificativa": "teste: de novo"}, follow_redirects=False).headers["location"] == "/admin/documentos"  # já excluído: nada muda
 
     # área do condômino: painel com quantitativo por ano/mês de competência (só publicados) e lista filtrada por período
     loc = unquote(ac.post(f"/admin/documentos/{dc_id}/publico", data={"publico": "1"}, follow_redirects=False).headers["location"])

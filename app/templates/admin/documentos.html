@@ -15,33 +15,28 @@
     <label style="margin:0">Competência até<input name="comp_ate" type="date" value="{{ filtro.comp_ate or '' }}"></label>
     <label style="margin:0">Assembleia<select name="assembleia"><option value="">Todas</option><option value="avulso" {% if filtro.assembleia == 'avulso' %}selected{% endif %}>Só avulsos</option>{% for a in assembleias %}<option value="{{ a.id }}" {% if filtro.assembleia == a.id|string %}selected{% endif %}>{{ a.titulo }} · {{ a.abre_em.strftime('%d/%m/%Y') }}</option>{% endfor %}</select></label>
     <label style="margin:0">Categoria<select name="categoria"><option value="">Todas</option>{% for c in categorias %}<option {% if c == filtro.categoria %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+    <label style="margin:0">Situação<select name="situacao"><option value="">Ativos</option><option value="excluidos" {% if excluidos %}selected{% endif %}>Só excluídos</option></select></label>
     <p style="display:flex;gap:8px;margin:0"><button class="btn" type="submit">Filtrar</button>{% if filtro %}<a class="btn sec" href="/admin/documentos">Todos</a>{% endif %}</p>
   </form>
-  <p style="font-size:14px;color:#6b5a4c;margin:0 0 8px"><strong>{{ total }}</strong> documento(s){% if filtro %} com este filtro{% endif %}{% if paginas > 1 %} · página {{ pagina }} de {{ paginas }}{% endif %}</p>
+  {% if excluidos %}<p class="aviso" style="max-width:62ch">Documentos <strong>excluídos</strong> (exclusão lógica: arquivo e registro ficam; só a administração vê e baixa). Nenhuma ação é possível sobre eles.</p>{% endif %}
+  <p style="font-size:14px;color:#6b5a4c;margin:0 0 8px"><strong>{{ total }}</strong> documento(s){% if excluidos %} excluído(s){% endif %}{% if filtro|reject('equalto', 'situacao')|list %} com este filtro{% endif %}{% if paginas > 1 %} · página {{ pagina }} de {{ paginas }}{% endif %}</p>
   <div style="overflow-x:auto"><table>
-    <tr><th>Enviado por · quando · IP</th><th>Competência</th><th>Categoria</th><th>Título</th><th>Assembleia</th><th>Arquivo</th><th>Visível aos condôminos</th><th>Ações</th></tr>
-    {% for d in documentos %}<tr>
+    <tr>{% if excluidos %}<th>Excluído por · quando · IP</th><th>Justificativa da exclusão</th>{% endif %}<th>Enviado por · quando · IP</th><th>Competência</th><th>Categoria</th><th>Título</th><th>Assembleia</th><th>Arquivo</th>{% if not excluidos %}<th>Visível aos condôminos</th><th>Ações</th>{% endif %}</tr>
+    {% for d in documentos %}<tr{% if excluidos %} style="color:#6b5a4c"{% endif %}>
+      {% if excluidos %}<td style="font-size:13px"><strong>{{ d.excluido_por }}</strong><br>{{ d.excluido_em|local }}<br>IP {{ d.excluido_ip or '?' }}</td><td style="font-size:13px;max-width:32ch">{{ d.excluido_motivo or '—' }}</td>{% endif %}
       <td style="font-size:13px"><strong>{{ d.enviado_por or '—' }}</strong><br>{{ d.criado_em|local }}<br>IP {{ d.enviado_ip or '?' }}</td>
-      <td style="white-space:nowrap">{{ d.competencia.strftime('%d/%m/%Y') }}<br><button type="button" class="btn sec alterar-comp" style="padding:3px 8px;font-size:12px;margin-top:4px" data-id="{{ d.id }}" data-comp="{{ d.competencia.isoformat() }}" data-titulo="{{ d.titulo }}">Alterar</button></td>
-      <td>{{ d.categoria }}<br><button type="button" class="btn sec alterar-cat" style="padding:3px 8px;font-size:12px;margin-top:4px" data-id="{{ d.id }}" data-cat="{{ d.categoria }}" data-titulo="{{ d.titulo }}">Alterar</button></td><td>{{ d.titulo }}</td>
+      <td style="white-space:nowrap">{{ d.competencia.strftime('%d/%m/%Y') }}{% if not excluidos %}<br><button type="button" class="btn sec alterar-comp" style="padding:3px 8px;font-size:12px;margin-top:4px" data-id="{{ d.id }}" data-comp="{{ d.competencia.isoformat() }}" data-titulo="{{ d.titulo }}">Alterar</button>{% endif %}</td>
+      <td>{{ d.categoria }}{% if not excluidos %}<br><button type="button" class="btn sec alterar-cat" style="padding:3px 8px;font-size:12px;margin-top:4px" data-id="{{ d.id }}" data-cat="{{ d.categoria }}" data-titulo="{{ d.titulo }}">Alterar</button>{% endif %}</td><td>{{ d.titulo }}</td>
       <td>{% if d.assembleia %}<a href="/admin/assembleias/{{ d.assembleia.id }}">{{ d.assembleia.titulo }}</a>{% else %}<span style="color:#6b5a4c">Avulso</span>{% endif %}</td>
       <td><a href="/admin/documentos/{{ d.id }}">{{ d.nome_original }}</a></td>
-      <td>{% if d.publico %}Sim{% else %}Não{% endif %}</td>
+      {% if not excluidos %}<td>{% if d.publico %}Sim{% else %}Não{% endif %}</td>
       <td><form class="inline" method="post" action="/admin/documentos/{{ d.id }}/publico"><input type="hidden" name="publico" value="{{ '0' if d.publico else '1' }}"><input type="hidden" name="voltar" value="{{ voltar }}"><button class="btn sec" type="submit">{{ 'Tornar privado' if d.publico else 'Publicar' }}</button></form>
-      <form class="inline" method="post" action="/admin/documentos/{{ d.id }}/excluir" onsubmit="return confirm('Excluir este documento?')"><input type="hidden" name="voltar" value="{{ voltar }}"><button class="btn sec" type="submit">Excluir</button></form></td>
-    </tr>{% else %}<tr><td colspan="8">Nenhum documento {% if filtro %}com este filtro{% else %}enviado{% endif %}.</td></tr>{% endfor %}
+      <button type="button" class="btn sec excluir-doc" data-id="{{ d.id }}" data-titulo="{{ d.titulo }}">Excluir</button></td>{% endif %}
+    </tr>{% else %}<tr><td colspan="10">Nenhum documento {% if excluidos %}excluído{% elif filtro %}com este filtro{% else %}enviado{% endif %}.</td></tr>{% endfor %}
   </table></div>
   {% if paginas > 1 %}<p style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:12px 0">
     {% for n in range(1, paginas + 1) %}{% if n == pagina %}<strong style="padding:6px 10px">{{ n }}</strong>{% else %}<a class="btn sec" style="padding:5px 10px;font-size:13px" href="/admin/documentos?{{ filtro|urlencode }}{% if filtro %}&{% endif %}pagina={{ n }}">{{ n }}</a>{% endif %}{% endfor %}
   </p>{% endif %}
-  {% if excluidos %}<details style="margin-top:24px"><summary style="cursor:pointer;font-weight:600">Histórico: {{ excluidos|length }} documento(s) excluído(s) (continuam acessíveis à administração)</summary>
-  <div style="overflow-x:auto;margin-top:10px"><table>
-    <tr><th>Excluído por · quando · IP</th><th>Enviado por · quando</th><th>Competência</th><th>Categoria</th><th>Título</th><th>Arquivo</th></tr>
-    {% for d in excluidos %}<tr style="color:#6b5a4c">
-      <td style="font-size:13px"><strong>{{ d.excluido_por }}</strong><br>{{ d.excluido_em|local }}<br>IP {{ d.excluido_ip or '?' }}</td>
-      <td style="font-size:13px">{{ d.enviado_por or '—' }}<br>{{ d.criado_em|local }}</td><td>{{ d.competencia.strftime('%d/%m/%Y') }}</td><td>{{ d.categoria }}</td><td>{{ d.titulo }}</td>
-      <td><a href="/admin/documentos/{{ d.id }}">{{ d.nome_original }}</a></td></tr>{% endfor %}
-  </table></div></details>{% endif %}
   <h2 style="margin-top:36px">Enviar documentos</h2>
   <form class="card" method="post" action="/admin/documentos" enctype="multipart/form-data" id="f-docs">
     <label>Arquivos (PDF, JPG ou PNG; vários de uma vez, até {{ max_mb }} MB no total)<input name="arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple required id="arquivos"></label>
@@ -74,7 +69,21 @@
       <p style="display:flex;gap:8px;margin:12px 0 0"><button class="btn" type="submit">Salvar</button><button class="btn sec" type="button" onclick="document.getElementById('dlg-catdoc').close()">Cancelar</button></p>
     </form>
   </dialog>
+  <dialog id="dlg-excluir" style="border:0;border-radius:12px;padding:24px;max-width:460px;width:92%;box-shadow:0 10px 40px rgba(0,0,0,.25)">
+    <form method="post" id="f-excluir"><input type="hidden" name="voltar" value="{{ voltar }}">
+      <h3 style="margin-top:0">Excluir documento</h3>
+      <p id="excluir-titulo" style="font-size:14px;color:#6b5a4c"></p>
+      <p style="font-size:13px;color:#6b5a4c">O arquivo não é apagado: sai da área do condômino e continua visível à administração no filtro «Situação: só excluídos».</p>
+      <label>Justificativa da exclusão (fica registrada)<textarea name="justificativa" required minlength="5" maxlength="500" rows="3" placeholder="Ex.: substituído por versão corrigida"></textarea></label>
+      <p style="display:flex;gap:8px;margin:12px 0 0"><button class="btn" type="submit">Excluir</button><button class="btn sec" type="button" onclick="document.getElementById('dlg-excluir').close()">Cancelar</button></p>
+    </form>
+  </dialog>
   <script>
+    document.querySelectorAll('.excluir-doc').forEach(b => b.addEventListener('click', () => {
+      const f = document.getElementById('f-excluir'); f.action = '/admin/documentos/' + b.dataset.id + '/excluir';
+      f.justificativa.value = ''; document.getElementById('excluir-titulo').textContent = b.dataset.titulo;
+      document.getElementById('dlg-excluir').showModal();
+    }));
     document.querySelectorAll('.alterar-comp').forEach(b => b.addEventListener('click', () => {
       const f = document.getElementById('f-comp'); f.action = '/admin/documentos/' + b.dataset.id + '/competencia';
       f.competencia.value = b.dataset.comp; f.justificativa.value = ''; document.getElementById('comp-titulo').textContent = b.dataset.titulo;
