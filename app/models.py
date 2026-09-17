@@ -54,6 +54,7 @@ class Morador(Base):
     decidido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     decidido_por: Mapped[str | None] = mapped_column(String(60))  # login do admin que decidiu
     decidido_ip: Mapped[str | None] = mapped_column(String(45))
+    transferido_motivo: Mapped[str | None] = mapped_column(String(500))  # justificativa obrigatória ao transferir o acesso
     termo_texto: Mapped[str | None] = mapped_column(Text)        # declaração exatamente como foi aceita
     termo_aceito_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     termo_ip: Mapped[str | None] = mapped_column(String(45))
@@ -91,6 +92,7 @@ class Residente(Base):
     excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
     excluido_por: Mapped[str | None] = mapped_column(String(120))
     excluido_ip: Mapped[str | None] = mapped_column(String(45))
+    excluido_motivo: Mapped[str | None] = mapped_column(String(500))  # justificativa obrigatória na remoção pelo condômino
     unidade: Mapped[Unidade] = relationship()
 
     @property
