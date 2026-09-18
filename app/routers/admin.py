@@ -250,11 +250,13 @@ def conteudo_valido(destino: Path, ext: str) -> bool:
     with destino.open("rb") as f:
         inicio = f.read(16)
     if not any(inicio.startswith(a) for a in ASSINATURAS.get(ext, ())):
+        log.warning("upload recusado (%s): assinatura interna %r não bate com %s", destino.name, inicio[:8], ext)
         return False
     if ext == ".pdf":
         with destino.open("rb") as f:
             while bloco := f.read(4 * BLOCO):
-                if any(t in bloco for t in PDF_ATIVO):
+                if achado := next((t for t in PDF_ATIVO if t in bloco), None):
+                    log.warning("upload recusado (%s): PDF com marcador %s", destino.name, achado.decode())
                     return False
     return True
 
