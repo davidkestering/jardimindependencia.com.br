@@ -61,7 +61,7 @@ input,textarea,select{font:inherit;padding:10px 12px;border:1px solid var(--bege
 input:focus,textarea:focus,select:focus,button:focus-visible,a:focus-visible{outline:3px solid var(--azul-piscina);outline-offset:2px}
 button.btn,.btn{font:700 15px "Nunito Sans",sans-serif;background:var(--terracota);color:#fff;border:0;border-radius:999px;padding:11px 22px;cursor:pointer;text-decoration:none;display:inline-block}
 .btn.sec{background:transparent;border:1.5px solid var(--terracota);color:var(--terracota)}
-.aviso{padding:12px 14px;border-radius:8px;background:#fbe9e3;color:#7a2e12;border:1px solid #efc4b5}
+.aviso{padding:12px 14px;border-radius:8px;background:#fbe9e3;color:#7a2e12;border:1px solid #efc4b5;overflow-wrap:anywhere}
 .aviso.ok{background:#e6f0e8;color:#1d4d2a;border-color:#bcd7c2}
 .mapa{border:0;width:100%;height:420px;border-radius:12px}
 .info dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;margin:0}
