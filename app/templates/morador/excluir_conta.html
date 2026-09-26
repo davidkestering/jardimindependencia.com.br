@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block titulo %}Excluir minha conta · Minha área{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "morador/_menu.html" %}
+  <h1>Excluir minha conta</h1>
+  <p style="max-width:62ch;font-size:18px">Isto encerra na hora o seu acesso à área do condômino em <strong>{% for c in contas %}{{ c.unidade.rotulo }}{{ ', ' if not loop.last }}{% endfor %}</strong>. {% if contas|length > 1 %}A conta é o seu CPF: todos os apartamentos acima são encerrados juntos. {% endif %}Os apartamentos ficam livres para novo cadastro.</p>
+  <p style="max-width:62ch">Seus dados deixam de ser usados e ficam guardados apenas como histórico da administração, pelo prazo legal, conforme a <a href="/privacidade">política de privacidade</a>. Ocorrências, votos e residentes já registrados não são apagados. Para voltar, basta pedir novo cadastro.</p>
+  {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
+  <form class="card" method="post" action="/morador/excluir-conta">
+    <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400"><input type="checkbox" name="confirmo" value="sim" required style="width:auto;margin-top:3px"> Entendi e quero excluir a minha conta.</label>
+    <p style="display:flex;gap:10px;margin:0"><button class="btn" type="submit">Excluir minha conta</button><a class="btn sec" href="/morador">Cancelar</a></p>
+  </form>
+</div></section>
+{% endblock %}

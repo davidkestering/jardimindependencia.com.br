@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block titulo %}Política de privacidade · Jardim Independência{% endblock %}
+{% block descricao %}Quais dados o site e o aplicativo do {{ condominio.nome }} coletam, para que servem, quem os acessa e como pedir a exclusão.{% endblock %}
+{% block head %}<style>.prosa{max-width:72ch;line-height:1.65}.prosa h2{margin-top:32px}.prosa ul{padding-left:20px}.prosa li{margin:4px 0}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container prosa">
+  <div class="eyebrow">LGPD · Lei nº 13.709/2018</div>
+  <h1>Política de privacidade</h1>
+  <p>Esta política explica quais dados pessoais o site <strong>jardimindependencia.com.br</strong> e o aplicativo do condomínio coletam, para que servem, quem os acessa e como você pede a exclusão. O aplicativo exibe o mesmo site, portanto vale a mesma política. Controlador dos dados: <strong>{{ condominio.nome }}</strong>, CNPJ {{ condominio.cnpj }}, {{ condominio.endereco }}, {{ condominio.cidade }}. Contato: <a href="mailto:contato@jardimindependencia.com.br">contato@jardimindependencia.com.br</a>.</p>
+
+  <h2>1. Quais dados são coletados</h2>
+  <p>Quem apenas navega pelo site não precisa informar nenhum dado. Os dados abaixo são fornecidos por quem usa a área do condômino ou o formulário de contato.</p>
+  <ul>
+    <li><strong>Pedido de cadastro do condômino:</strong> nome completo, CPF, data de nascimento, e-mail, telefone e bloco/apartamento.</li>
+    <li><strong>Residentes do apartamento:</strong> nome, CPF, data de nascimento, e-mail, telefone e tipo (morador ou inquilino), informados pelo condômino titular.</li>
+    <li><strong>Ocorrências:</strong> o relato, os arquivos anexados (PDF ou imagens) e as respostas trocadas com a administração.</li>
+    <li><strong>Assembleias e enquetes:</strong> o voto ou a resposta registrada pelo condômino.</li>
+    <li><strong>Interfone virtual:</strong> registro das chamadas entre unidades e, se você autorizar no aparelho, a inscrição para receber notificações.</li>
+    <li><strong>Formulário de contato:</strong> nome, e-mail, mensagem e, se informado, bloco/apartamento.</li>
+    <li><strong>Registros técnicos:</strong> endereço IP, data e hora e navegador em ações relevantes (cadastro, aceite de declarações, login, envio de ocorrências, alterações), guardados como trilha de auditoria.</li>
+  </ul>
+  <p>O site não usa cookies de rastreamento nem de publicidade. Usa apenas um cookie de sessão, necessário para manter você conectado à área do condômino.</p>
+
+  <h2>2. Para que os dados servem</h2>
+  <ul>
+    <li>Confirmar que quem pede acesso é de fato condômino da unidade informada e liberar a área restrita.</li>
+    <li>Publicar documentos, comunicados, assembleias e enquetes apenas para os condôminos.</li>
+    <li>Registrar e responder ocorrências e contatos.</li>
+    <li>Apurar votações e enquetes com um voto por unidade.</li>
+    <li>Operar o interfone virtual entre as unidades.</li>
+    <li>Manter a trilha de auditoria exigida pela gestão do condomínio e pela legislação (Lei nº 12.965/2014, Marco Civil da Internet).</li>
+  </ul>
+  <p>Os dados não são vendidos, cedidos a terceiros nem usados para publicidade.</p>
+
+  <h2>3. Quem acessa os dados</h2>
+  <ul>
+    <li><strong>Administração do condomínio:</strong> síndico e usuários autorizados, cada um limitado às áreas liberadas para ele, com login individual e registro de tudo o que faz.</li>
+    <li><strong>O próprio condômino:</strong> vê e administra os dados do seu apartamento e dos residentes que cadastrou.</li>
+    <li><strong>Prestadores técnicos:</strong> o servidor de hospedagem e o serviço de e-mail do próprio condomínio, usados apenas para manter o site funcionando.</li>
+  </ul>
+  <p>Os dados podem ser fornecidos a autoridades quando houver obrigação legal ou ordem judicial.</p>
+
+  <h2>4. Por quanto tempo os dados ficam guardados</h2>
+  <p>Enquanto o cadastro estiver ativo. Cadastros encerrados, excluídos ou não aprovados ficam guardados apenas como histórico da administração, sem acesso à área do condômino, pelo prazo necessário ao cumprimento de obrigações legais e à defesa do condomínio em eventuais processos (art. 16 da LGPD). Os registros técnicos de acesso são mantidos por, no mínimo, seis meses, como exige o Marco Civil da Internet.</p>
+
+  <h2>5. Como excluir a conta ou pedir a exclusão dos dados</h2>
+  <ul>
+    <li><strong>Pelo site ou pelo aplicativo:</strong> entre na <a href="/morador/login">área do condômino</a> e use a opção <a href="/morador/excluir-conta">Excluir minha conta</a>. O acesso é encerrado na hora, em todos os apartamentos ligados ao seu CPF, e você recebe um e-mail de confirmação.</li>
+    <li><strong>Por e-mail:</strong> escreva para <a href="mailto:contato@jardimindependencia.com.br">contato@jardimindependencia.com.br</a> informando nome e bloco/apartamento. Vale também para retirar um pedido de cadastro ainda pendente, corrigir dados ou pedir a exclusão dos dados de um residente.</li>
+  </ul>
+  <p>Você também pode pedir a confirmação de que tratamos seus dados, o acesso a eles, a correção de dados incompletos ou desatualizados e informação sobre com quem foram compartilhados. Respondemos em até 15 dias.</p>
+
+  <h2>6. Segurança</h2>
+  <p>O site funciona apenas por conexão criptografada (HTTPS). Arquivos enviados são verificados por antivírus e limitados a PDF e imagens. As senhas da administração são guardadas com criptografia irreversível. O acesso do condômino usa CPF e data de nascimento e bloqueia tentativas repetidas.</p>
+
+  <h2>7. Alterações</h2>
+  <p>Esta política pode ser atualizada. A versão vigente é sempre a publicada nesta página. Última atualização: 26 de setembro de 2026.</p>
+</div></section>
+{% endblock %}

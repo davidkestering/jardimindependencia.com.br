@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 import auth
 from db import get_db
-from mail import ip_de, notificar, registrar
+from mail import FUSO, ip_de, notificar, registrar
 from config import MAIL_CONTATO, SITE_URL
 from models import OCUPA_APTO, Documento, Morador, Unidade
 from termo import TERMO
@@ -21,6 +21,7 @@ MENSAGEM_STATUS = {
     "pendente": "Seu cadastro ainda aguarda aprovação da administração.",
     "negado": "Acesso não autorizado. Procure a administração ou solicite novo cadastro.",
     "transferido": "Você transferiu o acesso deste apartamento a outro residente.",
+    "excluido": "Sua conta foi excluída a seu pedido. Para voltar a usar a área do condômino, solicite novo cadastro.",
 }
 
 
@@ -151,6 +152,44 @@ def trocar_post(mid: uuid.UUID, request: Request, sessao: dict = Depends(auth.ex
     atual, alvo = _alvo_troca(request, mid, sessao, db)
     registrar("CONDÔMINO trocou de apto", request, nome=atual.nome, de=atual.unidade.rotulo, para=alvo.unidade.rotulo)
     return cookie_sessao(RedirectResponse("/morador", status_code=303), alvo)
+
+
+def _contas_do_cpf(db: Session, m: Morador) -> list[Morador]:
+    """Todos os acessos (pendentes ou aprovados) do CPF: a 'conta' é a pessoa, não um apto só."""
+    return db.scalars(select(Morador).join(Unidade).where(Morador.cpf == m.cpf, Morador.status.in_(OCUPA_APTO))
+                      .order_by(Unidade.bloco, Unidade.apto)).all()
+
+
+@router.get("/excluir-conta")
+def excluir_conta(request: Request, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
+    """Exigência da App Store (5.1.1(v)) e da LGPD: o condômino encerra a própria conta por dentro do app."""
+    m = morador_atual(request, db, sessao)
+    return render(request, "morador/excluir_conta.html", morador=m, contas=_contas_do_cpf(db, m))
+
+
+@router.post("/excluir-conta")
+def excluir_conta_post(request: Request, confirmo: str = Form(""), sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
+    """Exclusão lógica (regra do projeto: nunca apagar de verdade): status 'excluido' libera o apto e some da lista de
+    acessos; o registro fica só como histórico da administração. Encerra todos os aptos do CPF e derruba a sessão."""
+    m = morador_atual(request, db, sessao)
+    contas = _contas_do_cpf(db, m)
+    if confirmo != "sim":
+        return render(request, "morador/excluir_conta.html", morador=m, contas=contas, erro="É preciso marcar a caixa de confirmação.")
+    agora, ip = datetime.now(timezone.utc), ip_de(request)
+    for c in contas:
+        c.status, c.decidido_em, c.decidido_por, c.decidido_ip = "excluido", agora, "o próprio condômino", ip
+    db.commit()
+    aptos = ", ".join(c.unidade.rotulo for c in contas)
+    notificar(m.email, "[Jardim Independência] Conta excluída",
+              f"Sua conta na área do condômino foi excluída a seu pedido ({aptos}).\nSeus dados deixaram de ser usados e ficam guardados "
+              f"apenas como histórico da administração, pelo prazo legal, conforme {SITE_URL}/privacidade.\n"
+              f"Se não foi você, avise a administração: {MAIL_CONTATO}")
+    notificar(MAIL_CONTATO, f"[Site] Conta excluída pelo condômino: {m.nome} ({aptos})",
+              f"{m.nome} (CPF {m.cpf_fmt}) excluiu a própria conta em {agora.astimezone(FUSO):%d/%m/%Y às %H:%M}.\nAptos liberados: {aptos}.")
+    registrar("Conta EXCLUÍDA pelo próprio condômino", request, nome=m.nome, cpf=m.cpf_fmt, aptos=aptos, email=m.email)
+    resp = render(request, "morador/conta_excluida.html", aptos=aptos)
+    resp.delete_cookie(auth.COOKIE)
+    return resp
 
 
 @router.get("/sair")

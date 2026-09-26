@@ -24,5 +24,6 @@
     <ul style="margin:6px 0 0;padding-left:18px">{% for m, nome, n in meses %}<li><a href="/morador/documentos?de={{ ano }}-{{ '%02d' % m }}&ate={{ ano }}-{{ '%02d' % m }}">{{ nome }}</a> · {{ n }} documento{{ 's' if n != 1 }}</li>{% endfor %}</ul>
     <p style="margin-top:10px"><a class="btn sec" href="/morador/documentos?de={{ ano }}-01&ate={{ ano }}-12">Ver o ano</a></p></div>{% endfor %}</div>
   {% endif %}
+  <p style="margin-top:36px;font-size:14px;color:#6b5a4c"><a href="/privacidade">Política de privacidade</a> · <a href="/morador/excluir-conta">Excluir minha conta</a></p>
 </div></section>
 {% endblock %}

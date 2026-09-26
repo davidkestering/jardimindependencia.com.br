@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -68,6 +69,17 @@ def galeria(request: Request):
 @router.get("/localizacao")
 def localizacao(request: Request):
     return render(request, "site/localizacao.html")
+
+
+@router.get("/privacidade")
+def privacidade(request: Request):
+    return render(request, "site/privacidade.html")
+
+
+@router.get("/politica-de-privacidade")
+@router.get("/privacy")
+def privacidade_alias():
+    return RedirectResponse("/privacidade", status_code=301)
 
 
 def contexto_contato(request: Request, db: Session) -> dict:
