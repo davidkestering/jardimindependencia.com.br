@@ -13,7 +13,7 @@ from db import get_db
 from financeiro import unidade_inadimplente
 from mail import ip_de, registrar
 from models import AdminUser, Enquete, EnqueteOpcao, EnqueteVoto, Unidade
-from routers.admin import admin_dep
+from routers.admin import admin_dep, exigir_proprio
 from routers.morador import morador_atual
 from routers.votacao import MSG_INADIMPLENTE, agora, parse_dt
 
@@ -85,6 +85,7 @@ def admin_detalhe(request: Request, eid: uuid.UUID, admin: AdminUser = Depends(a
 def admin_excluir(request: Request, eid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     e = carregar(db, eid)
     if not e.excluido_em:  # exclusão lógica; votos ficam
+        exigir_proprio(admin, e.criado_por)
         e.excluido_em, e.excluido_por, e.excluido_ip = agora(), admin.login, ip_de(request)
         db.commit()
         registrar("Enquete excluída (lógico)", request, admin=admin.login, pergunta=e.pergunta)

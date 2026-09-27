@@ -100,8 +100,13 @@ class Residente(Base):
         return f"{self.cpf[:3]}.{self.cpf[3:6]}.{self.cpf[6:9]}-{self.cpf[9:]}"
 
 
+# Usuário de demonstração (revisão da App Store): navega em tudo, mas só altera ou exclui o que ele mesmo criou.
+LOGIN_TESTE = "usuario.apple"
+
+
 class AdminUser(Base):
-    """master: pode tudo e gerencia usuários. Os demais só acessam as áreas listadas em `areas`."""
+    """master: pode tudo e gerencia usuários. Os demais só acessam as áreas listadas em `areas`.
+    teste (login == LOGIN_TESTE): não altera nem exclui registro alheio e não notifica os condôminos."""
     __tablename__ = "admin_user"
     id: Mapped[uuid.UUID] = uuid_pk()
     login: Mapped[str] = mapped_column(String(60), unique=True)
@@ -121,6 +126,10 @@ class AdminUser(Base):
 
     def pode(self, area: str) -> bool:
         return self.master or area in (self.areas or [])
+
+    @property
+    def teste(self) -> bool:
+        return self.login == LOGIN_TESTE
 
 
 class CategoriaDocumento(Base):

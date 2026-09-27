@@ -11,7 +11,7 @@ from db import get_db
 from mail import ip_de, registrar
 from financeiro import unidade_inadimplente
 from models import AdminUser, Assembleia, Documento, Opcao, Pauta, Unidade, Voto
-from routers.admin import admin_dep
+from routers.admin import admin_dep, exigir_proprio
 from routers.morador import morador_atual
 
 router = APIRouter()
@@ -90,6 +90,7 @@ def admin_detalhe(request: Request, aid: uuid.UUID, erro: str = "", ok: str = ""
 def admin_pauta(request: Request, aid: uuid.UUID, texto: str = Form(...), opcoes: str = Form(...),
                 admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     a = carregar(db, aid)
+    exigir_proprio(admin, a.criado_por)
     ops = [o.strip()[:200] for o in opcoes.splitlines() if o.strip()]
     if len(ops) < 2:
         raise HTTPException(400, "Informe ao menos duas opções, uma por linha")
@@ -106,6 +107,7 @@ def admin_pauta_excluir(request: Request, aid: uuid.UUID, pid: uuid.UUID, admin:
     """Exclusão lógica: a pauta some da assembleia, mas ela e os votos ficam no banco."""
     p = db.get(Pauta, pid)
     if p and p.assembleia_id == aid and not p.excluido_em:
+        exigir_proprio(admin, p.criado_por)
         p.excluido_em, p.excluido_por, p.excluido_ip = agora(), admin.login, ip_de(request)
         db.commit()
         registrar("Pauta excluída (lógico)", request, admin=admin.login, pauta=p.texto)
@@ -117,6 +119,7 @@ def admin_excluir(request: Request, aid: uuid.UUID, admin: AdminUser = Depends(a
     """Exclusão lógica: some para os condôminos; pautas, votos e documentos ficam no histórico."""
     a = db.get(Assembleia, aid)
     if a and not a.excluido_em:
+        exigir_proprio(admin, a.criado_por)
         a.excluido_em, a.excluido_por, a.excluido_ip = agora(), admin.login, ip_de(request)
         db.commit()
         registrar("Assembleia excluída (lógico)", request, admin=admin.login, titulo=a.titulo)

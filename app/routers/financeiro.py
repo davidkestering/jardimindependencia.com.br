@@ -11,7 +11,7 @@ import auth
 from db import get_db
 from mail import ip_de, registrar
 from models import AdminUser, Inadimplencia, Unidade
-from routers.admin import admin_dep
+from routers.admin import admin_dep, exigir_proprio
 
 router = APIRouter()
 
@@ -60,6 +60,7 @@ def admin_encerrar(request: Request, iid: uuid.UUID, admin: AdminUser = Depends(
     i = db.get(Inadimplencia, iid)
     if not i or i.encerrado_em:
         raise HTTPException(404)
+    exigir_proprio(admin, i.registrado_por)
     i.encerrado_em, i.encerrado_por, i.encerrado_ip = datetime.now(timezone.utc), admin.login, ip_de(request)
     db.commit()
     registrar("Inadimplência encerrada", request, admin=admin.login, unidade=i.unidade.rotulo)

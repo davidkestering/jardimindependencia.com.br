@@ -60,6 +60,15 @@ def admin_dep(request: Request, sessao: dict = Depends(auth.exigir("admin")), db
     return a
 
 
+MSG_TESTE = "Usuário de teste: esta ação só é permitida sobre registros criados por ele mesmo."
+
+
+def exigir_proprio(admin: AdminUser, dono: str | None) -> None:
+    """Usuário de teste só mexe no que ele mesmo criou (dono = login gravado no registro). Os demais passam."""
+    if admin.teste and dono != admin.login:
+        raise HTTPException(403, MSG_TESTE)
+
+
 @router.get("/login")
 def login(request: Request, next: str = "/admin"):
     return render(request, "admin/login.html", next=next)
@@ -178,6 +187,7 @@ def morador_ver(request: Request, mid: uuid.UUID, admin: AdminUser = Depends(adm
 def morador_status(request: Request, mid: uuid.UUID, status: str = Form(...), admin: AdminUser = Depends(admin_dep),
                    db: Session = Depends(get_db)):
     m = db.get(Morador, mid) or (_ for _ in ()).throw(HTTPException(404))
+    exigir_proprio(admin, m.decidido_por if m.origem == "admin" else None)
     if status not in TRANSICOES.get(m.status, ()):
         raise HTTPException(400, f"Não é possível passar de {m.status} para {status}")
     aviso = "encerrado" if (m.status, status) == ("aprovado", "negado") else status
@@ -365,6 +375,7 @@ async def documento_enviar(request: Request, titulo: str = Form(""), categoria: 
 def documento_publico(request: Request, did: uuid.UUID, publico: str = Form(""), voltar: str = Form(""), admin: AdminUser = Depends(admin_dep),
                       db: Session = Depends(get_db)):
     d = db.get(Documento, did) or (_ for _ in ()).throw(HTTPException(404))
+    exigir_proprio(admin, d.enviado_por)
     d.publico = publico == "1"
     db.commit()
     registrar("Documento " + ("publicado" if d.publico else "tornado privado"), request, admin=admin.login, titulo=d.titulo, arquivo=d.nome_original)
@@ -376,6 +387,7 @@ def documento_competencia(request: Request, did: uuid.UUID, competencia: str = F
                           admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     """Corrige a data de competência (assinatura/referência) de um documento. Exige justificativa; fica no histórico com a data anterior."""
     d = db.get(Documento, did) or (_ for _ in ()).throw(HTTPException(404))
+    exigir_proprio(admin, d.enviado_por)
     comp, just = _competencia(competencia), " ".join(justificativa.split())[:500]
     if not comp:
         return _voltar_erro(_destino(voltar), "Informe uma data de competência válida")
@@ -393,6 +405,7 @@ def documento_categoria(request: Request, did: uuid.UUID, categoria: str = Form(
                         admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     """Muda a categoria de um documento. Exige justificativa; fica no histórico com a categoria anterior."""
     d = db.get(Documento, did) or (_ for _ in ()).throw(HTTPException(404))
+    exigir_proprio(admin, d.enviado_por)
     just = " ".join(justificativa.split())[:500]
     if categoria not in categorias(db):
         return _voltar_erro(_destino(voltar), "Escolha uma categoria válida")
@@ -413,6 +426,7 @@ def documento_excluir(request: Request, did: uuid.UUID, justificativa: str = For
     d = db.get(Documento, did)
     just = " ".join(justificativa.split())[:500]
     if d and not d.excluido_em:
+        exigir_proprio(admin, d.enviado_por)
         if len(just) < 5:
             return _voltar_erro(_destino(voltar), "Informe a justificativa da exclusão")
         d.publico, d.excluido_em, d.excluido_por, d.excluido_ip, d.excluido_motivo = False, datetime.now(timezone.utc), admin.login, ip_de(request), just

@@ -15,7 +15,7 @@ from config import SITE_URL
 from db import SessionLocal, get_db
 from mail import enviar, ip_de, registrar
 from models import AdminUser, Comunicado, Morador
-from routers.admin import admin_dep
+from routers.admin import admin_dep, exigir_proprio
 from routers.morador import morador_atual
 
 router = APIRouter()
@@ -92,8 +92,9 @@ def _mudar_visibilidade(request: Request, c: Comunicado, vis: str, admin: AdminU
     if primeira:
         c.publicado_em, c.publicado_por, c.publicado_ip = datetime.now(timezone.utc), admin.login, ip_de(request)
     db.commit()
-    registrar(f"Comunicado {vis}", request, admin=admin.login, titulo=c.titulo, notificado="sim" if primeira else "não")
-    if primeira:
+    notificar = primeira and not admin.teste  # usuário de teste nunca dispara e-mail/push para os condôminos
+    registrar(f"Comunicado {vis}", request, admin=admin.login, titulo=c.titulo, notificado="sim" if notificar else "não")
+    if notificar:
         notificar_comunicado(c.id)
 
 
@@ -126,6 +127,7 @@ def admin_preview(request: Request, cid: uuid.UUID, admin: AdminUser = Depends(a
 def admin_salvar(request: Request, cid: uuid.UUID, titulo: str = Form(...), texto: str = Form(...),
                  admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     c = db.get(Comunicado, cid) or (_ for _ in ()).throw(HTTPException(404))
+    exigir_proprio(admin, c.autor)
     antes = (c.titulo, c.texto)
     c.titulo, c.texto = _validar(titulo, texto)
     db.commit()
@@ -137,6 +139,7 @@ def admin_salvar(request: Request, cid: uuid.UUID, titulo: str = Form(...), text
 def admin_visibilidade(request: Request, cid: uuid.UUID, visibilidade: str = Form(...),
                        admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     c = db.get(Comunicado, cid) or (_ for _ in ()).throw(HTTPException(404))
+    exigir_proprio(admin, c.autor)
     _mudar_visibilidade(request, c, visibilidade, admin, db)
     return RedirectResponse("/admin/comunicados", status_code=303)
 
@@ -146,6 +149,7 @@ def admin_excluir(request: Request, cid: uuid.UUID, admin: AdminUser = Depends(a
     """Exclusão lógica: some do site e da área do condômino; fica no histórico da administração."""
     c = db.get(Comunicado, cid)
     if c and not c.excluido_em:
+        exigir_proprio(admin, c.autor)
         c.excluido_em, c.excluido_por, c.excluido_ip = datetime.now(timezone.utc), admin.login, ip_de(request)
         db.commit()
         registrar("Comunicado excluído (lógico)", request, admin=admin.login, titulo=c.titulo, visibilidade=c.visibilidade)

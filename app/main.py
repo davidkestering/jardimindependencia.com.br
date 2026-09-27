@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
@@ -60,6 +60,14 @@ app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 @app.exception_handler(303)
 async def redireciona(request: Request, exc):
     return RedirectResponse(exc.headers["Location"], status_code=303)
+
+
+@app.exception_handler(403)
+async def sem_permissao(request: Request, exc):
+    if "text/html" not in request.headers.get("accept", ""):
+        return JSONResponse({"detail": exc.detail}, status_code=403)
+    return templates.TemplateResponse(request, "site/erro.html", {"sessao": ler_sessao(request), "titulo": "Ação não permitida",
+                                                                  "mensagem": exc.detail, "voltar": request.headers.get("referer") or "/"}, status_code=403)
 
 
 @app.middleware("http")

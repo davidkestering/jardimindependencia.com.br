@@ -16,7 +16,7 @@ from db import get_db
 from mail import FUSO, ip_de, notificar, registrar
 from models import AdminUser, Morador, Ocorrencia, OcorrenciaAnexo, OcorrenciaMensagem
 from termo import TERMO_OCORRENCIA
-from routers.admin import ERRO_UPLOAD, EXT_OK, MAX_TOTAL_MB, _gravar_em_blocos, admin_dep
+from routers.admin import ERRO_UPLOAD, EXT_OK, MAX_TOTAL_MB, _gravar_em_blocos, admin_dep, exigir_proprio
 from routers.morador import morador_atual
 
 router = APIRouter()
@@ -199,6 +199,7 @@ def admin_ver(request: Request, oid: uuid.UUID, erro: str = "", admin: AdminUser
 async def admin_responder(request: Request, oid: uuid.UUID, texto: str = Form(...), arquivos: list[UploadFile] = File([]),
                           admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     o = carregar(db, oid)
+    exigir_proprio(admin, None)  # ocorrência é sempre do condômino: usuário de teste não responde a ninguém
     if o.status != "aberta":
         raise HTTPException(400, "Ocorrência finalizada pelo condômino: não aceita novas mensagens")
     texto = texto.strip()[:10000]

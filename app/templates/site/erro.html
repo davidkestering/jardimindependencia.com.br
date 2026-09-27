@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }} · Jardim Independência{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  <h1>{{ titulo }}</h1>
+  <p class="aviso" style="max-width:62ch">{{ mensagem }}</p>
+  <p><a class="btn sec" href="{{ voltar }}">← Voltar</a></p>
+</div></section>
+{% endblock %}
