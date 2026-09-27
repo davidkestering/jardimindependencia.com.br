@@ -61,6 +61,8 @@ def admin_dep(request: Request, sessao: dict = Depends(auth.exigir("admin")), db
 
 
 MSG_TESTE = "Usuário de teste: esta ação só é permitida sobre registros criados por ele mesmo."
+# O usuário de teste aprova/nega cadastros e responde ocorrências como qualquer administrador: é o fluxo que a revisão
+# da App Store precisa ver funcionando. Só a alteração/exclusão de registros oficiais fica bloqueada (exigir_proprio).
 
 
 def exigir_proprio(admin: AdminUser, dono: str | None) -> None:
@@ -187,7 +189,6 @@ def morador_ver(request: Request, mid: uuid.UUID, admin: AdminUser = Depends(adm
 def morador_status(request: Request, mid: uuid.UUID, status: str = Form(...), admin: AdminUser = Depends(admin_dep),
                    db: Session = Depends(get_db)):
     m = db.get(Morador, mid) or (_ for _ in ()).throw(HTTPException(404))
-    exigir_proprio(admin, m.decidido_por if m.origem == "admin" else None)
     if status not in TRANSICOES.get(m.status, ()):
         raise HTTPException(400, f"Não é possível passar de {m.status} para {status}")
     aviso = "encerrado" if (m.status, status) == ("aprovado", "negado") else status

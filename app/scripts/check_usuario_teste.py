@@ -1,5 +1,5 @@
-"""Checagem do usuário de teste (usuario.apple, revisão da App Store): entra em todas as áreas, mas só altera ou exclui
-o que ele mesmo criou, e publicar comunicado não notifica os condôminos. Limpa o que cria:
+"""Checagem do usuário de teste (usuario.apple, revisão da App Store): entra em todas as áreas, aprova cadastros e responde
+ocorrências como qualquer administrador, mas só altera ou exclui o que ele mesmo criou, e publicar comunicado não notifica os condôminos. Limpa o que cria:
 docker exec -e SENHA_TESTE=... condominio-app python scripts/check_usuario_teste.py"""
 import os
 import sys
@@ -106,8 +106,6 @@ try:
         (f"/admin/assembleias/{ids['asm']}/pautas/{ids['pa']}/excluir", {}),
         (f"/admin/assembleias/{ids['asm']}/excluir", {}),
         (f"/admin/financeiro/{ids['ina']}/encerrar", {}),
-        (f"/admin/moradores/{ids['pend']}/status", {"status": "aprovado"}),
-        (f"/admin/ocorrencias/{ids['oc']}/mensagem", {"texto": "oi"}),
     ]
     for rota, dados in bloqueadas:
         r = tc.post(rota, data=dados, follow_redirects=False)
@@ -118,9 +116,15 @@ try:
     with SessionLocal() as db:  # nada mudou
         assert db.get(Comunicado, ids["co"]).titulo == "oficial" and db.get(Comunicado, ids["co"]).visibilidade == "rascunho"
         assert db.get(Documento, ids["do_"]).excluido_em is None and db.get(Assembleia, ids["asm"]).excluido_em is None
-        assert db.get(Inadimplencia, ids["ina"]).encerrado_em is None and db.get(Morador, ids["pend"]).status == "pendente"
-        assert db.scalar(select(OcorrenciaMensagem).where(OcorrenciaMensagem.ocorrencia_id == ids["oc"])) is None
+        assert db.get(Inadimplencia, ids["ina"]).encerrado_em is None
     assert not notificados
+
+    # Aprova cadastro alheio e responde ocorrência como qualquer administrador (fluxo exigido na revisão da App Store)
+    assert tc.post(f"/admin/moradores/{ids['pend']}/status", data={"status": "aprovado"}, follow_redirects=False).status_code == 303
+    assert tc.post(f"/admin/ocorrencias/{ids['oc']}/mensagem", data={"texto": "oi"}, follow_redirects=False).status_code == 303
+    with SessionLocal() as db:
+        assert db.get(Morador, ids["pend"]).status == "aprovado" and db.get(Morador, ids["pend"]).decidido_por == LOGIN_TESTE
+        assert db.scalar(select(OcorrenciaMensagem).where(OcorrenciaMensagem.ocorrencia_id == ids["oc"])).autor == LOGIN_TESTE
 
     # Mexe no que ele mesmo criou
     assert tc.post("/admin/comunicados", data={"titulo": "meu", "texto": "t"}, follow_redirects=False).status_code == 303
