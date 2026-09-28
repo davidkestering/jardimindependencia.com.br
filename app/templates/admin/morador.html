@@ -21,7 +21,7 @@
   {% set rotulos = {'aprovado': 'Autorizar acesso', 'negado': 'Habilitar novo registro' if m.status == 'aprovado' else 'Negar acesso'} %}
   <p style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
     {% for a in acoes %}
-    <form class="inline" method="post" action="/admin/moradores/{{ m.id }}/status"{% if a == 'negado' %} onsubmit="return confirm('{{ rotulos[a] }} para {{ m.nome }}? O apartamento ficará livre para novo cadastro.')"{% endif %}>
+    <form class="inline" method="post" action="/admin/moradores/{{ m.id }}/status"{% if a == 'negado' %} data-confirm="{{ rotulos[a] }} para {{ m.nome }}? O apartamento ficará livre para novo cadastro."{% endif %}>
       <input type="hidden" name="status" value="{{ a }}"><button class="btn{% if a != 'aprovado' %} sec{% endif %}" type="submit">{{ rotulos[a] }}</button>
     </form>
     {% else %}<span style="color:#6b5a4c">{% if m.status == 'transferido' %}Este condômino transferiu o acesso ({{ m.decidido_por }}). Justificativa: {{ m.transferido_motivo or '—' }}. Registro mantido como histórico.{% elif m.status == 'excluido' %}Conta excluída pelo próprio condômino. Registro mantido só como histórico (política de privacidade); o apartamento está livre para novo cadastro.{% else %}Registro encerrado. Fica como histórico; o apartamento está livre para novo cadastro.{% endif %}</span>{% endfor %}

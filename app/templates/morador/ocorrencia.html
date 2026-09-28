@@ -25,7 +25,7 @@
     <label>Anexos (PDF, JPG ou PNG; vários; até {{ max_mb }} MB no total)<input name="arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple></label>
     <button class="btn" type="submit">Enviar</button>
   </form>
-  <form method="post" action="/morador/ocorrencias/{{ o.id }}/finalizar" onsubmit="return confirm('Finalizar a ocorrência? Não haverá mais troca de mensagens.')" style="margin-top:16px"><button class="btn sec" type="submit">Finalizar ocorrência</button></form>
+  <form method="post" action="/morador/ocorrencias/{{ o.id }}/finalizar" data-confirm="Finalizar a ocorrência? Não haverá mais troca de mensagens." style="margin-top:16px"><button class="btn sec" type="submit">Finalizar ocorrência</button></form>
   {% else %}<p class="aviso ok" style="max-width:560px">Ocorrência finalizada. Não há mais troca de mensagens.</p>{% endif %}
 </div></section>
 {% endblock %}

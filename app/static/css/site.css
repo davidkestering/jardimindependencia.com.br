@@ -73,3 +73,7 @@ footer a{color:#efe4d8}
 footer strong{color:#fff}
 footer .creditos{margin-top:28px;padding:14px 20px 0;border-top:1px solid rgba(255,255,255,.12);text-align:center;font-size:13px;color:#a8988a}
 footer .creditos a{color:#efe4d8;font-weight:600}
+dialog.confirma{border:0;border-radius:12px;padding:24px;max-width:min(92vw,420px);font:16px "Nunito Sans",sans-serif;color:var(--marrom,#3b2f26)}
+dialog.confirma::backdrop{background:rgba(0,0,0,.45)}
+dialog.confirma p{margin:0 0 18px}
+dialog.confirma div{display:flex;gap:10px;justify-content:flex-end}

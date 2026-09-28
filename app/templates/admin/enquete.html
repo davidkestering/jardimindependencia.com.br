@@ -15,6 +15,6 @@
     {% for o in e.opcoes %}{% set n = res.validos[o.id] %}<div class="op"><div>{{ o.texto }}<div class="barra"><i style="width:{{ (100 * n / res.total_validos) if res.total_validos else 0 }}%"></i></div></div><strong>{{ n }}</strong></div>{% endfor %}
     <p style="font-size:13px;color:#6b5a4c">Votos válidos: {{ res.total_validos }} · Não computados por inadimplência: {{ res.nao_computados }}</p>
   </div>
-  {% if not e.excluido_em %}<form method="post" action="/admin/enquetes/{{ e.id }}/excluir" onsubmit="return confirm('Excluir a enquete? Ela sai da área do condômino e fica no histórico.')"><button class="btn sec" type="submit">Excluir enquete</button></form>{% endif %}
+  {% if not e.excluido_em %}<form method="post" action="/admin/enquetes/{{ e.id }}/excluir" data-confirm="Excluir a enquete? Ela sai da área do condômino e fica no histórico."><button class="btn sec" type="submit">Excluir enquete</button></form>{% endif %}
 </div></section>
 {% endblock %}

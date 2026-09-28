@@ -13,7 +13,7 @@
   {% if ok %}<p class="aviso ok" style="max-width:560px">✓ {{ ok }}</p>{% endif %}
   {% if documentos %}<ul>{% for d in documentos %}<li><a href="/admin/documentos/{{ d.id }}">{{ d.titulo }}</a> <small>({{ d.categoria }}{% if not d.publico %} · não publicado{% endif %})</small>
     <form method="post" action="/admin/documentos/{{ d.id }}/publico" style="display:inline"><input type="hidden" name="publico" value="{{ '0' if d.publico else '1' }}"><button class="btn sec" type="submit" style="padding:3px 9px;font-size:12px">{{ 'Tornar privado' if d.publico else 'Publicar' }}</button></form>
-    <form method="post" action="/admin/documentos/{{ d.id }}/excluir" style="display:inline" onsubmit="return confirm('Excluir este documento?')"><input type="hidden" name="voltar" value="/admin/assembleias/{{ a.id }}"><button class="btn sec" type="submit" style="padding:3px 9px;font-size:12px">Excluir</button></form></li>{% endfor %}</ul>
+    <form method="post" action="/admin/documentos/{{ d.id }}/excluir" style="display:inline" data-confirm="Excluir este documento?"><input type="hidden" name="voltar" value="/admin/assembleias/{{ a.id }}"><button class="btn sec" type="submit" style="padding:3px 9px;font-size:12px">Excluir</button></form></li>{% endfor %}</ul>
   {% else %}<p>Nenhum documento nesta assembleia.</p>{% endif %}
   <details style="margin:8px 0 20px"><summary style="cursor:pointer;font-weight:600;color:var(--terracota)">Enviar documentos para esta assembleia</summary>
   <form class="card" method="post" action="/admin/documentos" enctype="multipart/form-data" style="margin-top:10px">
@@ -35,7 +35,7 @@
     <div class="op"><div>{{ o.texto }}<div class="barra"><i style="width:{{ (100 * n / r.total_validos) if r.total_validos else 0 }}%"></i></div></div><strong>{{ n }}</strong></div>
     {% endfor %}
     <p style="font-size:14px;color:#6b5a4c">Votos válidos: {{ r.total_validos }} · Votos apresentados por unidades inadimplentes (não computados): {{ r.nao_computados }}</p>
-    <form method="post" action="/admin/assembleias/{{ a.id }}/pautas/{{ p.id }}/excluir" onsubmit="return confirm('Excluir a pauta e seus votos?')"><button class="btn sec" type="submit">Excluir pauta</button></form>
+    <form method="post" action="/admin/assembleias/{{ a.id }}/pautas/{{ p.id }}/excluir" data-confirm="Excluir a pauta e seus votos?"><button class="btn sec" type="submit">Excluir pauta</button></form>
   </div>
   {% else %}<p>Nenhuma pauta ainda.</p>{% endfor %}
   <h2 style="margin-top:32px;font-size:22px">Adicionar pauta</h2>
@@ -44,6 +44,6 @@
     <label>Opções (uma por linha)<textarea name="opcoes" rows="4" required placeholder="Aprovo&#10;Não aprovo&#10;Abstenção"></textarea></label>
     <button class="btn" type="submit">Adicionar</button>
   </form>
-  {% if not a.excluido_em %}<form method="post" action="/admin/assembleias/{{ a.id }}/excluir" onsubmit="return confirm('Excluir a assembleia? Ela sai da área do condômino e fica no histórico.')" style="margin-top:20px"><button class="btn sec" type="submit">Excluir assembleia</button></form>{% endif %}
+  {% if not a.excluido_em %}<form method="post" action="/admin/assembleias/{{ a.id }}/excluir" data-confirm="Excluir a assembleia? Ela sai da área do condômino e fica no histórico." style="margin-top:20px"><button class="btn sec" type="submit">Excluir assembleia</button></form>{% endif %}
 </div></section>
 {% endblock %}

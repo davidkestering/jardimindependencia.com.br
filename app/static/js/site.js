@@ -31,3 +31,25 @@ if (slides.length > 1) {
     inp.addEventListener('input', checar); inp.addEventListener('blur', checar); if (inp.value) checar();
   });
 })();
+
+// Confirmação antes de enviar: <form data-confirm="Pergunta?">. Usa <dialog> nativo em vez de window.confirm(),
+// que dentro do app iOS (WKWebView) devolve "cancelar" sem mostrar nada e o formulário nunca é enviado.
+(function () {
+  let dlg;
+  function abrir(form) {
+    if (!dlg) {
+      dlg = document.createElement('dialog'); dlg.className = 'confirma';
+      dlg.innerHTML = '<p></p><div><button type="button" class="btn sec">Cancelar</button><button type="button" class="btn">Confirmar</button></div>';
+      document.body.appendChild(dlg);
+    }
+    dlg.querySelector('p').textContent = form.dataset.confirm;
+    const [cancelar, confirmar] = dlg.querySelectorAll('button');
+    cancelar.onclick = () => dlg.close();
+    confirmar.onclick = () => { dlg.close(); form.submit(); };
+    dlg.showModal();
+  }
+  document.addEventListener('submit', e => {
+    const form = e.target.closest('form[data-confirm]');
+    if (form) { e.preventDefault(); abrir(form); }
+  });
+})();
