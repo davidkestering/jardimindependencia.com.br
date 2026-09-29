@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import String, func, select, text
 from sqlalchemy.orm import Session
 
+import apns
 import auth
 from config import UPLOAD_DIR
 from db import get_db
@@ -369,6 +370,8 @@ async def documento_enviar(request: Request, titulo: str = Form(""), categoria: 
     db.add_all(novos)
     db.commit()
     registrar("Documentos enviados", request, admin=admin.login, quantidade=len(novos), assembleia=str(aid or "avulso"), competencia=comp.strftime("%d/%m/%Y"))
+    if publico and not admin.teste:  # usuário de teste da App Store nunca notifica os condôminos
+        apns.notificar("Novo documento", novos[0].titulo if len(novos) == 1 else f"{len(novos)} documentos em {novos[0].categoria}", "/morador/documentos")
     return _voltar_ok(destino_ok, f"{len(novos)} documento(s) enviado(s)" + (" e publicado(s)" if publico else " (ainda não publicado(s))"))
 
 
@@ -377,9 +380,11 @@ def documento_publico(request: Request, did: uuid.UUID, publico: str = Form(""),
                       db: Session = Depends(get_db)):
     d = db.get(Documento, did) or (_ for _ in ()).throw(HTTPException(404))
     exigir_proprio(admin, d.enviado_por)
-    d.publico = publico == "1"
+    era_publico, d.publico = d.publico, publico == "1"
     db.commit()
     registrar("Documento " + ("publicado" if d.publico else "tornado privado"), request, admin=admin.login, titulo=d.titulo, arquivo=d.nome_original)
+    if d.publico and not era_publico and not admin.teste:
+        apns.notificar("Novo documento", d.titulo, "/morador/documentos")
     return _voltar_ok(_destino(voltar), f"«{d.titulo}» " + ("publicado: já aparece para os condôminos" if d.publico else "tornado privado: não aparece mais para os condôminos"))
 
 

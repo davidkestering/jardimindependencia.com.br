@@ -2,8 +2,9 @@
 docker exec condominio-app python scripts/check_documentos.py"""
 import sys
 sys.path.insert(0, "/app")
-import mail
+import mail, apns
 mail.enviar = lambda *a, **k: True
+pushes = []; apns.notificar = lambda *a, **k: pushes.append(a)  # push do app iOS: só registra a chamada
 _hist_real, mail._gravar_historico = mail._gravar_historico, lambda *a, **k: None  # testes não entram no histórico de auditoria
 
 from datetime import date, datetime, timedelta, timezone
@@ -49,6 +50,7 @@ try:
     r = ac.post("/admin/documentos", data={"categoria": "Atas de assembleia", "assembleia_id": str(asm.id), "publico": "1"},
                 files=[("arquivos", ("teste-ata.pdf", pdf, "application/pdf")), ("arquivos", ("teste-lista.pdf", pdf, "application/pdf"))], follow_redirects=False)
     assert r.status_code == 303 and "erro" not in r.headers["location"], r.headers
+    assert pushes == [("Novo documento", "2 documentos em Atas de assembleia", "/morador/documentos")], pushes  # publicado no envio: 1 push por lote
     r = ac.post("/admin/documentos", data={"categoria": "Outros", "titulo": "Balancete"}, files=[("arquivos", ("teste-b.png", b"\x89PNG\r\n\x1a\n" + b"0" * 100, "image/png"))], follow_redirects=False)
     assert r.status_code == 303 and "erro" not in r.headers["location"]
     with SessionLocal() as db:
@@ -168,8 +170,11 @@ try:
     # área do condômino: painel com quantitativo por ano/mês de competência (só publicados) e lista filtrada por período
     loc = unquote(ac.post(f"/admin/documentos/{dc_id}/publico", data={"publico": "1"}, follow_redirects=False).headers["location"])
     assert "publicado: já aparece" in loc and "✓" in ac.get(loc).text, loc
+    assert pushes[-1][0] == "Novo documento" and pushes[-1][2] == "/morador/documentos"  # privado -> publicado: push
+    n_push = len(pushes)
     loc = unquote(ac.post(f"/admin/documentos/{dc_id}/publico", data={"publico": "0"}, follow_redirects=False).headers["location"]); assert "tornado privado" in loc
     ac.post(f"/admin/documentos/{dc_id}/publico", data={"publico": "1"})
+    assert len(pushes) == n_push + 1  # tornar privado não avisa; publicar de novo avisa
     with SessionLocal() as db:
         u = db.scalar(select(Unidade).order_by(Unidade.bloco, Unidade.apto))
         db.add(Morador(unidade_id=u.id, nome="Ana Teste", cpf=CPF, nascimento=auth.parse_data("1980-05-10"), email="ana@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO)); db.commit()
