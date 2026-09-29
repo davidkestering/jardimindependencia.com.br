@@ -56,7 +56,7 @@ def por_mes(lista):
 
 
 def notificar_comunicado(cid: uuid.UUID) -> None:
-    """E-mail a cada condômino aprovado (1 por endereço) e push a quem ativou. Em thread; roda só na 1ª publicação."""
+    """E-mail a cada condômino aprovado (1 por endereço) e push a quem ativou. Em thread; roda sempre que sai de rascunho."""
     def corpo():
         with SessionLocal() as db:
             c = db.get(Comunicado, cid)
@@ -90,12 +90,12 @@ def _validar(titulo: str, texto: str) -> tuple[str, str]:
 def _mudar_visibilidade(request: Request, c: Comunicado, vis: str, admin: AdminUser, db: Session) -> None:
     if vis not in VISIBILIDADES:
         raise HTTPException(400, "Visibilidade inválida")
-    primeira = vis != "rascunho" and c.publicado_em is None
+    saiu_de_rascunho = c.visibilidade == "rascunho" and vis != "rascunho"  # condôminos -> público não reavisa
     c.visibilidade = vis
-    if primeira:
+    if saiu_de_rascunho and c.publicado_em is None:
         c.publicado_em, c.publicado_por, c.publicado_ip = datetime.now(timezone.utc), admin.login, ip_de(request)
     db.commit()
-    notificar = primeira and not admin.teste  # usuário de teste nunca dispara e-mail/push para os condôminos
+    notificar = saiu_de_rascunho and not admin.teste  # usuário de teste nunca dispara e-mail/push para os condôminos
     registrar(f"Comunicado {vis}", request, admin=admin.login, titulo=c.titulo, notificado="sim" if notificar else "não")
     if notificar:
         notificar_comunicado(c.id)

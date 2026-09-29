@@ -82,7 +82,8 @@ try:
     ac.post(f"/admin/comunicados/{cid}/visibilidade", data={"visibilidade": "rascunho"})
     assert pub.get(f"/comunicados/{cid}").status_code == 404 and TIT not in pub.get("/").text
     assert ac.post("/admin/comunicados", data={"titulo": "", "texto": "x"}).status_code == 400
-    ac.post(f"/admin/comunicados/{cid}/visibilidade", data={"visibilidade": "publico"})
+    ac.post(f"/admin/comunicados/{cid}/visibilidade", data={"visibilidade": "publico"}); time.sleep(0.3)
+    assert len(pushes) == 2 and len(enviados) == 2 * len(dest)  # saiu de rascunho de novo: avisa de novo
     ac.post(f"/admin/comunicados/{cid}/excluir")
     with SessionLocal() as db:
         c = db.get(Comunicado, cid); assert c and c.excluido_em and c.excluido_por == adm.login and c.excluido_ip  # nunca apaga
