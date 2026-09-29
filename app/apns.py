@@ -52,7 +52,8 @@ def jwt() -> str:
 
 def payload(titulo: str, corpo: str, url: str) -> bytes:
     """`url` fora de `aps` é lida pelo app: ao tocar, abre esse caminho na aba correspondente."""
-    return json.dumps({"aps": {"alert": {"title": titulo, "body": corpo}, "sound": "default", "badge": 1}, "url": url}).encode()
+    # sem "badge": o iOS mostra o número recebido (não soma), então ficava fixo em 1; o app limpa o badge ao abrir
+    return json.dumps({"aps": {"alert": {"title": titulo, "body": corpo}, "sound": "default"}, "url": url}).encode()
 
 
 def enviar(cli: httpx.Client, d: DispositivoApp, dados: bytes) -> bool:
@@ -116,7 +117,7 @@ if __name__ == "__main__":  # auto-verificação: JWT válido com chave gerada n
     raw = base64.urlsafe_b64decode(ass + "==")
     k.public_key().verify(encode_dss_signature(int.from_bytes(raw[:32], "big"), int.from_bytes(raw[32:], "big")), f"{cab}.{corpo}".encode(), ec.ECDSA(hashes.SHA256()))
     assert jwt() == t  # reaproveita
-    p = json.loads(payload("T", "C", "/morador/x")); assert p["aps"]["alert"]["title"] == "T" and p["url"] == "/morador/x"
+    p = json.loads(payload("T", "C", "/morador/x")); assert p["aps"]["alert"]["title"] == "T" and p["url"] == "/morador/x" and "badge" not in p["aps"]
 
     class Cli:
         def __init__(self, *resps): self.resps = list(resps); self.chamadas = 0
