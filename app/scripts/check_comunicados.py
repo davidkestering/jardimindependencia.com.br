@@ -2,11 +2,12 @@
 docker exec condominio-app python scripts/check_comunicados.py"""
 import sys, time
 sys.path.insert(0, "/app")
-import mail, interfone
+import mail, interfone, apns
 enviados, pushes = [], []
 mail.enviar = lambda para, assunto, corpo, responder_para=None: (para == mail.MAIL_LOGS or enviados.append((para, assunto, corpo))) or True  # ignora e-mails de log
 mail._gravar_historico = lambda *a, **k: None  # testes não entram no histórico de auditoria
 interfone.push_para_todos = lambda payload, ttl=0: pushes.append(payload)
+apns.notificar = lambda *a, **k: None
 
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
@@ -34,7 +35,7 @@ def cliente(tipo, id_):
 limpar()
 try:
     with SessionLocal() as db:
-        adm = db.scalar(select(AdminUser))
+        adm = db.scalar(select(AdminUser).where(AdminUser.master))
         u1, u2 = [db.scalar(select(Unidade).where(Unidade.bloco == b, Unidade.apto == a)) for b, a in (("01", "101"), ("02", "102"))]
         for u in (u1, u2):  # mesmo CPF/e-mail em 2 aptos: deve receber 1 e-mail
             db.add(Morador(unidade_id=u.id, nome="Ana Teste", cpf=CPF, nascimento=auth.parse_data("1980-05-10"), email="ana@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO))
