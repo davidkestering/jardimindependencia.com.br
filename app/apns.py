@@ -66,6 +66,7 @@ def enviar(cli: httpx.Client, d: DispositivoApp, dados: bytes) -> bool:
             time.sleep(2 ** tentativa)
             continue
         if r.status_code == 200:
+            log.info("apns 200 (%s…)", d.token[:8])
             return False
         motivo = (r.json() or {}).get("reason", "") if r.content else ""
         log.warning("apns %s %s (%s…)", r.status_code, motivo, d.token[:8])
@@ -82,6 +83,7 @@ def _rodar(titulo: str, corpo: str, url: str, filtro: tuple) -> None:
     with SessionLocal() as db:
         disp = db.scalars(select(DispositivoApp).join(Morador, Morador.id == DispositivoApp.morador_id)
                           .where(Morador.status == "aprovado", *filtro)).all()
+        log.info("apns: %d aparelho(s) para '%s'", len(disp), titulo)
         if not disp:
             return
         dados = payload(titulo, corpo, url)
