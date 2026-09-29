@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, selectinload
 
+import apns
 import auth
 from config import MAIL_CONTATO, SITE_URL, UPLOAD_DIR
 from db import get_db
@@ -218,6 +219,7 @@ async def admin_responder(request: Request, oid: uuid.UUID, texto: str = Form(..
     registrar("Resposta da administração na ocorrência", request, admin=admin.login, numero=o.numero, unidade=o.unidade.rotulo, anexos=len(msg.anexos))
     notificar(o.morador.email, ASSUNTO.format(n=o.numero, t=o.titulo) + " — resposta da administração",
               _corpo(o, msg, "A administração respondeu à sua ocorrência.", f"Ver na sua área: {SITE_URL}/morador/ocorrencias/{o.id}"))
+    apns.notificar("Sua ocorrência foi atualizada", msg.texto.splitlines()[0], "/morador/ocorrencias", morador_id=o.morador_id)
     return RedirectResponse(f"/admin/ocorrencias/{oid}", status_code=303)
 
 

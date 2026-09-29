@@ -43,6 +43,7 @@ services:
       - ./app:/app
       - ./data/uploads:/data/uploads
       - ./data/vapid:/data/vapid
+      - ./data/apns:/data/apns:ro
     depends_on:
       db:
         condition: service_healthy

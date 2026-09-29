@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+import apns
 import auth
 from db import get_db
 from mail import ip_de, registrar
@@ -74,6 +75,8 @@ def admin_criar(request: Request, titulo: str = Form(...), abre_em: str = Form(.
     db.add(a)
     db.commit()
     registrar("Assembleia criada", request, admin=admin.login, titulo=a.titulo, abre_em=a.abre_em, fecha_em=a.fecha_em)
+    if not admin.teste:
+        apns.notificar("Assembleia convocada", a.titulo, "/morador/assembleias")
     return RedirectResponse(f"/admin/assembleias/{a.id}", status_code=303)
 
 

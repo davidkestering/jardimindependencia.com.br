@@ -1,10 +1,11 @@
 import calendar
+import re
 import uuid
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
-from sqlalchemy import func, select
+from fastapi.responses import RedirectResponse, Response
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -12,7 +13,7 @@ import auth
 from db import get_db
 from mail import FUSO, ip_de, notificar, registrar
 from config import MAIL_CONTATO, SITE_URL
-from models import OCUPA_APTO, Documento, Morador, Unidade
+from models import OCUPA_APTO, DispositivoApp, Documento, Morador, Unidade
 from termo import TERMO
 
 router = APIRouter(prefix="/morador")
@@ -178,6 +179,7 @@ def excluir_conta_post(request: Request, confirmo: str = Form(""), sessao: dict 
     agora, ip = datetime.now(timezone.utc), ip_de(request)
     for c in contas:
         c.status, c.decidido_em, c.decidido_por, c.decidido_ip = "excluido", agora, "o próprio condômino", ip
+    db.execute(delete(DispositivoApp).where(DispositivoApp.morador_id.in_([c.id for c in contas])))  # app iOS: sem push
     db.commit()
     aptos = ", ".join(c.unidade.rotulo for c in contas)
     notificar(m.email, "[Jardim Independência] Conta excluída",
@@ -192,11 +194,42 @@ def excluir_conta_post(request: Request, confirmo: str = Form(""), sessao: dict 
     return resp
 
 
+def app_ios(request: Request) -> bool:
+    return "JardimIndependenciaApp" in request.headers.get("user-agent", "")
+
+
 @router.get("/sair")
-def sair():
-    resp = RedirectResponse("/", status_code=303)
+def sair(request: Request, db: Session = Depends(get_db)):
+    s = auth.ler_sessao(request)
+    if s and s["t"] == "morador":  # app iOS: o aparelho deixa de receber push ao sair
+        db.execute(delete(DispositivoApp).where(DispositivoApp.morador_id == uuid.UUID(s["id"])))
+        db.commit()
+    resp = RedirectResponse("/morador/login" if app_ios(request) else "/", status_code=303)  # no app a home pública não faz sentido
     resp.delete_cookie(auth.COOKIE)
     return resp
+
+
+@router.post("/app/dispositivo")
+async def app_dispositivo(request: Request, db: Session = Depends(get_db)):
+    """App iOS registra o token APNs após cada login (JSON, sem formulário). Sem sessão: 401, não redireciona."""
+    s = auth.ler_sessao(request)
+    m = db.get(Morador, s["id"]) if s and s["t"] == "morador" else None
+    if not m or m.status != "aprovado":
+        raise HTTPException(401)
+    try:
+        d = await request.json()
+    except ValueError:
+        raise HTTPException(400, "JSON inválido")
+    token, plat, amb = str(d.get("token", "")).lower(), str(d.get("plataforma", "ios"))[:10], str(d.get("ambiente", "production"))
+    if not re.fullmatch(r"[0-9a-f]{32,200}", token) or amb not in ("production", "sandbox"):
+        raise HTTPException(400, "token ou ambiente inválido")
+    disp = db.scalar(select(DispositivoApp).where(DispositivoApp.token == token))
+    if disp:  # aparelho trocou de dono ou de conta: token migra para o morador atual
+        disp.morador_id, disp.plataforma, disp.ambiente = m.id, plat, amb
+    else:
+        db.add(DispositivoApp(morador_id=m.id, token=token, plataforma=plat, ambiente=amb))
+    db.commit()
+    return Response(status_code=204)
 
 
 @router.get("/cadastro")

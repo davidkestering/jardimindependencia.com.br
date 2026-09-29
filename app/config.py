@@ -26,3 +26,8 @@ CONDOMINIO = {
     "referencia": "Em frente ao Colégio La Salle",
     "cnpj": "24.592.077/0001-66",
 }
+# APNs (push do app iOS). Vazio = envio desligado. A chave .p8 fica fora do repositório (data/apns/).
+APNS_KEY_ID = os.environ.get("APNS_KEY_ID", "")
+APNS_TEAM_ID = os.environ.get("APNS_TEAM_ID", "")
+APNS_TOPIC = os.environ.get("APNS_TOPIC", "br.com.jardimindependencia.app")
+APNS_KEY_PATH = os.environ.get("APNS_KEY_PATH", "/data/apns/AuthKey.p8")

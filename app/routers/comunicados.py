@@ -9,6 +9,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import apns
 import auth
 import interfone
 from config import SITE_URL
@@ -63,9 +64,11 @@ def notificar_comunicado(cid: uuid.UUID) -> None:
             assunto = f"[Jardim Independência] Comunicado: {c.titulo}"
             texto = f"{c.titulo}\n\n{c.texto}\n\nVeja na sua área: {SITE_URL}/morador/comunicados/{c.id}"
             payload = {"titulo": f"Comunicado: {c.titulo}", "corpo": resumo(c.texto, 100), "url": f"/morador/comunicados/{c.id}", "tag": "comunicado"}
+            titulo = c.titulo
         for e in emails:
             enviar(e, assunto, texto)
         interfone.push_para_todos(payload)
+        apns.notificar("Novo comunicado", titulo, "/morador/comunicados")
     threading.Thread(target=corpo, daemon=True).start()
 
 

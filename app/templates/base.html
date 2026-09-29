@@ -19,7 +19,8 @@
 {% block head %}{% endblock %}
 </head>
 <body{% if request.url.path.startswith(('/admin','/morador')) %} class="interno"{% endif %}>
-<header class="topo">
+{% set app_ios = 'JardimIndependenciaApp' in request.headers.get('user-agent', '') %}{# app iOS tem abas nativas: sem cabeçalho e rodapé #}
+{% if not app_ios %}<header class="topo">
   <div class="container">
     <a class="marca" href="/">Jardim Independência<small>Condomínio residencial · Ananindeua, PA</small></a>
     <button class="hamb" aria-label="Abrir menu">☰</button>
@@ -34,16 +35,16 @@
       {% else %}<a class="btn sec" href="/admin/login">Administração</a><a class="btn" href="/morador/login">Área do condômino</a>{% endif %}
     </nav>
   </div>
-</header>
+</header>{% endif %}
 <main>{% block conteudo %}{% endblock %}</main>
-<footer>
+{% if not app_ios %}<footer>
   <div class="container">
     <div><strong>{{ condominio.nome }}</strong><br>CNPJ {{ condominio.cnpj }}</div>
     <div>{{ condominio.endereco }}<br>{{ condominio.cidade }} · CEP {{ condominio.cep }}<br>{{ condominio.referencia }}</div>
     <div><a href="mailto:contato@jardimindependencia.com.br">contato@jardimindependencia.com.br</a><br><a href="/contato">Fale com a administração</a><br><a href="/doacao">Declaração de Doação</a><br><a href="/privacidade">Política de privacidade</a></div>
   </div>
   <div class="creditos">Site e sistemas internos desenvolvidos por <a href="https://davidkestering.com" rel="author" target="_blank">David Kestering</a> · Bloco 17 · Apto 004 · © 2026</div>
-</footer>
+</footer>{% endif %}
 <script src="/static/js/site.js"></script>
 {% if sessao %}<script src="/static/js/interfone.js"></script>{% endif %}
 {% block scripts %}{% endblock %}

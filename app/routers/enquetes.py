@@ -8,6 +8,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+import apns
 import auth
 from db import get_db
 from financeiro import unidade_inadimplente
@@ -71,6 +72,8 @@ def admin_criar(request: Request, pergunta: str = Form(...), descricao: str = Fo
     db.add_all(EnqueteOpcao(enquete_id=e.id, ordem=i + 1, texto=o) for i, o in enumerate(ops))
     db.commit()
     registrar("Enquete criada", request, admin=admin.login, pergunta=e.pergunta, opcoes=" | ".join(ops), abre_em=e.abre_em, fecha_em=e.fecha_em)
+    if not admin.teste:  # usuário de teste da App Store nunca notifica os condôminos
+        apns.notificar("Nova enquete", e.pergunta, "/morador/enquetes")
     return RedirectResponse(f"/admin/enquetes/{e.id}", status_code=303)
 
 

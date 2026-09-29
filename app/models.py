@@ -272,6 +272,19 @@ class PushSubscription(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class DispositivoApp(Base):
+    """Token de push do app iOS (APNs). Um token por aparelho; se o aparelho troca de dono, o token migra para o morador atual.
+    `ambiente` decide o host da APNs (production = App Store/TestFlight, sandbox = build do Xcode)."""
+    __tablename__ = "dispositivo_app"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    morador_id: Mapped[uuid.UUID] = fk("morador")
+    token: Mapped[str] = mapped_column(String(200), unique=True)
+    plataforma: Mapped[str] = mapped_column(String(10), default="ios", server_default="ios")
+    ambiente: Mapped[str] = mapped_column(String(12), default="production", server_default="production")
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class Chamada(Base):
     __tablename__ = "chamada"
     id: Mapped[uuid.UUID] = uuid_pk()
