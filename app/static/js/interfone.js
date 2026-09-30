@@ -46,7 +46,9 @@
   function conectar() {
     ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws/interfone');
     ws.onopen = () => { reconectar = 2000; status('Interfone conectado', 'on'); };
-    ws.onclose = () => { status('Interfone desconectado, reconectando…', 'off'); setTimeout(conectar, reconectar); reconectar = Math.min(reconectar * 2, 30000); };
+    // 4401 = sessão encerrada (saiu em outra aba ou o cookie venceu): recarrega esta página, que então cai no login
+    ws.onclose = e => { if (e.code === 4401) { location.replace(location.pathname + location.search); return; }
+      status('Interfone desconectado, reconectando…', 'off'); setTimeout(conectar, reconectar); reconectar = Math.min(reconectar * 2, 30000); };
     ws.onmessage = async ev => {
       const m = JSON.parse(ev.data);
       if (m.t === 'tocando') { if (chamada) return; chamada = m.chamada; papel = 'destino'; mostrar('Chamada de ' + m.de, 'Interfone virtual', { atender: 1, recusar: 1 }); tocar('entrada'); }

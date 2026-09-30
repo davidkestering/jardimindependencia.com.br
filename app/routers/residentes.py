@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import auth
+import interfone as ifone
 from config import MAIL_CONTATO, SITE_URL
 from db import get_db
 from mail import FUSO, ip_de, notificar, registrar
@@ -130,6 +131,4 @@ def transferir(request: Request, rid: uuid.UUID, justificativa: str = Form(""), 
     notificar(MAIL_CONTATO, f"[Site] Acesso transferido, aguardando aprovação: {novo.nome} ({rot})",
               f"{m.nome} transferiu o acesso de {rot} para {novo.nome} (CPF {novo.cpf_fmt}) em {quando}.\nJustificativa: {just}\nRevise em {SITE_URL}/admin/moradores/{novo.id}")
     registrar("Acesso TRANSFERIDO pelo condômino (pendente)", request, unidade=rot, de=f"{m.nome} ({m.cpf_fmt})", para=f"{novo.nome} ({novo.cpf_fmt})", justificativa=just)
-    resp = render(request, "morador/transferido.html", apto=rot, novo=novo)
-    resp.delete_cookie(auth.COOKIE)
-    return resp
+    return ifone.encerrar_sessao(request, render(request, "morador/transferido.html", apto=rot, novo=novo))

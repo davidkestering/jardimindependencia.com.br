@@ -8,16 +8,20 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import WebSocket
+from fastapi import Request, Response, WebSocket
 from sqlalchemy import select
+from starlette.background import BackgroundTask
 
 import apns
+from auth import COOKIE
 from config import MAIL_CONTATO, UPLOAD_DIR
 from db import SessionLocal
 from models import Chamada, Morador, PushSubscription, Unidade
 
 log = logging.getLogger("interfone")
 TOQUE_S = 45
+SEM_SESSAO = 4401  # código de fechamento que o interfone.js trata recarregando a página (que então cai no login)
+ESPERA_LOGOUT_S = 1  # o navegador precisa processar o Set-Cookie do logout antes de as outras abas recarregarem
 
 conexoes: dict[uuid.UUID, set[WebSocket]] = {}
 pendentes: dict[uuid.UUID, dict] = {}   # chamada_id -> {de, para, de_rotulo, timer}
@@ -64,6 +68,25 @@ def remover(unidade_id: uuid.UUID, ws: WebSocket):
         s.discard(ws)
         if not s:
             conexoes.pop(unidade_id, None)
+
+
+async def derrubar_sessao(cookie: str) -> None:
+    await asyncio.sleep(ESPERA_LOGOUT_S)
+    for ws in [w for s in conexoes.values() for w in s if w.cookies.get(COOKIE) == cookie]:
+        try:
+            await ws.close(code=SEM_SESSAO)
+        except Exception:  # noqa: BLE001 — conexão já caiu
+            pass
+
+
+def encerrar_sessao(request: Request, resp: Response) -> Response:
+    """Logout: apaga o cookie e, depois de enviada a resposta, fecha as conexões do interfone abertas com ele. Sem isso as
+    outras abas (no app, cada aba é uma WebView) seguiam com a página logada na tela e recebendo chamadas."""
+    resp.delete_cookie(COOKIE)
+    cookie = request.cookies.get(COOKIE)
+    if cookie:
+        resp.background = BackgroundTask(derrubar_sessao, cookie)
+    return resp
 
 
 def push_para(db, subs, payload: dict, ttl: int) -> None:

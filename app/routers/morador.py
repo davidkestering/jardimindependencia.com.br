@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import auth
+import interfone as ifone
 from db import get_db
 from mail import FUSO, ip_de, notificar, registrar
 from config import MAIL_CONTATO, SITE_URL
@@ -189,9 +190,7 @@ def excluir_conta_post(request: Request, confirmo: str = Form(""), sessao: dict 
     notificar(MAIL_CONTATO, f"[Site] Conta excluída pelo condômino: {m.nome} ({aptos})",
               f"{m.nome} (CPF {m.cpf_fmt}) excluiu a própria conta em {agora.astimezone(FUSO):%d/%m/%Y às %H:%M}.\nAptos liberados: {aptos}.")
     registrar("Conta EXCLUÍDA pelo próprio condômino", request, nome=m.nome, cpf=m.cpf_fmt, aptos=aptos, email=m.email)
-    resp = render(request, "morador/conta_excluida.html", aptos=aptos)
-    resp.delete_cookie(auth.COOKIE)
-    return resp
+    return ifone.encerrar_sessao(request, render(request, "morador/conta_excluida.html", aptos=aptos))
 
 
 def app_ios(request: Request) -> bool:
@@ -205,8 +204,7 @@ def sair(request: Request, db: Session = Depends(get_db)):
         db.execute(delete(DispositivoApp).where(DispositivoApp.morador_id == uuid.UUID(s["id"])))
         db.commit()
     resp = RedirectResponse("/morador/login" if app_ios(request) else "/", status_code=303)  # no app a home pública não faz sentido
-    resp.delete_cookie(auth.COOKIE)
-    return resp
+    return ifone.encerrar_sessao(request, resp)
 
 
 @router.post("/app/dispositivo")

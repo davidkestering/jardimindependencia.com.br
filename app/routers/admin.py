@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 import apns
 import auth
+import interfone as ifone
 from config import UPLOAD_DIR
 from db import get_db
 from config import SITE_URL
@@ -100,10 +101,8 @@ def login_post(request: Request, login: str = Form(...), senha: str = Form(...),
 
 
 @router.get("/sair")
-def sair():
-    resp = RedirectResponse("/", status_code=303)
-    resp.delete_cookie(auth.COOKIE)
-    return resp
+def sair(request: Request):
+    return ifone.encerrar_sessao(request, RedirectResponse("/", status_code=303))
 
 
 @router.get("")

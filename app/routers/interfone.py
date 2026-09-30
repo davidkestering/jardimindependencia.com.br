@@ -73,7 +73,9 @@ async def ws_interfone(ws: WebSocket):
     with SessionLocal() as db:
         minha = unidade_da_sessao(sessao, db)
     if not minha:
-        await ws.close(code=4401)
+        if not sessao:  # saiu em outra aba ou o cookie venceu: aceita só para o interfone.js ler o código e recarregar a página
+            await ws.accept()
+        await ws.close(code=ifone.SEM_SESSAO)
         return
     await ws.accept()
     ifone.registrar(minha, ws)
