@@ -273,12 +273,14 @@ class PushSubscription(Base):
 
 
 class DispositivoApp(Base):
-    """Token de push do app iOS (APNs). Um token por aparelho; se o aparelho troca de dono, o token migra para o morador atual.
-    `ambiente` decide o host da APNs (production = App Store/TestFlight, sandbox = build do Xcode)."""
+    """Token de push dos apps: APNs (`plataforma` ios) ou FCM (android). Um token por aparelho; se o aparelho troca de dono,
+    o token migra para o morador atual. `ambiente` decide o host da APNs (production = App Store/TestFlight, sandbox = build
+    do Xcode); no Android é sempre production. Token único pelo md5: o do FCM não tem tamanho fixo e o btree não indexa texto longo."""
     __tablename__ = "dispositivo_app"
+    __table_args__ = (Index("uq_dispositivo_app_token", text("md5(token)"), unique=True),)
     id: Mapped[uuid.UUID] = uuid_pk()
     morador_id: Mapped[uuid.UUID] = fk("morador")
-    token: Mapped[str] = mapped_column(String(200), unique=True)
+    token: Mapped[str] = mapped_column(Text)
     plataforma: Mapped[str] = mapped_column(String(10), default="ios", server_default="ios")
     ambiente: Mapped[str] = mapped_column(String(12), default="production", server_default="production")
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

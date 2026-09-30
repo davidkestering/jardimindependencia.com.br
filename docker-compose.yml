@@ -44,6 +44,7 @@ services:
       - ./data/uploads:/data/uploads
       - ./data/vapid:/data/vapid
       - ./data/apns:/data/apns:ro
+      - ./data/fcm:/data/fcm:ro
     depends_on:
       db:
         condition: service_healthy

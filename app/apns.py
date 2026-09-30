@@ -1,5 +1,6 @@
 """Push nativo do app iOS via APNs (HTTP/2 + JWT ES256). Tokens em `dispositivo_app`; token morto (410 / BadDeviceToken /
 Unregistered) é apagado na hora. Sem chave configurada, `notificar` não faz nada.
+`notificar` é a entrada única do push dos apps: aparelhos com plataforma `android` saem pelo FCM (fcm.py).
 ponytail: envio em thread, sem fila persistente; retentativa simples (3x) em 429/500/503. Fila só se o volume crescer."""
 import base64
 import json
@@ -12,6 +13,7 @@ from pathlib import Path
 import httpx
 from sqlalchemy import select
 
+import fcm
 from config import APNS_KEY_ID, APNS_KEY_PATH, APNS_TEAM_ID, APNS_TOPIC
 from db import SessionLocal
 from models import DispositivoApp, Morador
@@ -80,27 +82,39 @@ def enviar(cli: httpx.Client, d: DispositivoApp, dados: bytes) -> bool:
     return False
 
 
-def _rodar(titulo: str, corpo: str, url: str, filtro: tuple) -> None:
+def _rodar(titulo: str, corpo: str, url: str, filtro: tuple, ttl: str | None = None) -> None:
+    canais = [p for p, ligado in (("ios", ativo()), ("android", fcm.ativo())) if ligado]
     with SessionLocal() as db:
         disp = db.scalars(select(DispositivoApp).join(Morador, Morador.id == DispositivoApp.morador_id)
-                          .where(Morador.status == "aprovado", *filtro)).all()
-        log.info("apns: %d aparelho(s) para '%s'", len(disp), titulo)
+                          .where(Morador.status == "aprovado", DispositivoApp.plataforma.in_(canais), *filtro)).all()
+        log.info("push app: %d aparelho(s) para '%s'", len(disp), titulo)
         if not disp:
             return
         dados = payload(titulo, corpo, url)
+        fora: set[str] = set()  # canal que estourou (credencial, OAuth fora do ar) não é tentado de novo neste envio
         with httpx.Client(http2=True, timeout=10) as cli:
             for d in disp:
-                if enviar(cli, d, dados):
+                if d.plataforma in fora:
+                    continue
+                try:  # canal pela plataforma: android vai pelo FCM, ios pela APNs; título, corpo e url são os mesmos
+                    morto = fcm.enviar(cli, fcm.mensagem(d.token, titulo, corpo, url, ttl)) if d.plataforma == "android" else enviar(cli, d, dados)
+                except Exception:  # noqa: BLE001 — um canal com problema não derruba o outro
+                    log.exception("push falhou (%s, %s…); canal pulado neste envio", d.plataforma, d.token[:8])
+                    fora.add(d.plataforma)
+                    continue
+                if morto:
                     db.delete(d)
         db.commit()
 
 
-def notificar(titulo: str, corpo: str, url: str, *, morador_id: uuid.UUID | None = None, unidade_id: uuid.UUID | None = None) -> None:
-    """Push para todos os condôminos aprovados, ou só para um morador / uma unidade. Em thread; melhor esforço."""
-    if not ativo():
+def notificar(titulo: str, corpo: str, url: str, *, morador_id: uuid.UUID | None = None, unidade_id: uuid.UUID | None = None,
+              ttl: str | None = None) -> None:
+    """Push para todos os condôminos aprovados, ou só para um morador / uma unidade, nos apps iOS (APNs) e Android (FCM).
+    `ttl` (ex.: "60s") só vale no Android. Em thread; melhor esforço."""
+    if not (ativo() or fcm.ativo()):
         return
     filtro = (Morador.id == morador_id,) if morador_id else (Morador.unidade_id == unidade_id,) if unidade_id else ()
-    threading.Thread(target=_rodar, args=(titulo, corpo[:200], url, filtro), daemon=True).start()
+    threading.Thread(target=_rodar, args=(titulo, corpo[:200], url, filtro, ttl), daemon=True).start()
 
 
 if __name__ == "__main__":  # auto-verificação: JWT válido com chave gerada na hora + tratamento de resposta da APNs

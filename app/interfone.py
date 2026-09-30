@@ -108,7 +108,7 @@ async def iniciar_chamada(de: uuid.UUID, para: uuid.UUID) -> dict:
     msg = {"t": "tocando", "chamada": str(cid), "de": de_rot, "de_id": str(de)}
     pendentes[cid] = {"de": de, "para": para, "de_rotulo": de_rot, "para_rotulo": para_rot}
     n = await broadcast(para, msg)
-    apns.notificar("Interfone", f"Chamada de {de_rot}", f"/morador/interfone?chamada={cid}", unidade_id=para)  # app iOS: sempre, mesmo com WebSocket aberto
+    apns.notificar("Interfone", f"Chamada de {de_rot}", f"/morador/interfone?chamada={cid}", unidade_id=para, ttl="60s")  # apps: sempre, mesmo com WebSocket aberto; chamada entregue minutos depois não serve
     if n == 0:
         try:
             await asyncio.to_thread(push_para_unidade, para, {"titulo": "Interfone: chamada de " + de_rot,

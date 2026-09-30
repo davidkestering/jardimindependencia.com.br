@@ -211,7 +211,8 @@ def sair(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/app/dispositivo")
 async def app_dispositivo(request: Request, db: Session = Depends(get_db)):
-    """App iOS registra o token APNs após cada login (JSON, sem formulário). Sem sessão: 401, não redireciona."""
+    """Os apps registram o token de push após cada login (JSON, sem formulário): APNs no iOS, FCM no Android.
+    Sem sessão: 401, não redireciona."""
     s = auth.ler_sessao(request)
     m = db.get(Morador, s["id"]) if s and s["t"] == "morador" else None
     if not m or m.status != "aprovado":
@@ -220,9 +221,15 @@ async def app_dispositivo(request: Request, db: Session = Depends(get_db)):
         d = await request.json()
     except ValueError:
         raise HTTPException(400, "JSON inválido")
-    token, plat, amb = str(d.get("token", "")).lower(), str(d.get("plataforma", "ios"))[:10], str(d.get("ambiente", "production"))
-    if not re.fullmatch(r"[0-9a-f]{32,200}", token) or amb not in ("production", "sandbox"):
-        raise HTTPException(400, "token ou ambiente inválido")
+    if not isinstance(d, dict):
+        raise HTTPException(400, "JSON inválido")
+    token, plat, amb = str(d.get("token", "")), str(d.get("plataforma", "ios")), str(d.get("ambiente", "production"))
+    if plat == "ios":
+        token = token.lower()
+    # APNs: hexadecimal. FCM: string opaca sem tamanho fixo (diferencia maiúsculas), até 4096 caracteres
+    formato = {"ios": r"[0-9a-f]{32,200}", "android": r"[\x21-\x7e]{1,4096}"}.get(plat)
+    if not formato or not re.fullmatch(formato, token) or amb not in ("production", "sandbox"):
+        raise HTTPException(400, "token, plataforma ou ambiente inválido")
     disp = db.scalar(select(DispositivoApp).where(DispositivoApp.token == token))
     if disp:  # aparelho trocou de dono ou de conta: token migra para o morador atual
         disp.morador_id, disp.plataforma, disp.ambiente = m.id, plat, amb

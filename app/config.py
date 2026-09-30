@@ -31,3 +31,6 @@ APNS_KEY_ID = os.environ.get("APNS_KEY_ID", "")
 APNS_TEAM_ID = os.environ.get("APNS_TEAM_ID", "")
 APNS_TOPIC = os.environ.get("APNS_TOPIC", "br.com.jardimindependencia.app")
 APNS_KEY_PATH = os.environ.get("APNS_KEY_PATH", "/data/apns/AuthKey.p8")
+# FCM (push do app Android). Sem o JSON da conta de serviço = envio desligado. O JSON fica fora do repositório (data/fcm/).
+GOOGLE_APPLICATION_CREDENTIALS = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "/data/fcm/service-account.json")
+FCM_PROJECT_ID = os.environ.get("FCM_PROJECT_ID", "")  # vazio = usa o project_id do próprio JSON

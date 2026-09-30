@@ -1,5 +1,7 @@
-"""Checagem dos ajustes para o app iOS: sem cabeçalho/rodapé no app, registro de token APNs, sair. Roda no container e limpa o que cria:
+"""Checagem dos ajustes para os apps iOS e Android: sem cabeçalho/rodapé no app, registro de token (APNs e FCM), sair. Roda no container e limpa o que cria:
 docker exec condominio-app python scripts/check_app_ios.py"""
+import random
+import string
 import sys
 sys.path.insert(0, "/app")
 import mail
@@ -7,7 +9,7 @@ mail.enviar = lambda *a, **k: True
 mail._gravar_historico = lambda *a, **k: None
 
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 import auth
 from db import SessionLocal
 from main import app
@@ -17,6 +19,7 @@ from termo import TERMO
 CPF = "52998224725"
 UA_APP = "Mozilla/5.0 (iPhone) JardimIndependenciaApp/1.0"
 TOKEN = "ab" * 32
+TOKEN_FCM = "".join(random.Random(1).choices(string.ascii_letters + string.digits + ":_-", k=4096))  # tamanho máximo aceito; aleatório para não comprimir no índice
 
 
 def limpar():
@@ -59,11 +62,26 @@ try:
     with SessionLocal() as db:
         ds = db.scalars(select(DispositivoApp).where(DispositivoApp.token == TOKEN)).all(); assert len(ds) == 1 and ds[0].morador_id == m2.id and ds[0].ambiente == "production"
 
+    # 3. Android (FCM): token opaco e longo, maiúsculas preservadas; validação hexadecimal só vale para o iOS
+    andr = {"token": TOKEN_FCM, "plataforma": "android", "ambiente": "production"}
+    assert cliente(ua=UA_APP).post("/morador/app/dispositivo", json=andr, headers={"X-Jardim-App": "1"}).status_code == 401
+    for ruim in ({**andr, "token": ""}, {**andr, "token": "x" * 4097}, {**andr, "token": "com espaço"}, {**andr, "plataforma": "windows"},
+                 {**dados, "token": TOKEN_FCM}, [andr]):
+        assert cliente(m1.id).post("/morador/app/dispositivo", json=ruim).status_code == 400, ruim
+    assert cliente(m1.id).post("/morador/app/dispositivo", json=andr, headers={"X-Jardim-App": "1"}).status_code == 204
+    assert cliente(m1.id).post("/morador/app/dispositivo", json=andr).status_code == 204  # repetir não duplica
+    with SessionLocal() as db:
+        ds = db.scalars(select(DispositivoApp).where(DispositivoApp.token == TOKEN_FCM)).all()
+        assert len(ds) == 1 and (ds[0].morador_id, ds[0].plataforma, ds[0].ambiente) == (m1.id, "android", "production")
+        assert db.scalar(select(func.count()).select_from(DispositivoApp).where(DispositivoApp.morador_id.in_([m1.id, m2.id]))) == 2  # iOS + Android
+
     # 4. sair: apaga os tokens do morador; no app vai para o login, no site para a home
     r = cliente(m2.id, ua=UA_APP).get("/morador/sair", follow_redirects=False); assert r.status_code == 303 and r.headers["location"] == "/morador/login"
     with SessionLocal() as db:
         assert db.scalar(select(DispositivoApp).where(DispositivoApp.token == TOKEN)) is None
     assert cliente(m1.id).get("/morador/sair", follow_redirects=False).headers["location"] == "/"
+    with SessionLocal() as db:
+        assert db.scalar(select(DispositivoApp).where(DispositivoApp.token == TOKEN_FCM)) is None  # o do Android também sai
 
     # excluir conta: apaga tokens de todos os aptos do CPF
     assert cliente(m1.id).post("/morador/app/dispositivo", json=dados).status_code == 204
