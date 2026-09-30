@@ -6,6 +6,16 @@ data/
 uploads/
 **/uploads/
 tmp_galeria/
+# chaves, certificados e credenciais: ignorados em qualquer pasta, não só em data/ e uploads/
+*.p8
+*.p12
+*.pem
+*.key
+*.jks
+*.keystore
+*firebase-adminsdk*.json
+*service-account*.json
+google-services.json
 
 # ---- Fotos e documentos do condomínio: existem só no disco do servidor ----
 app/static/img/condominio/
