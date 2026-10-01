@@ -1,4 +1,4 @@
-"""Checagem do usuário de teste (usuario.apple, revisão da App Store): entra em todas as áreas, aprova cadastros e responde
+"""Checagem do usuário de teste (usuario.apple e usuario.android, revisão das lojas): entra em todas as áreas, aprova cadastros e responde
 ocorrências como qualquer administrador, mas só altera ou exclui o que ele mesmo criou, e publicar comunicado não notifica os condôminos. Limpa o que cria:
 docker exec -e SENHA_TESTE=... condominio-app python scripts/check_usuario_teste.py"""
 import os
@@ -22,7 +22,8 @@ from routers import comunicados
 MESTRE_LOGIN = "mestre.checagem"
 CPF_M, CPF_T, CPF_O = "52998224725", "11144477735", "12345678909"
 agora = datetime.now(timezone.utc)
-SENHA_TESTE = os.environ.get("SENHA_TESTE")  # senha real do usuario.apple: nunca no repositório
+LOGIN_TESTE = os.environ.get("LOGIN_TESTE", LOGIN_TESTE)  # para conferir a outra conta de teste: -e LOGIN_TESTE=usuario.android
+SENHA_TESTE = os.environ.get("SENHA_TESTE")  # senha real da conta de teste: nunca no repositório
 notificados = []
 comunicados.notificar_comunicado = lambda cid: notificados.append(cid)
 
