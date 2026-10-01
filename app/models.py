@@ -24,11 +24,27 @@ class Unidade(Base):
     bloco: Mapped[str] = mapped_column(String(16))   # "01".."27", "PORTARIA", "ADMINISTRACAO"
     apto: Mapped[str] = mapped_column(String(8))     # "001".."404" ou "" para especiais
     ativa: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    # Garagem (garagens.py): vaga real do apto (única; a administração pode corrigir) e a que consta na convenção registrada.
+    garagem: Mapped[int | None] = mapped_column(Integer, unique=True)
+    garagem_convencao: Mapped[int | None] = mapped_column(Integer)
+    # Declarado pelo condômino: propria | alugada (alugada/cedida, com o apto que a utiliza); nulo = ainda não informou.
+    garagem_uso: Mapped[str | None] = mapped_column(String(10))
+    garagem_uso_para_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("unidade.id", ondelete="SET NULL"))
+    garagens_informadas_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # respondeu que não utiliza mais nenhuma garagem
+    # Último ajuste do vínculo pela administração: vira aviso na área do condômino.
+    garagem_anterior: Mapped[int | None] = mapped_column(Integer)
+    garagem_alterada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    garagem_alterada_por: Mapped[str | None] = mapped_column(String(60))
     moradores: Mapped[list["Morador"]] = relationship(back_populates="unidade", passive_deletes=True)
+    garagem_uso_para: Mapped["Unidade | None"] = relationship(remote_side="Unidade.id", foreign_keys="Unidade.garagem_uso_para_id")
 
     @property
     def rotulo(self):
         return self.bloco if not self.apto else f"Bloco {self.bloco} · Apto {self.apto}"
+
+    @property
+    def rotulo_garagem(self):
+        return f"{self.rotulo} · Garagem {self.garagem}" if self.garagem else self.rotulo
 
 
 # Status que "ocupam" o apartamento: enquanto houver um morador nesses status, ninguém mais se cadastra na unidade.
@@ -68,7 +84,8 @@ class Morador(Base):
 
 # Áreas da administração que podem ser liberadas a um usuário (chave -> rótulo). Prefixo de rota = /admin/<chave>.
 AREAS_ADMIN = {"moradores": "Moradores e cadastros", "documentos": "Documentos", "comunicados": "Comunicados",
-               "financeiro": "Inadimplência", "assembleias": "Assembleias", "enquetes": "Enquetes", "ocorrencias": "Ocorrências", "interfone": "Interfone"}
+               "financeiro": "Inadimplência", "assembleias": "Assembleias", "enquetes": "Enquetes", "ocorrencias": "Ocorrências", "interfone": "Interfone",
+               "garagem": "Garagem e Veículos"}
 
 
 class Residente(Base):
@@ -103,11 +120,14 @@ class Residente(Base):
 # Usuários de demonstração (revisão da App Store e da Google Play): navegam em tudo, mas só alteram ou excluem o que eles mesmos criaram.
 LOGIN_TESTE = "usuario.apple"
 LOGINS_TESTE = (LOGIN_TESTE, "usuario.android")
+# Conta da portaria: usuário da administração só com a área Interfone; no interfone fala como a unidade PORTARIA.
+LOGIN_PORTARIA = "usuario.portaria"
 
 
 class AdminUser(Base):
     """master: pode tudo e gerencia usuários. Os demais só acessam as áreas listadas em `areas`.
-    teste (login em LOGINS_TESTE): não altera nem exclui registro alheio e não notifica os condôminos."""
+    teste (login em LOGINS_TESTE): não altera nem exclui registro alheio e não notifica os condôminos.
+    portaria (login LOGIN_PORTARIA): no interfone é a unidade PORTARIA; os demais usuários são a ADMINISTRACAO."""
     __tablename__ = "admin_user"
     id: Mapped[uuid.UUID] = uuid_pk()
     login: Mapped[str] = mapped_column(String(60), unique=True)
@@ -131,6 +151,10 @@ class AdminUser(Base):
     @property
     def teste(self) -> bool:
         return self.login in LOGINS_TESTE
+
+    @property
+    def portaria(self) -> bool:
+        return self.login == LOGIN_PORTARIA
 
 
 class CategoriaDocumento(Base):
@@ -262,6 +286,43 @@ class Voto(Base):
     morador_id: Mapped[uuid.UUID] = fk("morador")
     inadimplente_no_voto: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     votado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GaragemUtilizada(Base):
+    """Garagem de outro apartamento que a unidade informa utilizar (alugada ou cedida). origem: 'informada' na pergunta das
+    garagens, ou 'veiculo' quando entrou sozinha porque um veículo foi cadastrado nela."""
+    __tablename__ = "garagem_utilizada"
+    __table_args__ = (Index("uq_garagem_utilizada_ativa", "unidade_id", "garagem", unique=True, postgresql_where=text("excluido_em IS NULL")),)
+    id: Mapped[uuid.UUID] = uuid_pk()
+    unidade_id: Mapped[uuid.UUID] = fk("unidade")
+    garagem: Mapped[int] = mapped_column(Integer)
+    origem: Mapped[str] = mapped_column(String(10), default="informada", server_default="informada")
+    informado_por: Mapped[str] = mapped_column(String(120))
+    informado_ip: Mapped[str | None] = mapped_column(String(45))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
+    excluido_por: Mapped[str | None] = mapped_column(String(120))
+    excluido_ip: Mapped[str | None] = mapped_column(String(45))
+
+
+class Veiculo(Base):
+    """Veículo cadastrado pelo condômino. A garagem (número) é obrigatória; mais de um veículo pode ficar na mesma."""
+    __tablename__ = "veiculo"
+    __table_args__ = (Index("uq_veiculo_placa_ativa", "unidade_id", "placa", unique=True, postgresql_where=text("excluido_em IS NULL")),)
+    id: Mapped[uuid.UUID] = uuid_pk()
+    unidade_id: Mapped[uuid.UUID] = fk("unidade")
+    marca: Mapped[str] = mapped_column(String(40))
+    modelo: Mapped[str] = mapped_column(String(60))
+    cor: Mapped[str] = mapped_column(String(30))
+    placa: Mapped[str] = mapped_column(String(7))  # sem traço, maiúsculas (garagens.normalizar_placa)
+    garagem: Mapped[int] = mapped_column(Integer)
+    cadastrado_por: Mapped[str] = mapped_column(String(120))
+    cadastrado_ip: Mapped[str | None] = mapped_column(String(45))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
+    excluido_por: Mapped[str | None] = mapped_column(String(120))
+    excluido_ip: Mapped[str | None] = mapped_column(String(45))
+    unidade: Mapped[Unidade] = relationship()
 
 
 class PushSubscription(Base):

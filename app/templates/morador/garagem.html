@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block titulo %}Garagem e Veículos · Jardim Independência{% endblock %}
+{% block head %}<style>.opcoes{display:grid;gap:8px}.opcoes label{display:flex;gap:10px;align-items:center;font-weight:500;padding:10px 12px;border:1px solid var(--bege-claro);border-radius:8px;background:#fff}.opcoes input{width:auto}.passo{max-width:640px}details.acao{margin:14px 0}details.acao summary{cursor:pointer;font-weight:600;color:var(--terracota)}details.acao form{margin-top:10px}</style>{% endblock %}
+{% block conteudo %}
+{# "Bloco · Apto · Garagem nº" de uma garagem, pelo apartamento a que ela pertence #}
+{# texto das listas de escolha: BL 17 AP 004 GG 148 #}
+{% macro curto(x) %}BL {{ x.bloco }} AP {{ x.apto }} GG {{ '%03d' % x.garagem }}{% endmacro %}
+{% macro rot(n) %}{% if dono.get(n) %}{{ dono[n].rotulo }} · {% endif %}Garagem {{ n }}{% endmacro %}
+{% macro form_situacao(botao) %}
+  <form class="card passo" method="post" action="/morador/garagem/situacao">
+    <p style="margin:0;font-weight:700">A garagem nº {{ u.garagem }}, do seu apartamento, está:</p>
+    <div class="opcoes">
+      <label><input type="radio" name="uso" value="propria" required {% if u.garagem_uso == 'propria' %}checked{% endif %}>Em uso próprio</label>
+      <label><input type="radio" name="uso" value="alugada" {% if u.garagem_uso == 'alugada' %}checked{% endif %}>Alugada ou cedida a outro apartamento</label>
+    </div>
+    <label>Se está alugada ou cedida, qual apartamento a utiliza?<select name="para"><option value="">Bloco (BL), apto (AP) e garagem (GG)</option>{% for x in lista if x.id != u.id %}<option value="{{ x.id }}" {% if x.id == u.garagem_uso_para_id %}selected{% endif %}>{{ curto(x) }}</option>{% endfor %}</select></label>
+    <button class="btn" type="submit">{{ botao }}</button>
+  </form>
+  {% if u.garagem_uso %}<form method="post" action="/morador/garagem/situacao" data-confirm="Desfazer a situação informada para a garagem {{ u.garagem }}? Ela volta a ficar como não informada."><input type="hidden" name="uso" value="desfazer"><button class="btn sec" type="submit">Desfazer (voltar a não informado)</button></form>{% endif %}
+{% endmacro %}
+{% macro form_outra(botao) %}
+  {% set nums = utilizadas|map(attribute='garagem')|list %}
+  <form class="card passo" method="post" action="/morador/garagem/utilizadas">
+    <p style="margin:0;font-weight:700">Você utiliza mais alguma garagem, alugada ou cedida por outra unidade?</p>
+    <label>Se sim, escolha a garagem<select name="garagem" required><option value="">Bloco (BL), apto (AP) e garagem (GG)</option>{% for x in lista if x.id != u.id and x.garagem not in nums %}<option value="{{ x.garagem }}">{{ curto(x) }}</option>{% endfor %}</select></label>
+    <button class="btn" type="submit">{{ botao }}</button>
+  </form>
+{% endmacro %}
+<section><div class="container">
+  {% include "morador/_menu.html" %}
+  <div class="eyebrow">Garagem e Veículos</div>
+  <h1>{{ u.rotulo }}</h1>
+  {% if etapa == 0 %}<p>Esta unidade não tem garagem vinculada.</p>{% else %}
+  <p style="font-size:18px">Garagem do apartamento: <strong>nº {{ u.garagem }}</strong></p>
+  {% if u.garagem_alterada_em %}<p class="aviso" style="max-width:640px">A administração alterou o vínculo de garagem desta unidade em {{ u.garagem_alterada_em|local }}: garagem {{ u.garagem }} (antes: {{ u.garagem_anterior }}).</p>{% endif %}
+  {% if erro %}<p class="aviso" style="max-width:640px">{{ erro }}</p>{% endif %}
+  {% if ok %}<p class="aviso ok" style="max-width:640px">✓ {{ ok }}</p>{% endif %}
+
+  {% if etapa == 1 %}
+  <h2 style="margin-top:28px">1. A garagem do apartamento</h2>
+  <p style="max-width:62ch">Antes de cadastrar veículos, informe as garagens que o apartamento utiliza. Comece pela garagem do próprio apartamento.</p>
+  {{ form_situacao('Continuar') }}
+
+  {% elif etapa == 2 %}
+  <h2 style="margin-top:28px">2. Outras garagens</h2>
+  <p>Garagem nº {{ u.garagem }}: <strong>{% if u.garagem_uso == 'alugada' %}alugada/cedida para {{ u.garagem_uso_para.rotulo if u.garagem_uso_para else '?' }}{% else %}uso próprio{% endif %}</strong>.</p>
+  {% if utilizadas %}<p style="margin-bottom:4px">Garagens de outras unidades que o apartamento utiliza:</p>
+  <ul style="margin-top:0">{% for g in utilizadas %}<li>{{ rot(g.garagem) }}</li>{% endfor %}</ul>{% endif %}
+  <details class="acao"><summary>Alterar a situação da garagem do apartamento</summary>{{ form_situacao('Salvar') }}</details>
+  {{ form_outra('Sim, incluir esta garagem') }}
+  <form method="post" action="/morador/garagem/concluir" style="margin-top:12px"><button class="btn sec" type="submit">Não, continuar para os veículos</button></form>
+
+  {% else %}
+  <h2 style="margin-top:28px">Garagens que o apartamento utiliza</h2>
+  <div style="overflow-x:auto;max-width:860px"><table>
+    <tr><th>Garagem</th><th>Situação</th><th>Veículos</th><th></th></tr>
+    <tr><td>Garagem {{ u.garagem }} · do apartamento</td><td>{% if u.garagem_uso == 'alugada' %}Alugada/cedida para {{ u.garagem_uso_para.rotulo if u.garagem_uso_para else '?' }}{% else %}Uso próprio{% endif %}</td><td>{{ veiculos|selectattr('garagem', 'equalto', u.garagem)|list|length }}</td><td></td></tr>
+    {% for g in utilizadas %}<tr><td>{{ rot(g.garagem) }}</td><td>Utilizada pelo apartamento (alugada ou cedida){% if g.origem == 'veiculo' %}<br><small>incluída pelo cadastro de um veículo</small>{% endif %}</td><td>{{ veiculos|selectattr('garagem', 'equalto', g.garagem)|list|length }}</td>
+      <td><form class="inline" method="post" action="/morador/garagem/utilizadas/{{ g.id }}/excluir" data-confirm="Remover a garagem {{ g.garagem }} da lista do apartamento?"><button class="btn sec" type="submit">Remover</button></form></td></tr>{% endfor %}
+  </table></div>
+  <details class="acao"><summary>Alterar a situação da garagem do apartamento</summary>{{ form_situacao('Salvar') }}</details>
+  <details class="acao"><summary>Informar outra garagem que o apartamento utiliza</summary>{{ form_outra('Incluir esta garagem') }}</details>
+
+  <h2 style="margin-top:32px">Veículos</h2>
+  {% if veiculos %}<div style="overflow-x:auto;max-width:860px"><table>
+    <tr><th>Veículo</th><th>Cor</th><th>Placa</th><th>Garagem</th><th></th></tr>
+    {% for v in veiculos %}<tr><td>{{ v.marca }} {{ v.modelo }}</td><td>{{ v.cor }}</td><td>{{ v.placa }}</td><td>{% if v.garagem == u.garagem %}Garagem {{ v.garagem }} · do apartamento{% else %}{{ rot(v.garagem) }}{% endif %}</td>
+      <td><form class="inline" method="post" action="/morador/garagem/veiculos/{{ v.id }}/excluir" data-confirm="Remover o veículo de placa {{ v.placa }}?"><button class="btn sec" type="submit">Remover</button></form></td></tr>{% endfor %}
+  </table></div>{% else %}<p>Nenhum veículo cadastrado. O cadastro é opcional.</p>{% endif %}
+
+  <h3 style="margin-top:24px">Cadastrar veículo</h3>
+  {% set nums = utilizadas|map(attribute='garagem')|list %}
+  <form class="card" method="post" action="/morador/garagem/veiculos">
+    <div class="duas">
+      <label>Marca<input name="marca" required maxlength="40" placeholder="Ex.: Fiat"></label>
+      <label>Modelo<input name="modelo" required maxlength="60" placeholder="Ex.: Uno"></label>
+      <label>Cor<input name="cor" required maxlength="30"></label>
+      <label>Placa<input name="placa" required maxlength="8" placeholder="ABC1D23" autocapitalize="characters" style="text-transform:uppercase"></label>
+    </div>
+    <label>Garagem em que o veículo fica<select name="garagem" required>
+      <option value="">Escolha a garagem</option>
+      <optgroup label="Garagens do apartamento">
+        {% if u.garagem_uso == 'propria' %}<option value="{{ u.garagem }}">{{ curto(u) }} (do apartamento)</option>{% endif %}
+        {% for g in utilizadas %}<option value="{{ g.garagem }}">{% if dono.get(g.garagem) %}{{ curto(dono[g.garagem]) }}{% else %}GG {{ '%03d' % g.garagem }}{% endif %}</option>{% endfor %}
+      </optgroup>
+      <optgroup label="Outra garagem (entra na lista do apartamento)">
+        {% for x in lista if x.id != u.id and x.garagem not in nums %}<option value="{{ x.garagem }}">{{ curto(x) }}</option>{% endfor %}
+      </optgroup>
+    </select></label>
+    <button class="btn" type="submit">Cadastrar veículo</button>
+  </form>
+  {% endif %}{% endif %}
+</div></section>
+{% endblock %}

@@ -3,6 +3,7 @@
 {% block conteudo %}
 <section>
   <div class="container">
+    {% if menu == 'admin' %}{% include "admin/_menu.html" %}{% elif menu == 'morador' %}{% include "morador/_menu.html" %}{% endif %}
     <div class="eyebrow">Como chegar</div>
     <h1>Localização</h1>
     <div class="local">

@@ -1,5 +1,6 @@
 """Interfone: tabela das unidades com interfone ativo e se estão online. A administração vê Portaria, Administração e todos os
 apartamentos com condômino aprovado; o condômino só vê Portaria e Administração (não a presença dos vizinhos).
+Conta da portaria (usuario.portaria): usuário da administração só com a área Interfone, que fala como a unidade Portaria.
 Limpa o que cria: docker exec condominio-app python scripts/check_interfone_lista.py"""
 import sys
 sys.path.insert(0, "/app")
@@ -14,7 +15,8 @@ import auth
 import interfone as ifone
 from db import SessionLocal
 from main import app
-from models import AdminUser, DispositivoApp, Morador, Unidade
+from models import LOGIN_PORTARIA, AdminUser, DispositivoApp, Morador, Unidade
+from routers.interfone import unidade_da_sessao
 from termo import TERMO
 
 A, B = "52998224725", "11144477735"
@@ -24,7 +26,8 @@ TOKEN = "token-teste-lista-interfone"
 def limpar():
     with SessionLocal() as db:
         db.execute(delete(DispositivoApp).where(DispositivoApp.token == TOKEN))
-        db.execute(delete(Morador).where(Morador.cpf.in_([A, B]))); db.commit()
+        db.execute(delete(Morador).where(Morador.cpf.in_([A, B])))
+        db.execute(delete(AdminUser).where(AdminUser.login == LOGIN_PORTARIA, AdminUser.criado_por == "teste")); db.commit()  # só a conta criada pelo teste
 
 
 def cliente(tipo, id_):
@@ -62,6 +65,23 @@ try:
     pm = cb.get("/morador/interfone").text
     assert "<td>Portaria</td>" in pm and "<td>Administração</td>" in pm
     assert f"<td>{r1}</td>" not in pm and f"<td>{r2}</td>" not in pm and "App Android" not in pm
+    # portaria: entra pela administração, só no interfone, e fala como a unidade Portaria (não como Administração)
+    with SessionLocal() as db:
+        por = db.scalar(select(AdminUser).where(AdminUser.login == LOGIN_PORTARIA))
+        if not por:  # a conta real ainda não existe: usa uma de teste, apagada no fim
+            por = AdminUser(login=LOGIN_PORTARIA, nome="Portaria teste", senha_hash=auth.hash_senha("senha-de-teste"), areas=["interfone"], criado_por="teste")
+            db.add(por); db.commit()
+        assert por.portaria and not adm.portaria and por.areas == ["interfone"] and not por.master
+        ids = {b: db.scalar(select(Unidade.id).where(Unidade.bloco == b)) for b in ("PORTARIA", "ADMINISTRACAO")}
+        assert unidade_da_sessao({"t": "admin", "id": str(por.id)}, db) == ids["PORTARIA"]
+        assert unidade_da_sessao({"t": "admin", "id": str(adm.id)}, db) == ids["ADMINISTRACAO"]
+        pid = por.id
+    pc = cliente("admin", pid)
+    pp = pc.get("/admin/interfone").text
+    assert "falando como <strong>PORTARIA</strong>" in pp and f"<td>Portaria</td><td>{ON}</td>" in pp
+    assert 'data-chamar="ADMINISTRACAO"' in pp and 'data-chamar="PORTARIA"' not in pp  # não liga para si mesma
+    assert f"<td>{r1}</td><td>{ON}</td>" in pp  # a portaria vê quais apartamentos estão online
+    assert pc.get("/admin/moradores").status_code == 403 and pc.get("/admin/usuarios").status_code == 403  # só o interfone
     print("check_interfone_lista ok")
 finally:
     if u1:

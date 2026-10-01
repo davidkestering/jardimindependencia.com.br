@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block titulo %}Garagem e Veículos · Administração{% endblock %}
+{% block head %}<style>.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-corrigida{background:#fff0c2;color:#6b4b00}.filtro{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}.filtro select,.filtro input{width:auto}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "admin/_menu.html" %}
+  <h1>Garagem e Veículos</h1>
+  <p style="max-width:70ch">Garagem de cada apartamento conforme a convenção, o que cada condômino informou sobre as garagens que utiliza e os veículos cadastrados.</p>
+  {% if erro %}<p class="aviso" style="max-width:640px">{{ erro }}</p>{% endif %}
+  {% if ok %}<p class="aviso ok" style="max-width:640px">✓ {{ ok }}</p>{% endif %}
+  <form method="get" class="filtro">
+    <select name="mostrar" aria-label="Apartamentos a mostrar"><option value="">Apartamentos com registro</option><option value="todos" {% if mostrar == 'todos' %}selected{% endif %}>Todos os apartamentos</option></select>
+    <select name="bloco" aria-label="Bloco"><option value="">Bloco</option>{% for b in blocos %}<option {% if b == bloco %}selected{% endif %}>{{ b }}</option>{% endfor %}</select>
+    <input name="q" value="{{ q }}" placeholder="Placa ou nº da garagem" aria-label="Placa ou número da garagem">
+    <button class="btn" type="submit">Filtrar</button>
+    {% if mostrar or bloco or q %}<a class="btn sec" href="/admin/garagem">Limpar</a>{% endif %}
+  </form>
+
+  <h2 style="font-size:22px">Apartamentos ({{ linhas|length }})</h2>
+  <div style="overflow-x:auto"><table>
+    <tr><th>Unidade</th><th>Garagem</th><th>Situação da garagem</th><th>Garagens que utiliza</th><th>Veículos</th></tr>
+    {% for u, garagens, n in linhas %}<tr><td>{{ u.rotulo }}</td>
+      <td>{{ u.garagem }}{% if u.garagem != u.garagem_convencao %} <span class="st st-corrigida">corrigida</span><br><small>convenção: {{ u.garagem_convencao }}{% if u.garagem_alterada_em %} · por {{ u.garagem_alterada_por }} em {{ u.garagem_alterada_em|local }}{% endif %}</small>{% endif %}</td>
+      <td>{% if u.garagem_uso == 'alugada' %}Alugada/cedida para {{ u.garagem_uso_para.rotulo if u.garagem_uso_para else '?' }}{% elif u.garagem_uso %}Uso próprio{% else %}Não informado{% endif %}</td>
+      <td><strong>{{ garagens|length }}</strong>{% if garagens %} · nº {{ garagens|join(', ') }}{% endif %}</td><td><strong>{{ n }}</strong></td></tr>
+    {% else %}<tr><td colspan="5">Nenhum apartamento {% if q or bloco %}com este filtro{% else %}com registro ainda{% endif %}.</td></tr>{% endfor %}
+  </table></div>
+
+  <h2 style="font-size:22px;margin-top:36px">Veículos ({{ veiculos|length }})</h2>
+  <div style="overflow-x:auto"><table>
+    <tr><th>Unidade</th><th>Veículo</th><th>Cor</th><th>Placa</th><th>Garagem</th><th>Cadastrado por · quando · IP</th></tr>
+    {% for u, v in veiculos %}{% set d = dono.get(v.garagem) %}<tr><td>{{ u.rotulo }}</td><td>{{ v.marca }} {{ v.modelo }}</td><td>{{ v.cor }}</td><td>{{ v.placa }}</td>
+      <td>{{ v.garagem }}{% if d and d.id == u.id %} · do apartamento{% elif d %} · do {{ d.rotulo }}{% endif %}</td>
+      <td style="font-size:13px"><strong>{{ v.cadastrado_por }}</strong><br>{{ v.criado_em|local }}<br>IP {{ v.cadastrado_ip or '?' }}</td></tr>
+    {% else %}<tr><td colspan="6">Nenhum veículo {% if q or bloco %}com este filtro{% else %}cadastrado{% endif %}.</td></tr>{% endfor %}
+  </table></div>
+
+  <h2 style="font-size:22px;margin-top:36px">Corrigir a garagem de um apartamento</h2>
+  <p style="max-width:70ch">Informe o número real da garagem do apartamento. Se o número já for de outro apartamento, os dois trocam de garagem entre si. Os veículos que estavam na garagem do apartamento acompanham o novo número, e o condômino vê o aviso do ajuste na área dele.</p>
+  <form class="card" method="post" action="/admin/garagem/corrigir" data-confirm="Corrigir a garagem deste apartamento? Se o número já pertencer a outro apartamento, os dois trocam de garagem entre si.">
+    <label>Apartamento<select name="unidade" required><option value="">Bloco (BL), apto (AP) e garagem atual (GG)</option>{% for x in lista %}<option value="{{ x.id }}">BL {{ x.bloco }} AP {{ x.apto }} GG {{ '%03d' % x.garagem }}</option>{% endfor %}</select></label>
+    <label>Número real da garagem (1 a {{ ultima }})<input name="garagem" type="number" min="1" max="{{ ultima }}" inputmode="numeric" required></label>
+    <button class="btn" type="submit">Corrigir vínculo</button>
+  </form>
+</div></section>
+{% endblock %}

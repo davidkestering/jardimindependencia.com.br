@@ -302,6 +302,13 @@ def _mes(texto: str, fim: bool = False):
     return d.replace(day=calendar.monthrange(d.year, d.month)[1]) if fim else d
 
 
+@router.get("/localizacao")
+def localizacao(request: Request, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
+    """A página de localização do site, dentro da área do condômino (com o menu da área)."""
+    morador_atual(request, db, sessao)
+    return render(request, "site/localizacao.html", menu="morador")
+
+
 @router.get("")
 def painel(request: Request, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
     m = morador_atual(request, db, sessao)

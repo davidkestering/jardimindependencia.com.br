@@ -5,11 +5,13 @@
   {% if sessao.master or 'documentos' in sessao.areas %}<a class="btn sec" href="/admin/documentos">Documentos</a>{% endif %}
   {% if sessao.master or 'comunicados' in sessao.areas %}<a class="btn sec" href="/admin/comunicados">Comunicados</a>{% endif %}
   {% if sessao.master or 'financeiro' in sessao.areas %}<a class="btn sec" href="/admin/financeiro">Inadimplência</a>{% endif %}
+  {% if sessao.master or 'garagem' in sessao.areas %}<a class="btn sec" href="/admin/garagem">Garagem e Veículos</a>{% endif %}
   {% if sessao.master or 'assembleias' in sessao.areas %}<a class="btn sec" href="/admin/assembleias">Assembleias</a>{% endif %}
   {% if sessao.master or 'enquetes' in sessao.areas %}<a class="btn sec" href="/admin/enquetes">Enquetes</a>{% endif %}
   {% if sessao.master or 'ocorrencias' in sessao.areas %}<a class="btn sec" href="/admin/ocorrencias">Ocorrências{% if sessao.ocorrencias %} ({{ sessao.ocorrencias }}){% endif %}</a>{% endif %}
   {% if sessao.master or 'interfone' in sessao.areas %}<a class="btn sec" href="/admin/interfone">Interfone</a>{% endif %}
   {% if sessao.master %}<a class="btn sec" href="/admin/usuarios">Usuários</a>
   <a class="btn sec" href="/admin/historico">Histórico</a>{% endif %}
+  <a class="btn sec" href="/admin/localizacao">Localização</a>
   <a class="btn sec" href="/admin/sair">Sair</a>
 </nav>

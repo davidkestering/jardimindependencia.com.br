@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from auth import hash_senha, ler_sessao
 from config import ADMIN_LOGIN, ADMIN_SENHA_INICIAL, CONDOMINIO, UPLOAD_DIR
 from db import SessionLocal
+from garagens import CONVENCAO
 from models import AdminUser, Morador, Ocorrencia, Unidade
 
 logging.basicConfig(level=logging.INFO)
@@ -40,6 +41,9 @@ def seed():
     with SessionLocal() as db:
         if db.scalar(select(Unidade).limit(1)) is None:
             db.add_all(Unidade(bloco=b, apto=a) for b, a in unidades_padrao())
+            db.flush()
+        for u in db.scalars(select(Unidade).where(Unidade.apto != "", Unidade.garagem_convencao.is_(None))):
+            u.garagem = u.garagem_convencao = CONVENCAO.get((u.bloco, u.apto))  # garagem de cada apto conforme a convenção
         # Usuário inicial só quando não existe nenhum (primeiro acesso); depois os mestres criam os demais.
         if ADMIN_SENHA_INICIAL and db.scalar(select(AdminUser).limit(1)) is None:
             db.add(AdminUser(login=ADMIN_LOGIN, senha_hash=hash_senha(ADMIN_SENHA_INICIAL), nome="Administração", master=True))
@@ -87,13 +91,13 @@ async def sessao_no_template(request: Request, call_next):
                 outros = db.scalars(select(Morador).join(Unidade).where(Morador.cpf == m.cpf, Morador.status == "aprovado", Morador.id != m.id)
                                     .order_by(Unidade.bloco, Unidade.apto)).all()
                 respostas = sum(1 for o in db.scalars(select(Ocorrencia).where(Ocorrencia.unidade_id == m.unidade_id, Ocorrencia.ultima_resposta_admin_em.is_not(None))) if o.tem_resposta_nova)
-                s = {**s, "login": f"{m.nome} ({m.cpf_fmt})", "apto": m.unidade.rotulo, "outros": [{"id": str(o.id), "rotulo": o.unidade.rotulo} for o in outros],
+                s = {**s, "login": f"{m.nome} ({m.cpf_fmt})", "apto": m.unidade.rotulo_garagem, "outros": [{"id": str(o.id), "rotulo": o.unidade.rotulo} for o in outros],
                      "respostas": respostas}
     request.state.sessao = s
     return await call_next(request)
 
 
-from routers import admin, comunicados, enquetes, financeiro, interfone, morador, ocorrencias, residentes, site, votacao  # noqa: E402
+from routers import admin, comunicados, enquetes, financeiro, garagem, interfone, morador, ocorrencias, residentes, site, votacao  # noqa: E402
 
 app.include_router(site.router)
 app.include_router(morador.router)
@@ -105,6 +109,7 @@ app.include_router(comunicados.router)
 app.include_router(residentes.router)
 app.include_router(enquetes.router)
 app.include_router(ocorrencias.router)
+app.include_router(garagem.router)
 
 
 if __name__ == "__main__":

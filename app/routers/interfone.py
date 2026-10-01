@@ -22,14 +22,20 @@ def render(request: Request, nome: str, **ctx):
     return templates.TemplateResponse(request, nome, {"sessao": request.state.sessao, **ctx})
 
 
+def unidade_do_admin(db: Session, a: AdminUser) -> Unidade:
+    """No interfone, a conta da portaria é a unidade PORTARIA; qualquer outro usuário da administração é a ADMINISTRACAO."""
+    return db.scalar(select(Unidade).where(Unidade.bloco == ("PORTARIA" if a.portaria else "ADMINISTRACAO")))
+
+
 def unidade_da_sessao(sessao: dict | None, db: Session) -> uuid.UUID | None:
     if not sessao:
         return None
     if sessao["t"] == "morador":
         m = db.get(Morador, uuid.UUID(sessao["id"]))
         return m.unidade_id if m and m.status == "aprovado" else None
-    if sessao["t"] == "admin" and db.get(AdminUser, uuid.UUID(sessao["id"])):
-        return db.scalar(select(Unidade.id).where(Unidade.bloco == "ADMINISTRACAO"))
+    if sessao["t"] == "admin":
+        a = db.get(AdminUser, uuid.UUID(sessao["id"]))
+        return unidade_do_admin(db, a).id if a and not a.excluido_em else None  # usuário desativado não conecta
     return None
 
 
@@ -69,7 +75,7 @@ def pagina_morador(request: Request, sessao: dict = Depends(auth.exigir("morador
 
 @router.get("/admin/interfone")
 def pagina_admin(request: Request, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    u = db.scalar(select(Unidade).where(Unidade.bloco == "ADMINISTRACAO"))
+    u = unidade_do_admin(db, admin)
     return render(request, "interfone.html", blocos=destinos(db), unidade=u, menu="admin", vapid=None, ativos=interfones_ativos(db, u, completa=True))
 
 

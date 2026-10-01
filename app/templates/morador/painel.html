@@ -4,7 +4,7 @@
 <section><div class="container">
   {% include "morador/_menu.html" %}
   <h1>Olá, {{ morador.nome.split()[0] }}</h1>
-  <p>{{ morador.unidade.rotulo }} · <a href="/morador/sair">Sair</a></p>
+  <p>{{ morador.unidade.rotulo_garagem }} · <a href="/morador/sair">Sair</a></p>
   {% if novos %}<div class="aviso" style="margin-top:16px"><strong>{{ novos|length }} comunicado(s) novo(s) da administração</strong>
     <ul style="margin:8px 0 0;padding-left:18px">{% for c in novos %}<li><a href="/morador/comunicados/{{ c.id }}">{{ c.titulo }}</a> <small>({{ c.publicado_em.strftime('%d/%m/%Y') }})</small></li>{% endfor %}</ul>
     <p style="margin:8px 0 0"><a href="/morador/comunicados">Ver todos os comunicados</a></p></div>{% endif %}
@@ -12,6 +12,7 @@
   <div class="grade" style="margin:24px 0">
     <div class="item"><h3>Comunicados</h3><p>Avisos da administração.</p><p><a href="/morador/comunicados">Abrir</a></p></div>
     <div class="item"><h3>Residentes</h3><p>{{ n_residentes }} residente(s) cadastrado(s) no apartamento.</p><p><a href="/morador/residentes">Abrir</a></p></div>
+    <div class="item"><h3>Garagem e Veículos</h3><p>Garagens que o apartamento utiliza e veículos cadastrados.</p><p><a href="/morador/garagem">Abrir</a></p></div>
     <div class="item"><h3>Documentos</h3><p>{{ total_docs }} documento(s) publicado(s) pela administração.</p><p><a href="/morador/documentos">Abrir</a></p></div>
     <div class="item"><h3>Assembleias</h3><p>Votações abertas e resultados.</p><p><a href="/morador/assembleias">Abrir</a></p></div>
     <div class="item"><h3>Ocorrências</h3><p>Registre problemas e acompanhe as respostas.</p><p><a href="/morador/ocorrencias">Abrir</a></p></div>

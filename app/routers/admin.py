@@ -94,6 +94,8 @@ def login_post(request: Request, login: str = Form(...), senha: str = Form(...),
         return render(request, "admin/login.html", erro="Login ou senha incorretos.", next=next)
     auth.limpar_tentativas(chave)
     registrar("Login ADMIN realizado", request, login=a.login, senha="(correta; não registrada)")
+    if a.portaria and next == "/admin":
+        next = "/admin/interfone"  # a portaria só usa o interfone: entra direto nele
     resp = RedirectResponse(next if next.startswith("/") else "/admin", status_code=303)
     resp.set_cookie(auth.COOKIE, auth.criar_sessao("admin", str(a.id)), httponly=True, secure=True, samesite="lax",
                     max_age=auth.SESSAO_HORAS * 3600)
@@ -113,6 +115,12 @@ def painel(request: Request, admin: AdminUser = Depends(admin_dep), db: Session 
                   areas=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.ativa, Unidade.apto == "")),
                   documentos=db.scalar(select(func.count()).select_from(Documento).where(Documento.excluido_em.is_(None))),
                   excluidos=db.scalar(select(func.count()).select_from(Documento).where(Documento.excluido_em.is_not(None))))
+
+
+@router.get("/localizacao")
+def localizacao(request: Request, admin: AdminUser = Depends(admin_dep)):
+    """A página de localização do site, dentro da área da administração (com o menu da área)."""
+    return render(request, "site/localizacao.html", menu="admin")
 
 
 # ---- moradores ----
