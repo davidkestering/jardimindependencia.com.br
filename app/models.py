@@ -35,6 +35,9 @@ class Unidade(Base):
     garagem_anterior: Mapped[int | None] = mapped_column(Integer)
     garagem_alterada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     garagem_alterada_por: Mapped[str | None] = mapped_column(String(60))
+    # Animais de estimação: o condômino informou que a unidade não possui (cadastrar um animal apaga a declaração).
+    sem_animais_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sem_animais_por: Mapped[str | None] = mapped_column(String(120))
     moradores: Mapped[list["Morador"]] = relationship(back_populates="unidade", passive_deletes=True)
     garagem_uso_para: Mapped["Unidade | None"] = relationship(remote_side="Unidade.id", foreign_keys="Unidade.garagem_uso_para_id")
 
@@ -340,6 +343,9 @@ class Animal(Base):
     foto: Mapped[str | None] = mapped_column(String(255))  # caminho relativo em UPLOAD_DIR
     cadastrado_por: Mapped[str] = mapped_column(String(120))
     cadastrado_ip: Mapped[str | None] = mapped_column(String(45))
+    alterado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # última edição pelo condômino
+    alterado_por: Mapped[str | None] = mapped_column(String(120))
+    alterado_ip: Mapped[str | None] = mapped_column(String(45))
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
     excluido_por: Mapped[str | None] = mapped_column(String(120))

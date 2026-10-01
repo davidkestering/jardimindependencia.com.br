@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block titulo %}Animais de Estimação · Jardim Independência{% endblock %}
-{% block head %}<style>.foto{padding:0;border:0;background:none;cursor:zoom-in;display:block}.foto img{display:block;width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--bege-claro)}.foto.grande{cursor:zoom-out}.foto.grande img{width:min(100%,420px);height:auto}</style>{% endblock %}
+{% block head %}<style>.foto{padding:0;border:0;background:none;cursor:zoom-in;display:block}.foto img{display:block;width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--bege-claro)}.foto.grande{cursor:zoom-out}.foto.grande img{width:min(100%,420px);height:auto}td .btn.menor{padding:5px 10px;font-size:13px}.marcar{display:flex;gap:10px;align-items:center;font-weight:500}.marcar input{width:auto}.acoes-form{display:flex;gap:10px;flex-wrap:wrap;align-items:center}</style>{% endblock %}
 {% block conteudo %}
+{# foto do animal; o ?v= muda quando o cadastro é alterado, para o navegador não mostrar a foto antiga #}
+{% macro foto(a) %}<button type="button" class="foto" aria-label="Ampliar ou reduzir a foto de {{ a.nome }}" onclick="this.classList.toggle('grande')"><img src="/morador/animais/{{ a.id }}/foto{% if a.alterado_em %}?v={{ a.alterado_em.timestamp()|int }}{% endif %}" alt="Foto de {{ a.nome }}" width="72" height="72" loading="lazy"></button>{% endmacro %}
 <section><div class="container">
   {% include "morador/_menu.html" %}
   <div class="eyebrow">Animais de Estimação</div>
@@ -13,19 +15,27 @@
   {% if animais %}<div style="overflow-x:auto;max-width:860px"><table>
     <tr><th>Nome</th><th>Tipo</th><th>Raça</th><th>Foto</th><th></th></tr>
     {% for a in animais %}<tr><td>{{ a.nome }}</td><td>{{ a.tipo }}</td><td>{{ a.raca or '' }}</td>
-      <td>{% if a.foto %}<button type="button" class="foto" aria-label="Ampliar ou reduzir a foto de {{ a.nome }}" onclick="this.classList.toggle('grande')"><img src="/morador/animais/{{ a.id }}/foto" alt="Foto de {{ a.nome }}" width="72" height="72" loading="lazy"></button>{% else %}Sem foto{% endif %}</td>
-      <td><form class="inline" method="post" action="/morador/animais/{{ a.id }}/excluir" data-confirm="Remover {{ a.nome }} dos animais do apartamento?"><button class="btn sec" type="submit">Remover</button></form></td></tr>{% endfor %}
-  </table></div>{% else %}<p>Nenhum animal cadastrado neste apartamento.</p>{% endif %}
+      <td>{% if a.foto %}{{ foto(a) }}{% else %}Sem foto{% endif %}</td>
+      <td><a class="btn sec menor" href="/morador/animais?editar={{ a.id }}#form">Editar</a>
+        <form class="inline" method="post" action="/morador/animais/{{ a.id }}/excluir" data-confirm="Excluir {{ a.nome }} dos animais do apartamento?"><button class="btn sec" type="submit">Excluir</button></form></td></tr>{% endfor %}
+  </table></div>
+  {% elif u.sem_animais_em %}<p class="aviso ok" style="max-width:640px">Esta unidade informou que não possui animais de estimação ({{ u.sem_animais_por }}, em {{ u.sem_animais_em|local }}).</p>
+  <form method="post" action="/morador/animais/nenhum"><input type="hidden" name="acao" value="desfazer"><button class="btn sec" type="submit">Desfazer esta informação</button></form>
+  {% else %}<p>Nenhum animal cadastrado neste apartamento. Cadastre abaixo ou, se não houver, informe:</p>
+  <form method="post" action="/morador/animais/nenhum" data-confirm="Confirmar que esta unidade não possui animais de estimação?"><button class="btn sec" type="submit">Esta unidade não possui animais de estimação</button></form>{% endif %}
 
-  <h2 style="margin-top:28px">Cadastrar animal</h2>
-  <form class="card" method="post" action="/morador/animais" enctype="multipart/form-data">
+  <h2 id="form" style="margin-top:28px;scroll-margin-top:6rem">{% if editando %}Editar {{ editando.nome }}{% else %}Cadastrar animal{% endif %}</h2>
+  <form class="card" method="post" action="/morador/animais{% if editando %}/{{ editando.id }}/editar{% endif %}" enctype="multipart/form-data">
     <div class="duas">
-      <label>Nome<input name="nome" required maxlength="60"></label>
-      <label>Tipo de animal<select name="tipo" required><option value="">Escolha</option>{% for t in tipos %}<option>{{ t }}</option>{% endfor %}</select></label>
-      <label>Raça (opcional)<input name="raca" maxlength="60" placeholder="Se houver"></label>
+      <label>Nome<input name="nome" required maxlength="60" value="{{ editando.nome if editando else '' }}"></label>
+      <label>Tipo de animal<select name="tipo" required><option value="">Escolha</option>{% for t in tipos %}<option {% if editando and editando.tipo == t %}selected{% endif %}>{{ t }}</option>{% endfor %}</select></label>
+      <label>Raça (opcional)<input name="raca" maxlength="60" placeholder="Se houver" value="{{ (editando.raca or '') if editando else '' }}"></label>
     </div>
-    <label>Foto (opcional; JPG ou PNG, até {{ max_mb }} MB)<input name="foto" type="file" accept="image/jpeg,image/png"></label>
-    <button class="btn" type="submit">Cadastrar animal</button>
+    {% if editando and editando.foto %}<div><p style="margin:0 0 6px;font-weight:700">Foto atual</p>{{ foto(editando) }}</div>
+    <label class="marcar"><input type="checkbox" name="sem_foto" value="1">Excluir a foto atual</label>{% endif %}
+    <label>{% if editando and editando.foto %}Trocar a foto{% else %}Foto{% endif %} (opcional; JPG ou PNG, até {{ max_mb }} MB)<input name="foto" type="file" accept="image/jpeg,image/png"></label>
+    <div class="acoes-form"><button class="btn" type="submit">{% if editando %}Salvar alterações{% else %}Cadastrar animal{% endif %}</button>
+      {% if editando %}<a class="btn sec" href="/morador/animais">Cancelar</a>{% endif %}</div>
   </form>
 </div></section>
 {% endblock %}

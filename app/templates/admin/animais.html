@@ -6,15 +6,25 @@
   {% include "admin/_menu.html" %}
   <h1>Animais de Estimação</h1>
   <p style="max-width:70ch">Animais informados pelos condôminos, com a foto (quando enviada) para identificar um animal visto solto pelo condomínio.</p>
+  <p style="font-size:18px"><strong>{{ totais[0] }}</strong> unidade(s) com animais registrados · <strong>{{ totais[1] }}</strong> informaram não possuir · <strong>{{ totais[2] }}</strong> ainda não informaram</p>
   <form method="get" class="filtro">
+    <select name="situacao" aria-label="Situação da unidade">{% for chave, rotulo in situacoes.items() %}<option value="{{ chave }}" {% if chave == situacao %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
     <select name="bloco" aria-label="Bloco"><option value="">Bloco</option>{% for b in blocos %}<option {% if b == bloco %}selected{% endif %}>{{ b }}</option>{% endfor %}</select>
-    <select name="tipo" aria-label="Tipo de animal"><option value="">Tipo de animal</option>{% for t in tipos %}<option {% if t == tipo %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
-    <input name="q" value="{{ q }}" placeholder="Nome ou raça" aria-label="Nome ou raça do animal">
+    {% if not situacao %}<select name="tipo" aria-label="Tipo de animal"><option value="">Tipo de animal</option>{% for t in tipos %}<option {% if t == tipo %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+    <input name="q" value="{{ q }}" placeholder="Nome ou raça" aria-label="Nome ou raça do animal">{% endif %}
     <button class="btn" type="submit">Filtrar</button>
-    {% if bloco or tipo or q %}<a class="btn sec" href="/admin/animais">Limpar</a>{% endif %}
+    {% if situacao or bloco or tipo or q %}<a class="btn sec" href="/admin/animais">Limpar</a>{% endif %}
   </form>
-  <p style="font-size:18px"><strong>{{ unidades|length }}</strong> unidade(s) com animais registrados · <strong>{{ animais|length }}</strong> animal(is){% if bloco or tipo or q %} neste filtro{% endif %}</p>
 
+  {% if situacao %}
+  <h2 style="font-size:22px">{{ situacoes[situacao] }} ({{ outras|length }})</h2>
+  <div style="overflow-x:auto;max-width:860px"><table>
+    <tr><th>Unidade</th><th>Situação</th></tr>
+    {% for u in outras %}<tr><td>{{ u.rotulo }}</td>
+      <td>{% if situacao == 'sem' %}Não possui animais · informado por <strong>{{ u.sem_animais_por }}</strong> em {{ u.sem_animais_em|local }}{% else %}Ainda não informou{% endif %}</td></tr>
+    {% else %}<tr><td colspan="2">Nenhuma unidade nesta situação{% if bloco %} neste bloco{% endif %}.</td></tr>{% endfor %}
+  </table></div>
+  {% else %}
   <h2 style="font-size:22px">Unidades ({{ unidades|length }})</h2>
   <div style="overflow-x:auto;max-width:860px"><table>
     <tr><th>Unidade</th><th>Animais</th></tr>
@@ -27,9 +37,10 @@
   <div style="overflow-x:auto"><table>
     <tr><th>Unidade</th><th>Nome</th><th>Tipo</th><th>Raça</th><th>Foto</th><th>Cadastrado por · quando · IP</th></tr>
     {% for u, a in animais %}<tr><td>{{ u.rotulo }}</td><td>{{ a.nome }}</td><td>{{ a.tipo }}</td><td>{{ a.raca or '' }}</td>
-      <td>{% if a.foto %}<button type="button" class="foto" aria-label="Ampliar ou reduzir a foto de {{ a.nome }}" onclick="this.classList.toggle('grande')"><img src="/admin/animais/{{ a.id }}/foto" alt="Foto de {{ a.nome }}" width="72" height="72" loading="lazy"></button>{% else %}Sem foto{% endif %}</td>
-      <td style="font-size:13px"><strong>{{ a.cadastrado_por }}</strong><br>{{ a.criado_em|local }}<br>IP {{ a.cadastrado_ip or '?' }}</td></tr>
+      <td>{% if a.foto %}<button type="button" class="foto" aria-label="Ampliar ou reduzir a foto de {{ a.nome }}" onclick="this.classList.toggle('grande')"><img src="/admin/animais/{{ a.id }}/foto{% if a.alterado_em %}?v={{ a.alterado_em.timestamp()|int }}{% endif %}" alt="Foto de {{ a.nome }}" width="72" height="72" loading="lazy"></button>{% else %}Sem foto{% endif %}</td>
+      <td style="font-size:13px"><strong>{{ a.cadastrado_por }}</strong><br>{{ a.criado_em|local }}<br>IP {{ a.cadastrado_ip or '?' }}{% if a.alterado_em %}<br><small>alterado por {{ a.alterado_por }} em {{ a.alterado_em|local }} · IP {{ a.alterado_ip or '?' }}</small>{% endif %}</td></tr>
     {% else %}<tr><td colspan="6">Nenhum animal {% if bloco or tipo or q %}com este filtro{% else %}cadastrado{% endif %}.</td></tr>{% endfor %}
   </table></div>
+  {% endif %}
 </div></section>
 {% endblock %}

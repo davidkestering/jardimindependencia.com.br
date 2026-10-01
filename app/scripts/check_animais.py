@@ -33,6 +33,8 @@ def limpar():
             if a.foto:
                 (Path(UPLOAD_DIR) / a.foto).unlink(missing_ok=True)
         db.execute(delete(Animal).where(Animal.unidade_id.in_(ids)))
+        for u in db.scalars(select(Unidade).where(Unidade.id.in_(ids))):
+            u.sem_animais_em = u.sem_animais_por = None
         db.execute(delete(Morador).where(Morador.cpf.in_([A, B]))); db.execute(delete(AdminUser).where(AdminUser.login.in_([ADM, SEM]))); db.commit()
 
 
@@ -45,16 +47,28 @@ def post(c, foto=None, **dados):
     return c.post("/morador/animais", data=dados, files={"foto": foto or ("", b"")}).text
 
 
+def editar(c, aid, foto=None, **dados):
+    """Edita pela área do condômino e devolve a página resultante."""
+    return c.post(f"/morador/animais/{aid}/editar", data=dados, files={"foto": foto or ("", b"")}).text
+
+
 def totais(pg):
-    """(unidades, animais) do resumo da página da administração."""
-    return tuple(int(n) for n in re.search(r"<strong>(\d+)</strong> unidade.*?<strong>(\d+)</strong> anima", pg, re.S).groups())
+    """(unidades, animais) listados na página da administração, conforme o filtro."""
+    return tuple(int(n) for n in re.search(r"Unidades \((\d+)\).*?Animais \((\d+)\)", pg, re.S).groups())
+
+
+def geral(c):
+    """(unidades com animais, que informaram não possuir, que ainda não informaram) do resumo da administração."""
+    return tuple(int(n) for n in re.search(r"<strong>(\d+)</strong> unidade\(s\) com animais registrados · <strong>(\d+)</strong> informaram não possuir · "
+                                           r"<strong>(\d+)</strong> ainda não informaram", c.get("/admin/animais").text).groups())
 
 
 limpar()
 try:
     with SessionLocal() as db:
         ocupadas = select(Morador.unidade_id).where(Morador.status.in_(("pendente", "aprovado")))
-        u1, u2 = db.scalars(select(Unidade).where(Unidade.ativa, Unidade.apto != "", ~Unidade.id.in_(ocupadas), ~Unidade.id.in_(select(Animal.unidade_id)))
+        u1, u2 = db.scalars(select(Unidade).where(Unidade.ativa, Unidade.apto != "", ~Unidade.id.in_(ocupadas), ~Unidade.id.in_(select(Animal.unidade_id)),
+                                                  Unidade.sem_animais_em.is_(None))
                             .order_by(Unidade.bloco, Unidade.apto).limit(2)).all()
         r1, r2 = u1.rotulo, u2.rotulo
         for u, nome, cpf in ((u1, "Ana Animais", A), (u2, "Bia Animais", B)):
@@ -107,6 +121,7 @@ try:
         rex, mimi, louro = meus["Rexteste"].id, meus["Mimiteste"].id, meus["Louroteste"].id
     pg = ca.get("/morador/animais").text
     assert f'src="/morador/animais/{rex}/foto"' in pg and f"/morador/animais/{mimi}/foto" not in pg
+    assert f'href="/morador/animais?editar={rex}#form">Editar</a>' in pg and f'action="/morador/animais/{rex}/excluir"' in pg and ">Excluir</button>" in pg
 
     # 4. foto: só o próprio apartamento e a administração com a área; quem não tem foto devolve 404
     r = ca.get(f"/morador/animais/{rex}/foto"); assert r.status_code == 200 and r.content == PNG and r.headers["content-type"] == "image/png"
@@ -139,6 +154,57 @@ try:
     # removido, pode ser cadastrado de novo: recebe o próximo número e a foto antiga não é sobrescrita
     assert "<td>Rexteste</td>" in post(ca, nome="Rexteste", tipo="Cachorro", foto=("novo.jpg", JPG))
     assert (Path(UPLOAD_DIR) / (base + "2.png")).read_bytes() == PNG and (Path(UPLOAD_DIR) / (base + "4.jpg")).read_bytes() == JPG
+
+    # 7. edição do animal como um todo: só do próprio apartamento; o formulário vem preenchido e os erros voltam para ele
+    def gravado():
+        with SessionLocal() as db:
+            x = db.get(Animal, mimi); return x.nome, x.tipo, x.raca, x.foto, x.numero
+    assert cb.post(f"/morador/animais/{mimi}/editar", data=dict(nome="Outro", tipo="Gato")).status_code == 404
+    assert ca.post(f"/morador/animais/{rex}/editar", data=dict(nome="Outro", tipo="Gato")).status_code == 404  # animal já excluído
+    pg = ca.get(f"/morador/animais?editar={mimi}").text
+    assert f'action="/morador/animais/{mimi}/editar"' in pg and 'value="Mimiteste"' in pg and "<option selected>Gato</option>" in pg and "Salvar alterações" in pg
+    assert 'name="sem_foto"' not in pg  # ainda sem foto: não há o que excluir
+    pg = editar(ca, mimi, nome=" ", tipo="Gato"); assert "Informe o nome" in pg and f'action="/morador/animais/{mimi}/editar"' in pg
+    assert "já está cadastrad" in editar(ca, mimi, nome="LOUROTESTE", tipo="Pássaro") and gravado() == ("Mimiteste", "Gato", None, None, 1)
+    # altera tipo e raça e inclui a foto: o número do animal não muda e é ele que dá nome à foto
+    pg = editar(ca, mimi, nome="Mimiteste", tipo="Outro", raca="Siamesteste", foto=("m.png", PNG))
+    assert "Mimiteste alterado" in pg and "Siamesteste" in pg and f'src="/morador/animais/{mimi}/foto?v=' in pg
+    assert gravado() == ("Mimiteste", "Outro", "Siamesteste", base + "1.png", 1) and 'name="sem_foto"' in ca.get(f"/morador/animais?editar={mimi}").text
+    with SessionLocal() as db:
+        assert "Ana Animais" in db.get(Animal, mimi).alterado_por
+    assert "alterado por Ana Animais" in adm.get(f"/admin/animais?bloco={u1.bloco}&q=mimiteste").text
+    # troca da foto: a nova toma o lugar da antiga (uma só por animal); foto inválida não mexe na atual
+    editar(ca, mimi, nome="Mimiteste", tipo="Outro", raca="Siamesteste", foto=("m.jpg", JPG))
+    assert gravado()[3] == base + "1.jpg" and ca.get(f"/morador/animais/{mimi}/foto").content == JPG and not (Path(UPLOAD_DIR) / (base + "1.png")).exists()
+    assert "não é uma imagem JPG ou PNG válida" in editar(ca, mimi, nome="Mimiteste", tipo="Outro", raca="Siamesteste", foto=("m.png", b"<html>"))
+    assert gravado() == ("Mimiteste", "Outro", "Siamesteste", base + "1.jpg", 1) and (Path(UPLOAD_DIR) / (base + "1.jpg")).read_bytes() == JPG
+    editar(ca, mimi, nome="Mimiteste", tipo="Outro", raca="Siamesteste", sem_foto="1", foto=("outra.jpg", JPG + b"2"))  # mesma extensão; foto nova vale mais que "excluir a foto"
+    assert gravado()[3] == base + "1.jpg" and (Path(UPLOAD_DIR) / (base + "1.jpg")).read_bytes() == JPG + b"2"
+    assert not list((Path(UPLOAD_DIR) / "imagens_animais").glob(".envio_*"))
+    # exclusão só da foto; apagar a raça
+    editar(ca, mimi, nome="Mimiteste", tipo="Outro", raca="", sem_foto="1")
+    assert gravado() == ("Mimiteste", "Outro", None, None, 1) and not (Path(UPLOAD_DIR) / (base + "1.jpg")).exists()
+
+    # 8. unidade informa que não possui animais: só sem animal cadastrado; pode desfazer; cadastrar um animal apaga a declaração
+    assert "Há animais cadastrados" in ca.post("/morador/animais/nenhum").text
+    with SessionLocal() as db:
+        for aid in db.scalars(select(Animal.id).where(Animal.unidade_id == u2.id, Animal.excluido_em.is_(None))).all():
+            cb.post(f"/morador/animais/{aid}/excluir")
+    pg = cb.get("/morador/animais").text
+    assert "Esta unidade não possui animais de estimação</button>" in pg and 'value="desfazer"' not in pg
+    com, sem0, pend0 = geral(adm)
+    pg = cb.post("/morador/animais/nenhum").text
+    assert "informou que não possui animais de estimação (Bia Animais" in pg and 'value="desfazer"' in pg and 'name="nome"' in pg
+    assert geral(adm) == (com, sem0 + 1, pend0 - 1)
+    pg = adm.get(f"/admin/animais?situacao=sem&bloco={u2.bloco}").text; assert f"<td>{r2}</td>" in pg and "informado por <strong>Bia Animais" in pg
+    assert f"<td>{r2}</td>" not in adm.get(f"/admin/animais?situacao=pendente&bloco={u2.bloco}").text
+    pg = cb.post("/morador/animais/nenhum", data={"acao": "desfazer"}).text
+    assert "Esta unidade não possui animais de estimação</button>" in pg and geral(adm) == (com, sem0, pend0)
+    assert f"<td>{r2}</td>" in adm.get(f"/admin/animais?situacao=pendente&bloco={u2.bloco}").text
+    cb.post("/morador/animais/nenhum"); post(cb, nome="Ninateste", tipo="Gato")
+    with SessionLocal() as db:
+        assert db.get(Unidade, u2.id).sem_animais_em is None
+    assert geral(adm) == (com + 1, sem0, pend0 - 1)
     print("check_animais ok")
 finally:
     limpar()
