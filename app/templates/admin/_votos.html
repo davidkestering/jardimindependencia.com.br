@@ -1,0 +1,10 @@
+{# Lista nominal dos votos (não há voto secreto). Espera `votos`: uma linha (unidade, voto, opção, condômino) por apartamento,
+   em ordem de bloco e apto; quem não votou vem com o voto vazio e a linha fica em branco. #}
+{% set votaram = votos|map(attribute=1)|select|list|length %}
+<details style="margin:10px 0"><summary style="cursor:pointer;font-weight:600;color:var(--terracota)">Votos por unidade ({{ votaram }} de {{ votos|length }})</summary>
+  <p style="font-size:13px;color:#6b5a4c;margin:8px 0">Votaram: {{ votaram }} · Sem voto: {{ votos|length - votaram }} (linhas em branco)</p>
+  <div style="overflow-x:auto"><table class="votos">
+    <tr><th>Unidade</th><th>Voto</th><th>Condômino</th><th>Data e hora</th><th>Situação</th></tr>
+    {% for u, v, opcao, nome in votos %}<tr{% if not v %} class="sem-voto"{% endif %}><td>{{ u.rotulo }}</td>{% if v %}<td><strong>{{ opcao }}</strong></td><td>{{ nome }}</td><td>{{ v.votado_em|local }}</td><td>{{ 'Não computado (inadimplência)' if v.inadimplente_no_voto else 'Computado' }}</td>{% else %}<td></td><td></td><td></td><td></td>{% endif %}</tr>{% endfor %}
+  </table></div>
+</details>

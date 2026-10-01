@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 import apns
@@ -11,7 +11,7 @@ import auth
 from db import get_db
 from mail import ip_de, registrar
 from financeiro import unidade_inadimplente
-from models import AdminUser, Assembleia, Documento, Opcao, Pauta, Unidade, Voto
+from models import AdminUser, Assembleia, Documento, Morador, Opcao, Pauta, Unidade, Voto
 from routers.admin import admin_dep, exigir_proprio
 from routers.morador import morador_atual
 
@@ -51,6 +51,15 @@ def resultado(db: Session, assembleia: Assembleia) -> dict:
     return r
 
 
+def lista_votos(db: Session, V, O, filtro) -> list:
+    """Não há voto secreto: uma linha (unidade, voto, opção escolhida, condômino) por apartamento, em ordem de bloco e apto.
+    Quem não votou vem com voto, opção e condômino vazios; unidade especial ou desativada só entra se tiver votado.
+    V e O são o modelo do voto e o da opção (Voto/Opcao na assembleia, EnqueteVoto/EnqueteOpcao na enquete)."""
+    return db.execute(select(Unidade, V, O.texto, Morador.nome).select_from(Unidade).outerjoin(V, and_(V.unidade_id == Unidade.id, filtro))
+                      .outerjoin(O, O.id == V.opcao_id).outerjoin(Morador, Morador.id == V.morador_id)
+                      .where(or_(and_(Unidade.ativa, Unidade.apto != ""), V.id.isnot(None))).order_by(Unidade.bloco, Unidade.apto)).all()
+
+
 def carregar(db: Session, aid) -> Assembleia:
     a = db.scalar(select(Assembleia).where(Assembleia.id == aid)
                   .options(selectinload(Assembleia.pautas).selectinload(Pauta.opcoes)))
@@ -85,7 +94,8 @@ def admin_detalhe(request: Request, aid: uuid.UUID, erro: str = "", ok: str = ""
     a = carregar(db, aid)
     docs = db.scalars(select(Documento).where(Documento.assembleia_id == aid, Documento.excluido_em.is_(None)).order_by(Documento.criado_em)).all()
     from routers.admin import MAX_TOTAL_MB, categorias
-    return render(request, "admin/assembleia.html", a=a, res=resultado(db, a), documentos=docs, erro=erro, ok=ok, categorias=categorias(db), max_mb=MAX_TOTAL_MB,
+    votos = {p.id: lista_votos(db, Voto, Opcao, Voto.pauta_id == p.id) for p in a.pautas}
+    return render(request, "admin/assembleia.html", a=a, res=resultado(db, a), votos=votos, documentos=docs, erro=erro, ok=ok, categorias=categorias(db), max_mb=MAX_TOTAL_MB,
                   unidades_ativas=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.ativa, Unidade.apto != "")))
 
 

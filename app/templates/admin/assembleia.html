@@ -35,6 +35,7 @@
     <div class="op"><div>{{ o.texto }}<div class="barra"><i style="width:{{ (100 * n / r.total_validos) if r.total_validos else 0 }}%"></i></div></div><strong>{{ n }}</strong></div>
     {% endfor %}
     <p style="font-size:14px;color:#6b5a4c">Votos válidos: {{ r.total_validos }} · Votos apresentados por unidades inadimplentes (não computados): {{ r.nao_computados }}</p>
+    {% with votos = votos[p.id] %}{% include "admin/_votos.html" %}{% endwith %}
     <form method="post" action="/admin/assembleias/{{ a.id }}/pautas/{{ p.id }}/excluir" data-confirm="Excluir a pauta e seus votos?"><button class="btn sec" type="submit">Excluir pauta</button></form>
   </div>
   {% else %}<p>Nenhuma pauta ainda.</p>{% endfor %}

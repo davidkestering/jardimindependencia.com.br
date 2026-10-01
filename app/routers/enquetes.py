@@ -16,7 +16,7 @@ from mail import ip_de, registrar
 from models import AdminUser, Enquete, EnqueteOpcao, EnqueteVoto, Unidade
 from routers.admin import admin_dep, exigir_proprio
 from routers.morador import morador_atual
-from routers.votacao import MSG_INADIMPLENTE, agora, parse_dt
+from routers.votacao import MSG_INADIMPLENTE, agora, lista_votos, parse_dt
 
 router = APIRouter()
 
@@ -81,6 +81,7 @@ def admin_criar(request: Request, pergunta: str = Form(...), descricao: str = Fo
 def admin_detalhe(request: Request, eid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     e = carregar(db, eid)
     return render(request, "admin/enquete.html", e=e, res=resultado(db, e), aberta=aberta(e),
+                  votos=lista_votos(db, EnqueteVoto, EnqueteOpcao, EnqueteVoto.enquete_id == e.id),
                   unidades_ativas=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.ativa, Unidade.apto != "")))
 
 
