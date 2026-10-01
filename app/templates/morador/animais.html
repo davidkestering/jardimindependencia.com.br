@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titulo %}Animais de Estimação · Jardim Independência{% endblock %}
+{% block head %}<style>.foto{padding:0;border:0;background:none;cursor:zoom-in;display:block}.foto img{display:block;width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--bege-claro)}.foto.grande{cursor:zoom-out}.foto.grande img{width:min(100%,420px);height:auto}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "morador/_menu.html" %}
+  <div class="eyebrow">Animais de Estimação</div>
+  <h1>{{ u.rotulo }}</h1>
+  <p style="max-width:62ch">Informe os animais de estimação do apartamento. A foto é opcional e ajuda a administração a identificar o animal e avisar você caso ele seja visto solto pelo condomínio.</p>
+  {% if erro %}<p class="aviso" style="max-width:640px">{{ erro }}</p>{% endif %}
+  {% if ok %}<p class="aviso ok" style="max-width:640px">✓ {{ ok }}</p>{% endif %}
+
+  {% if animais %}<div style="overflow-x:auto;max-width:860px"><table>
+    <tr><th>Nome</th><th>Tipo</th><th>Raça</th><th>Foto</th><th></th></tr>
+    {% for a in animais %}<tr><td>{{ a.nome }}</td><td>{{ a.tipo }}</td><td>{{ a.raca or '' }}</td>
+      <td>{% if a.foto %}<button type="button" class="foto" aria-label="Ampliar ou reduzir a foto de {{ a.nome }}" onclick="this.classList.toggle('grande')"><img src="/morador/animais/{{ a.id }}/foto" alt="Foto de {{ a.nome }}" width="72" height="72" loading="lazy"></button>{% else %}Sem foto{% endif %}</td>
+      <td><form class="inline" method="post" action="/morador/animais/{{ a.id }}/excluir" data-confirm="Remover {{ a.nome }} dos animais do apartamento?"><button class="btn sec" type="submit">Remover</button></form></td></tr>{% endfor %}
+  </table></div>{% else %}<p>Nenhum animal cadastrado neste apartamento.</p>{% endif %}
+
+  <h2 style="margin-top:28px">Cadastrar animal</h2>
+  <form class="card" method="post" action="/morador/animais" enctype="multipart/form-data">
+    <div class="duas">
+      <label>Nome<input name="nome" required maxlength="60"></label>
+      <label>Tipo de animal<select name="tipo" required><option value="">Escolha</option>{% for t in tipos %}<option>{{ t }}</option>{% endfor %}</select></label>
+      <label>Raça (opcional)<input name="raca" maxlength="60" placeholder="Se houver"></label>
+    </div>
+    <label>Foto (opcional; JPG ou PNG, até {{ max_mb }} MB)<input name="foto" type="file" accept="image/jpeg,image/png"></label>
+    <button class="btn" type="submit">Cadastrar animal</button>
+  </form>
+</div></section>
+{% endblock %}

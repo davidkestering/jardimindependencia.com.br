@@ -13,12 +13,13 @@ Desenvolvido por **David Alexandre de Souza Kestering** ([davidkestering.com](ht
 - escolha do apartamento administrado na sessão (mesmo CPF com vários aptos);
 - residentes do apartamento (moradores e inquilinos) e transferência de acesso;
 - garagem e veículos: garagem de cada apartamento conforme a convenção, garagens que o apartamento utiliza e veículos com a garagem de cada um;
+- animais de estimação: nome, tipo, raça e foto (opcionais) de cada animal do apartamento, para identificar um animal visto solto;
 - comunicados com aviso por e-mail e notificação push;
 - documentos do condomínio; assembleias e enquetes com voto por unidade (unidade inadimplente vota sem contar);
 - registro de ocorrências, imutável, com anexos e respostas da administração;
 - interfone virtual: PWA instalável, chamadas de voz WebRTC entre apartamentos, portaria e administração.
 
-**Administração** (usuários com áreas liberadas; dois usuários mestres): moradores e aprovações, documentos com categorias e envio múltiplo, comunicados com pré-visualização, inadimplência, garagem e veículos (consulta e correção do vínculo apartamento-garagem), assembleias, enquetes, ocorrências, usuários e histórico de auditoria. Toda ação registra quem, data/hora e IP; nada é apagado fisicamente (exclusão lógica).
+**Administração** (usuários com áreas liberadas; dois usuários mestres): moradores e aprovações, documentos com categorias e envio múltiplo, comunicados com pré-visualização, inadimplência, garagem e veículos (consulta e correção do vínculo apartamento-garagem), animais de estimação (quantas e quais unidades registraram, com filtros e fotos), assembleias, enquetes, ocorrências, usuários e histórico de auditoria. Toda ação registra quem, data/hora e IP; nada é apagado fisicamente (exclusão lógica).
 
 ## Stack
 

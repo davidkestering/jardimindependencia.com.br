@@ -97,7 +97,7 @@ async def sessao_no_template(request: Request, call_next):
     return await call_next(request)
 
 
-from routers import admin, comunicados, enquetes, financeiro, garagem, interfone, morador, ocorrencias, residentes, site, votacao  # noqa: E402
+from routers import admin, animais, comunicados, enquetes, financeiro, garagem, interfone, morador, ocorrencias, residentes, site, votacao  # noqa: E402
 
 app.include_router(site.router)
 app.include_router(morador.router)
@@ -110,6 +110,7 @@ app.include_router(residentes.router)
 app.include_router(enquetes.router)
 app.include_router(ocorrencias.router)
 app.include_router(garagem.router)
+app.include_router(animais.router)
 
 
 if __name__ == "__main__":

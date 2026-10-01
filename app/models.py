@@ -85,7 +85,7 @@ class Morador(Base):
 # Áreas da administração que podem ser liberadas a um usuário (chave -> rótulo). Prefixo de rota = /admin/<chave>.
 AREAS_ADMIN = {"moradores": "Moradores e cadastros", "documentos": "Documentos", "comunicados": "Comunicados",
                "financeiro": "Inadimplência", "assembleias": "Assembleias", "enquetes": "Enquetes", "ocorrencias": "Ocorrências", "interfone": "Interfone",
-               "garagem": "Garagem e Veículos"}
+               "garagem": "Garagem e Veículos", "animais": "Animais de Estimação"}
 
 
 class Residente(Base):
@@ -323,6 +323,27 @@ class Veiculo(Base):
     excluido_por: Mapped[str | None] = mapped_column(String(120))
     excluido_ip: Mapped[str | None] = mapped_column(String(45))
     unidade: Mapped[Unidade] = relationship()
+
+
+class Animal(Base):
+    """Animal de estimação cadastrado pelo condômino. numero: sequencial do animal dentro do apartamento, nunca reaproveitado
+    (dá nome à foto: imagens_animais/BL_XX_AP_XXX_animal_<numero>.<extensão>)."""
+    __tablename__ = "animal"
+    __table_args__ = (UniqueConstraint("unidade_id", "numero"),
+                      Index("uq_animal_ativo", "unidade_id", text("lower(nome)"), "tipo", unique=True, postgresql_where=text("excluido_em IS NULL")))
+    id: Mapped[uuid.UUID] = uuid_pk()
+    unidade_id: Mapped[uuid.UUID] = fk("unidade")
+    numero: Mapped[int] = mapped_column(Integer)
+    nome: Mapped[str] = mapped_column(String(60))
+    tipo: Mapped[str] = mapped_column(String(20))  # um dos routers.animais.TIPOS
+    raca: Mapped[str | None] = mapped_column(String(60))
+    foto: Mapped[str | None] = mapped_column(String(255))  # caminho relativo em UPLOAD_DIR
+    cadastrado_por: Mapped[str] = mapped_column(String(120))
+    cadastrado_ip: Mapped[str | None] = mapped_column(String(45))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
+    excluido_por: Mapped[str | None] = mapped_column(String(120))
+    excluido_ip: Mapped[str | None] = mapped_column(String(45))
 
 
 class PushSubscription(Base):

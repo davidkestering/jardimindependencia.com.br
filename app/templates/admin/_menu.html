@@ -6,6 +6,7 @@
   {% if sessao.master or 'comunicados' in sessao.areas %}<a class="btn sec" href="/admin/comunicados">Comunicados</a>{% endif %}
   {% if sessao.master or 'financeiro' in sessao.areas %}<a class="btn sec" href="/admin/financeiro">Inadimplência</a>{% endif %}
   {% if sessao.master or 'garagem' in sessao.areas %}<a class="btn sec" href="/admin/garagem">Garagem e Veículos</a>{% endif %}
+  {% if sessao.master or 'animais' in sessao.areas %}<a class="btn sec" href="/admin/animais">Animais de Estimação</a>{% endif %}
   {% if sessao.master or 'assembleias' in sessao.areas %}<a class="btn sec" href="/admin/assembleias">Assembleias</a>{% endif %}
   {% if sessao.master or 'enquetes' in sessao.areas %}<a class="btn sec" href="/admin/enquetes">Enquetes</a>{% endif %}
   {% if sessao.master or 'ocorrencias' in sessao.areas %}<a class="btn sec" href="/admin/ocorrencias">Ocorrências{% if sessao.ocorrencias %} ({{ sessao.ocorrencias }}){% endif %}</a>{% endif %}

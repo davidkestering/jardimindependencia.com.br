@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block titulo %}Animais de Estimação · Administração{% endblock %}
+{% block head %}<style>.filtro{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}.filtro select,.filtro input{width:auto}.foto{padding:0;border:0;background:none;cursor:zoom-in;display:block}.foto img{display:block;width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--bege-claro)}.foto.grande{cursor:zoom-out}.foto.grande img{width:min(100%,420px);height:auto}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "admin/_menu.html" %}
+  <h1>Animais de Estimação</h1>
+  <p style="max-width:70ch">Animais informados pelos condôminos, com a foto (quando enviada) para identificar um animal visto solto pelo condomínio.</p>
+  <form method="get" class="filtro">
+    <select name="bloco" aria-label="Bloco"><option value="">Bloco</option>{% for b in blocos %}<option {% if b == bloco %}selected{% endif %}>{{ b }}</option>{% endfor %}</select>
+    <select name="tipo" aria-label="Tipo de animal"><option value="">Tipo de animal</option>{% for t in tipos %}<option {% if t == tipo %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+    <input name="q" value="{{ q }}" placeholder="Nome ou raça" aria-label="Nome ou raça do animal">
+    <button class="btn" type="submit">Filtrar</button>
+    {% if bloco or tipo or q %}<a class="btn sec" href="/admin/animais">Limpar</a>{% endif %}
+  </form>
+  <p style="font-size:18px"><strong>{{ unidades|length }}</strong> unidade(s) com animais registrados · <strong>{{ animais|length }}</strong> animal(is){% if bloco or tipo or q %} neste filtro{% endif %}</p>
+
+  <h2 style="font-size:22px">Unidades ({{ unidades|length }})</h2>
+  <div style="overflow-x:auto;max-width:860px"><table>
+    <tr><th>Unidade</th><th>Animais</th></tr>
+    {% for u, lista in unidades.items() %}<tr><td>{{ u.rotulo }}</td>
+      <td><strong>{{ lista|length }}</strong> · {% for a in lista %}{{ a.nome }} ({{ a.tipo }}){{ ', ' if not loop.last }}{% endfor %}</td></tr>
+    {% else %}<tr><td colspan="2">Nenhuma unidade {% if bloco or tipo or q %}com este filtro{% else %}registrou animais ainda{% endif %}.</td></tr>{% endfor %}
+  </table></div>
+
+  <h2 style="font-size:22px;margin-top:36px">Animais ({{ animais|length }})</h2>
+  <div style="overflow-x:auto"><table>
+    <tr><th>Unidade</th><th>Nome</th><th>Tipo</th><th>Raça</th><th>Foto</th><th>Cadastrado por · quando · IP</th></tr>
+    {% for u, a in animais %}<tr><td>{{ u.rotulo }}</td><td>{{ a.nome }}</td><td>{{ a.tipo }}</td><td>{{ a.raca or '' }}</td>
+      <td>{% if a.foto %}<button type="button" class="foto" aria-label="Ampliar ou reduzir a foto de {{ a.nome }}" onclick="this.classList.toggle('grande')"><img src="/admin/animais/{{ a.id }}/foto" alt="Foto de {{ a.nome }}" width="72" height="72" loading="lazy"></button>{% else %}Sem foto{% endif %}</td>
+      <td style="font-size:13px"><strong>{{ a.cadastrado_por }}</strong><br>{{ a.criado_em|local }}<br>IP {{ a.cadastrado_ip or '?' }}</td></tr>
+    {% else %}<tr><td colspan="6">Nenhum animal {% if bloco or tipo or q %}com este filtro{% else %}cadastrado{% endif %}.</td></tr>{% endfor %}
+  </table></div>
+</div></section>
+{% endblock %}
