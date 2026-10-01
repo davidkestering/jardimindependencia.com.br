@@ -1,9 +1,10 @@
 @import url("paleta.css");
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{margin:0;background:var(--creme-fundo);color:var(--marrom-escuro);font:16px/1.55 "Nunito Sans",system-ui,sans-serif}
 a{color:var(--terracota)}
 img{max-width:100%;display:block}
+iframe{max-width:100%}
 h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:600;line-height:1.15;text-wrap:balance;margin:0 0 .4em}
 h1{font-size:clamp(30px,4.5vw,48px)}h2{font-size:clamp(24px,3vw,34px)}h3{font-size:20px}
 .container{max-width:1120px;margin:0 auto;padding:0 20px}
@@ -22,7 +23,7 @@ h1{font-size:clamp(30px,4.5vw,48px)}h2{font-size:clamp(24px,3vw,34px)}h3{font-si
 .menu a.btn{background:var(--terracota);color:#fff}
 .menu a.btn.sec{background:transparent;border:1.5px solid var(--terracota);color:var(--terracota)}
 .hamb{display:none;border:0;background:none;font-size:26px;cursor:pointer;color:var(--marrom-escuro)}
-@media (max-width:1100px){.hamb{display:block}.menu{display:none;width:100%;flex-direction:column;align-items:stretch;padding-bottom:12px;margin-left:0}.menu.aberto{display:flex}.topo .container{flex-wrap:wrap}.marca{white-space:normal}}
+@media (max-width:1100px){.hamb{display:block}.menu{display:none;width:100%;flex-direction:column;align-items:stretch;padding-bottom:12px;margin-left:0}.menu.aberto{display:flex}.topo .container{flex-wrap:wrap}.marca{white-space:normal;flex:1 1 0;min-width:0}}
 /* hero */
 .hero{position:relative;background:var(--marrom-escuro);color:#fff;min-height:440px;display:grid;align-items:end;overflow:hidden}
 .hero .slide{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 1.2s}
@@ -37,7 +38,7 @@ h1{font-size:clamp(30px,4.5vw,48px)}h2{font-size:clamp(24px,3vw,34px)}h3{font-si
 .hero .pontos button.ativo{background:#fff}
 @media (prefers-reduced-motion:reduce){.hero .slide{transition:none}}
 /* seções */
-section{padding:56px 0}
+section{padding:clamp(28px,6vw,56px) 0}
 section.alt{background:var(--branco)}
 .grade{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .item{background:var(--branco);border:1px solid var(--bege-claro);border-radius:10px;padding:20px}
@@ -55,17 +56,22 @@ section.alt .item{background:var(--creme-fundo)}
 .acesso.claro{background:var(--bege-claro);color:var(--marrom-escuro)}
 .acesso.claro h3{color:var(--marrom-escuro)}
 /* forms */
-form.card{background:var(--branco);border:1px solid var(--bege-claro);border-radius:12px;padding:28px;max-width:560px;display:grid;gap:14px}
+form.card{background:var(--branco);border:1px solid var(--bege-claro);border-radius:12px;padding:clamp(18px,5vw,28px);max-width:560px;display:grid;gap:14px}
 label{display:grid;gap:6px;font-weight:600;font-size:14px}
-input,textarea,select{font:inherit;padding:10px 12px;border:1px solid var(--bege-medio);border-radius:8px;background:#fff;color:var(--marrom-escuro);width:100%}
+input,textarea,select{font:inherit;padding:10px 12px;border:1px solid var(--bege-medio);border-radius:8px;background:#fff;color:var(--marrom-escuro);width:100%;max-width:100%}
+/* campos lado a lado que viram um por linha quando não cabem (celular ou zoom) */
+.duas{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))}
 input:focus,textarea:focus,select:focus,button:focus-visible,a:focus-visible{outline:3px solid var(--azul-piscina);outline-offset:2px}
 button.btn,.btn{font:700 15px "Nunito Sans",sans-serif;background:var(--terracota);color:#fff;border:0;border-radius:999px;padding:11px 22px;cursor:pointer;text-decoration:none;display:inline-block}
 .btn.sec{background:transparent;border:1.5px solid var(--terracota);color:var(--terracota)}
 .aviso{padding:12px 14px;border-radius:8px;background:#fbe9e3;color:#7a2e12;border:1px solid #efc4b5;overflow-wrap:anywhere}
 .aviso.ok{background:#e6f0e8;color:#1d4d2a;border-color:#bcd7c2}
-.mapa{border:0;width:100%;height:420px;border-radius:12px}
+.mapa{border:0;width:100%;height:clamp(300px,60vh,480px);border-radius:12px;display:block}
+.local{display:grid;gap:20px;align-items:start}
+@media (min-width:54em){.local{grid-template-columns:minmax(18rem,1fr) 2fr}}
 .info dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;margin:0}
 .info dt{font-weight:700;color:var(--bege-medio)}
+.info dd{margin:0}
 /* rodapé */
 footer{background:var(--marrom-escuro);color:#c9b8a8;padding:36px 0;font-size:14px}
 footer .container{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
@@ -77,3 +83,48 @@ dialog.confirma{border:0;border-radius:12px;padding:24px;max-width:min(92vw,420p
 dialog.confirma::backdrop{background:rgba(0,0,0,.45)}
 dialog.confirma p{margin:0 0 18px}
 dialog.confirma div{display:flex;gap:10px;justify-content:flex-end}
+/* menu interno (administração e condômino): página atual preenchida; no celular vira uma faixa que rola de lado */
+.submenu{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:20px}
+.submenu select{width:auto}
+.submenu a[aria-current]{background:var(--terracota);color:#fff}
+@media screen and (max-width:54em){
+  .submenu{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:calc(-1*max(20px,2.5vw));padding:2px 44px 6px max(20px,2.5vw);
+    -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 44px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 44px),transparent)}
+  .submenu::-webkit-scrollbar{display:none}
+  .submenu>*{flex:0 0 auto}
+}
+/* tabelas (área interna) */
+table{width:100%;border-collapse:collapse;background:var(--branco);font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}
+th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+form.inline{display:inline}
+form.inline button{padding:5px 10px;font-size:13px}
+tr.sem-voto{color:#6b5a4c}
+td .btn,.st,.vis,.nova{white-space:nowrap}
+/* telas médias: tabela com muitas colunas rola de lado em vez de espremer (classe posta pelo site.js) */
+@media (min-width:54.01em){table.larga{min-width:62rem}}
+/* celular, ou zoom/letra grande (medida em em): cada linha vira uma ficha, com o nome da coluna sobre o valor.
+   O site.js copia o cabeçalho para data-label e marca a linha de cabeçalho (.cab), a célula-título (.tit) e as com botões (.acoes). */
+@media screen and (max-width:54em){
+  table,tbody,tr,td{display:block}
+  table{border:1px solid var(--bege-claro);border-radius:10px;overflow:hidden}
+  th,tr.cab{display:none}
+  tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;padding:14px;border-bottom:1px solid var(--bege-claro)}
+  tr:last-child{border-bottom:0}
+  td{border:0;padding:0;min-width:0;max-width:none!important;overflow-wrap:anywhere}
+  td:empty{display:none}
+  td[data-label]:not([data-label=""])::before{content:attr(data-label);display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6b5a4c;margin-bottom:2px}
+  td:first-child,td.acoes,td.obs,td.det,td[colspan]{grid-column:1/-1}
+  td.tit{font-weight:700;font-size:15px}
+  td.acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  td.acoes::before{flex:0 0 100%;margin-bottom:-4px!important}
+  table.votos td:first-child::before{display:none}
+  table.votos tr.sem-voto{padding-block:9px}
+  table.votos tr.sem-voto td{font-weight:400}
+  .filtro>*{flex:1 1 9rem;min-width:0}
+}
+/* toque: alvo de no mínimo 44px e letra de 16px nos campos (abaixo disso o iOS dá zoom sozinho ao focar) */
+@media (pointer:coarse){
+  .btn,button.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px}
+  input:not([type=checkbox]):not([type=radio]):not([type=hidden]),select,textarea{min-height:44px;font-size:max(1em,16px)}
+}

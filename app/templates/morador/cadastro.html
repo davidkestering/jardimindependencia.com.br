@@ -13,7 +13,7 @@
     <label>Nome completo<input name="nome" required maxlength="120" value="{{ form.nome if form else '' }}"></label>
     <label>CPF<input name="cpf" inputmode="numeric" required placeholder="000.000.000-00" value="{{ form.cpf if form else '' }}"></label>
     <label>Data de nascimento<input name="nascimento" type="text" inputmode="numeric" placeholder="ddmmaaaa" maxlength="10" title="Digite só os números: ddmmaaaa" required value="{{ form.nascimento if form else '' }}"></label>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div class="duas">
       {% set sb = form.bloco if form else (mapa|first) %}
       <label>Bloco<select name="bloco" id="bloco" required>{% for b in mapa %}<option value="{{ b }}" {% if b == sb %}selected{% endif %}>{{ b }}</option>{% endfor %}</select></label>
       <label>Apartamento<select name="apto" id="apto" required>{% for a in mapa.get(sb, []) %}<option value="{{ a }}" {% if form and a == form.apto %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></label>

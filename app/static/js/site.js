@@ -10,6 +10,30 @@ if (slides.length > 1) {
   ir(0); reiniciar();
 }
 
+// Menu interno: marca a página atual e, no celular (faixa que rola de lado), deixa o item dela à vista.
+(function () {
+  const nav = document.querySelector('.submenu');
+  const atual = nav && [...nav.querySelectorAll('a')].filter(a => (location.pathname + '/').startsWith(a.pathname + '/')).sort((a, b) => b.pathname.length - a.pathname.length)[0];
+  if (!atual) return;
+  atual.setAttribute('aria-current', 'page');
+  nav.scrollLeft += atual.getBoundingClientRect().left - nav.getBoundingClientRect().left - (nav.clientWidth - atual.offsetWidth) / 2;
+})();
+
+// Tabelas no celular: o CSS mostra cada linha como ficha; aqui o título de cada coluna vai para data-label da célula.
+document.querySelectorAll('table').forEach(t => {
+  const titulos = [...t.querySelectorAll('th')].map(th => th.textContent.trim());
+  if (titulos.length >= 7) t.classList.add('larga');
+  t.querySelectorAll('tr').forEach(tr => {
+    if (tr.querySelector('th')) return tr.classList.add('cab');
+    [...tr.children].forEach((td, i) => {
+      if (td.colSpan > 1) return;
+      td.dataset.label = titulos[i] || '';
+      if (td.querySelector('button, .btn')) td.classList.add('acoes');
+      else if (i === 0 && !td.children.length) td.classList.add('tit');  // 1ª coluna só com texto: título da ficha
+    });
+  });
+});
+
 // CPF: máscara enquanto digita e validação dos dígitos verificadores em todo campo name="cpf" (o servidor valida de novo).
 (function () {
   function cpfValido(d) {

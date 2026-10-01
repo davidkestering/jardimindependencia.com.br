@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block titulo %}Inadimplência · Administração{% endblock %}
-{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}form.inline{display:inline}form.inline button{padding:5px 10px;font-size:13px}td.obs{white-space:pre-wrap;max-width:48ch}</style>{% endblock %}
+{% block head %}<style>td.obs{white-space:pre-wrap;max-width:48ch}</style>{% endblock %}
 {% block conteudo %}
 <section><div class="container">
   {% include "admin/_menu.html" %}
@@ -10,7 +10,7 @@
 
   <h2 style="font-size:22px">Registrar unidade inadimplente</h2>
   <form class="card" method="post" action="/admin/financeiro">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div class="duas">
       <label>Bloco<select name="bloco" id="bloco" required>{% for b in mapa %}<option value="{{ b }}">{{ b }}</option>{% endfor %}</select></label>
       <label>Apartamento<select name="apto" id="apto" required>{% for a in mapa[mapa|first] %}<option value="{{ a }}">{{ a }}</option>{% endfor %}</select></label>
     </div>

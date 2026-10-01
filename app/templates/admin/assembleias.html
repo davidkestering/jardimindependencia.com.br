@@ -16,7 +16,7 @@
   <h2 style="margin-top:36px;font-size:22px">Nova assembleia</h2>
   <form class="card" method="post" action="/admin/assembleias">
     <label>Título<input name="titulo" required maxlength="200" placeholder="Ex.: Assembleia Geral Ordinária 2026"></label>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div class="duas">
       <label>Abre a votação em<input name="abre_em" type="datetime-local" required></label>
       <label>Fecha a votação em<input name="fecha_em" type="datetime-local" required></label>
     </div>

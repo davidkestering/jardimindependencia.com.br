@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block titulo %}Moradores · Administração{% endblock %}
-{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-pendente{background:#fff0c2;color:#6b4b00}.st-aprovado{background:#e6f0e8;color:#1d4d2a}.st-negado{background:#eee;color:#555}.st-transferido{background:#e8eef7;color:#274472}.st-excluido{background:#fbe9e3;color:#7a2e12}form.inline{display:inline}form.inline button{padding:5px 10px;font-size:13px}.filtro{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}.filtro select,.filtro input{width:auto}</style>{% endblock %}
+{% block head %}<style>.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-pendente{background:#fff0c2;color:#6b4b00}.st-aprovado{background:#e6f0e8;color:#1d4d2a}.st-negado{background:#eee;color:#555}.st-transferido{background:#e8eef7;color:#274472}.st-excluido{background:#fbe9e3;color:#7a2e12}.filtro{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}.filtro select,.filtro input{width:auto}</style>{% endblock %}
 {% block conteudo %}
 <section><div class="container">
   {% include "admin/_menu.html" %}
@@ -26,7 +26,7 @@
   <h2 style="margin-top:36px">Cadastrar morador</h2>
   <form class="card" method="post" action="/admin/moradores">
     <label>Nome completo<input name="nome" required maxlength="120"></label>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div class="duas">
       <label>CPF<input name="cpf" required inputmode="numeric"></label>
       <label>Data de nascimento<input name="nascimento" type="date" required></label>
       <label>Bloco<select name="bloco" id="c-bloco">{% for b in mapa_form %}<option>{{ b }}</option>{% endfor %}</select></label>

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block titulo %}Histórico · Administração{% endblock %}
-{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:13px}th,td{padding:7px 9px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}td.det{max-width:52ch;word-break:break-word}.filtro{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:16px}.filtro label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600}.filtro input{width:auto}</style>{% endblock %}
+{% block head %}<style>td.det{max-width:52ch;word-break:break-word}.filtro{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:16px}.filtro label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600}.filtro input{width:auto}</style>{% endblock %}
 {% block conteudo %}
 <section><div class="container">
   {% include "admin/_menu.html" %}

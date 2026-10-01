@@ -1,5 +1,5 @@
 <p class="eyebrow" style="margin-bottom:4px">Área do condômino{% if sessao.apto %} · administrando <strong>{{ sessao.apto }}</strong>{% endif %}</p>
-<nav style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;align-items:center">
+<nav class="submenu" aria-label="Área do condômino">
   <a class="btn sec" href="/morador">Início</a>
   <a class="btn sec" href="/morador/comunicados">Comunicados{% if novos %} ({{ novos|length }}){% endif %}</a>
   <a class="btn sec" href="/morador/documentos">Documentos</a>

@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% block titulo %}Residentes · Minha área{% endblock %}
-{% block head %}<style>table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}th,td{padding:8px 10px;border-bottom:1px solid var(--bege-claro);text-align:left;vertical-align:top}th{background:var(--bege-claro);font-size:12px;letter-spacing:.06em;text-transform:uppercase}form.inline{display:inline}form.inline button{padding:5px 10px;font-size:13px}</style>{% endblock %}
 {% block conteudo %}
 <section><div class="container">
   {% include "morador/_menu.html" %}
@@ -41,7 +40,7 @@
   <form class="card" method="post" action="/morador/residentes">
     <p style="margin:0 0 6px">Apartamento: <strong>{{ morador.unidade.rotulo }}</strong></p>
     <label>Nome completo<input name="nome" required maxlength="120"></label>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div class="duas">
       <label>CPF<input name="cpf" inputmode="numeric" required placeholder="000.000.000-00"></label>
       <label>Data de nascimento<input name="nascimento" type="text" inputmode="numeric" placeholder="ddmmaaaa" maxlength="10" title="Digite só os números: ddmmaaaa" required></label>
       <label>E-mail<input name="email" type="email" required maxlength="160"></label>
