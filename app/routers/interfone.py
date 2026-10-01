@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 import auth
 import interfone as ifone
 from db import SessionLocal, get_db
-from models import AdminUser, Morador, PushSubscription, Unidade
+from models import AdminUser, DispositivoApp, Morador, PushSubscription, Unidade
 from routers.admin import admin_dep
 from routers.morador import morador_atual
 
@@ -39,16 +39,38 @@ def destinos(db: Session) -> dict[str, list[str]]:
     return mapa_unidades(db)
 
 
+APARELHOS = {"ios": "App iPhone", "android": "App Android"}
+
+
+def interfones_ativos(db: Session, propria: Unidade, completa: bool) -> list[tuple[Unidade, bool, str]]:
+    """Linhas (unidade, online agora, por onde toca com o site fechado) da tabela de interfones ativos: Portaria e
+    Administração sempre; os apartamentos com condômino aprovado só na lista completa (administração), para o condômino
+    não ver a presença dos vizinhos. Online = conexão aberta agora; quem está abrindo a página conta como online."""
+    aprovado = Morador.status == "aprovado"
+    avisos: dict[uuid.UUID, set[str]] = {}
+    for uid, plataforma in db.execute(select(Morador.unidade_id, DispositivoApp.plataforma).join(DispositivoApp, DispositivoApp.morador_id == Morador.id).where(aprovado)):
+        avisos.setdefault(uid, set()).add(APARELHOS.get(plataforma, plataforma))
+    for uid in db.scalars(select(Morador.unidade_id).join(PushSubscription, PushSubscription.morador_id == Morador.id).where(aprovado)):
+        avisos.setdefault(uid, set()).add("Navegador")
+    unidades = db.scalars(select(Unidade).where(Unidade.apto == "").order_by(Unidade.bloco.desc())).all()  # Portaria, Administração
+    if completa:
+        unidades += db.scalars(select(Unidade).where(Unidade.apto != "", Unidade.id.in_(select(Morador.unidade_id).where(aprovado)))
+                               .order_by(Unidade.bloco, Unidade.apto)).all()
+    online = set(ifone.conexoes) | {propria.id}
+    return [(u, u.id in online, " · ".join(sorted(avisos.get(u.id, ())))) for u in unidades]
+
+
 @router.get("/morador/interfone")
 def pagina_morador(request: Request, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
     m = morador_atual(request, db, sessao)
-    return render(request, "interfone.html", blocos=destinos(db), unidade=m.unidade, menu="morador", vapid=ifone.vapid_keys()[1])
+    return render(request, "interfone.html", blocos=destinos(db), unidade=m.unidade, menu="morador", vapid=ifone.vapid_keys()[1],
+                  ativos=interfones_ativos(db, m.unidade, completa=False))
 
 
 @router.get("/admin/interfone")
 def pagina_admin(request: Request, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     u = db.scalar(select(Unidade).where(Unidade.bloco == "ADMINISTRACAO"))
-    return render(request, "interfone.html", blocos=destinos(db), unidade=u, menu="admin", vapid=None)
+    return render(request, "interfone.html", blocos=destinos(db), unidade=u, menu="admin", vapid=None, ativos=interfones_ativos(db, u, completa=True))
 
 
 @router.post("/interfone/push")

@@ -17,6 +17,7 @@
 .chamada .atender{background:#2e8b57;color:#fff}.chamada .recusar{background:#b23a2a;color:#fff}
 .pulsa{animation:pulsa 1.2s infinite}@keyframes pulsa{50%{transform:scale(1.06)}}
 @media (prefers-reduced-motion:reduce){.pulsa{animation:none}}
+.st{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.st-on{background:#e6f0e8;color:#1d4d2a}.st-off{background:#eee;color:#555}
 </style>
 {% endblock %}
 {% block conteudo %}
@@ -32,7 +33,7 @@
       {% if unidade.bloco != 'ADMINISTRACAO' %}<button class="btn" type="button" data-chamar="ADMINISTRACAO">Administração</button>{% endif %}
     </div>
     <form class="card" id="form-chamar">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="duas">
         <label>Bloco<select name="bloco" id="d-bloco" required>{% for b in blocos %}<option>{{ b }}</option>{% endfor %}</select></label>
         <label>Apartamento<select name="apto" id="d-apto" required>{% for a in blocos[blocos|first] %}<option>{{ a }}</option>{% endfor %}</select></label>
       </div>
@@ -69,5 +70,11 @@
       <p id="push-status" style="font-size:14px;color:#6b5a4c"></p></div>
     {% endif %}
   </div>
+  <h2 style="margin-top:36px">{{ 'Interfones ativos' if menu == 'admin' else 'Portaria e administração' }}</h2>
+  <p style="max-width:64ch">{% if menu == 'admin' %}Portaria, Administração e os {{ ativos|length - 2 }} apartamentos com condômino aprovado. {% endif %}<strong>Online</strong> é quem está com o site ou o aplicativo aberto; a situação é a do momento em que esta página foi aberta. <a href="{{ request.url.path }}">Atualizar</a></p>
+  <div style="overflow-x:auto;max-width:760px"><table>
+    <tr><th>Unidade</th><th>Situação</th>{% if menu == 'admin' %}<th>Toca com o site fechado</th>{% endif %}</tr>
+    {% for u, online, aviso in ativos %}<tr><td>{{ {'PORTARIA': 'Portaria', 'ADMINISTRACAO': 'Administração'}.get(u.bloco, u.rotulo) }}</td><td><span class="st st-{{ 'on' if online else 'off' }}">{{ 'Online' if online else 'Offline' }}</span></td>{% if menu == 'admin' %}<td>{{ aviso or 'Não' }}</td>{% endif %}</tr>{% endfor %}
+  </table></div>
 </div></section>
 {% endblock %}
