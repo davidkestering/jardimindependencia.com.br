@@ -13,8 +13,9 @@ from sqlalchemy import delete, func, select
 import auth
 from db import SessionLocal
 from main import app
-from models import DispositivoApp, Morador, Unidade
+from models import DispositivoApp, Morador
 from termo import TERMO
+from unidades_teste import unidades
 
 CPF = "52998224725"
 UA_APP = "Mozilla/5.0 (iPhone) JardimIndependenciaApp/1.0"
@@ -37,7 +38,7 @@ def cliente(mid=None, ua=None):
 limpar()
 try:
     with SessionLocal() as db:
-        u1, u2 = [db.scalar(select(Unidade).where(Unidade.bloco == b, Unidade.apto == a)) for b, a in (("01", "101"), ("02", "102"))]
+        u1, u2 = unidades(db, 2)
         for u in (u1, u2):
             db.add(Morador(unidade_id=u.id, nome="Ana Teste", cpf=CPF, nascimento=auth.parse_data("1980-05-10"), email="ana@example.com",
                            telefone="91999990000", status="aprovado", termo_texto=TERMO))

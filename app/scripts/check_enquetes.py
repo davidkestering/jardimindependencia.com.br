@@ -16,6 +16,7 @@ from db import SessionLocal
 from main import app
 from models import AdminUser, Assembleia, Enquete, EnqueteOpcao, EnqueteVoto, Inadimplencia, Morador, Opcao, Pauta, Unidade
 from termo import TERMO
+from unidades_teste import unidades
 
 PERG = "Enquete teste automático?"
 TIT = "Assembleia lista de votos teste"
@@ -39,12 +40,9 @@ limpar()
 try:
     with SessionLocal() as db:
         adm = db.scalar(select(AdminUser).where(AdminUser.master))
-        ocupadas = select(Morador.unidade_id).where(Morador.status.in_(("pendente", "aprovado")))
-        inadimplentes = select(Inadimplencia.unidade_id).where(Inadimplencia.encerrado_em.is_(None))
-        u1, u2, u3 = db.scalars(select(Unidade).where(Unidade.ativa, Unidade.apto != "", ~Unidade.id.in_(ocupadas), ~Unidade.id.in_(inadimplentes))
-                            .order_by(Unidade.bloco, Unidade.apto).limit(3)).all()  # três unidades livres e adimplentes (a 3ª não vota)
+        u1, u2, u3 = unidades(db, 3)  # a 3ª não vota
         r1, r2, r3 = u1.rotulo, u2.rotulo, u3.rotulo
-        total = db.scalar(select(func.count()).select_from(Unidade).where(Unidade.ativa, Unidade.apto != ""))
+        total = db.scalar(select(func.count()).select_from(Unidade).where(Unidade.em_uso, Unidade.apto != ""))  # dentro do teste, inclui as de teste
         db.add(Morador(unidade_id=u1.id, nome="Ana Enq", cpf=A, nascimento=auth.parse_data("1980-05-10"), email="a@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO))
         db.add(Morador(unidade_id=u2.id, nome="Bia Enq", cpf=B, nascimento=auth.parse_data("1980-05-10"), email="b@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO))
         db.add(Inadimplencia(unidade_id=u2.id, observacao="enquete teste", registrado_por="teste")); db.commit()
@@ -80,7 +78,7 @@ try:
     # não há voto secreto: a administração vê a unidade e o voto de cada uma
     U1, U2 = f"<td>{r1}</td><td><strong>{{}}</strong></td>", f"<td>{r2}</td><td><strong>{{}}</strong></td>"
     SEM = f"<td>{r3}</td><td></td><td></td><td></td><td></td>"  # todos os aptos aparecem, em ordem; quem não votou fica em branco
-    assert pg.count("<td>Bloco ") == total and pg.index(r1) < pg.index(r2) < pg.index(r3) and SEM in pg
+    assert pg.count("<td>Bloco ") == total and pg.index(r3) < pg.index(r2) < pg.index(r1) and SEM in pg  # aptos 997, 998 e 999, nesta ordem
     assert f"Votos por unidade (2 de {total})" in pg and U1.format("Manhã") in pg and U2.format("Tarde") in pg and "Ana Enq" in pg and pg.count("Não computado (inadimplência)") == 1
 
     # assembleia: a mesma lista, por pauta

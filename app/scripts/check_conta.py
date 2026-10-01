@@ -14,6 +14,7 @@ from db import SessionLocal
 from main import app
 from models import AdminUser, Morador, Unidade
 from termo import TERMO
+import unidades_teste  # noqa: F401  liga a visão das unidades de teste (Bloco 99) neste processo
 
 A, NASC = "52998224725", "1980-05-10"
 
@@ -50,29 +51,29 @@ try:
     with SessionLocal() as db:
         adm = db.scalar(select(AdminUser).where(AdminUser.master))
         base = dict(nome="Ana Conta", cpf=A, nascimento=auth.parse_data(NASC), email="ana@example.com", telefone="91999990000", termo_texto=TERMO)
-        db.add(Morador(unidade_id=unidade(db, "01", "101").id, status="aprovado", **base))
-        db.add(Morador(unidade_id=unidade(db, "02", "102").id, status="pendente", **base)); db.commit()
+        db.add(Morador(unidade_id=unidade(db, "99", "998").id, status="aprovado", **base))
+        db.add(Morador(unidade_id=unidade(db, "99", "999").id, status="pendente", **base)); db.commit()
         ma = db.scalar(select(Morador).where(Morador.cpf == A, Morador.status == "aprovado"))
     mc, ac = cliente("morador", ma.id), cliente("admin", adm.id)
     assert "Excluir minha conta" in mc.get("/morador").text
     pg = mc.get("/morador/excluir-conta").text
-    assert "Bloco 01 · Apto 101" in pg and "Bloco 02 · Apto 102" in pg and "todos os apartamentos" in pg
+    assert "Bloco 99 · Apto 998" in pg and "Bloco 99 · Apto 999" in pg and "todos os apartamentos" in pg
     assert "marcar a caixa" in mc.post("/morador/excluir-conta", data={}).text
     with SessionLocal() as db:
         assert db.get(Morador, ma.id).status == "aprovado"  # sem confirmação, nada muda
     r = mc.post("/morador/excluir-conta", data={"confirmo": "sim"})
-    assert r.status_code == 200 and "Conta excluída" in r.text and "Bloco 01 · Apto 101, Bloco 02 · Apto 102" in r.text
+    assert r.status_code == 200 and "Conta excluída" in r.text and "Bloco 99 · Apto 998, Bloco 99 · Apto 999" in r.text
     assert mc.get("/morador", follow_redirects=False).status_code == 303  # sessão derrubada
     with SessionLocal() as db:
         todos = db.scalars(select(Morador).where(Morador.cpf == A)).all()
         assert len(todos) == 2 and all(m.status == "excluido" and m.decidido_por == "o próprio condômino" and m.decidido_em and m.decidido_ip for m in todos)
     assert [e[0] for e in enviados] == ["ana@example.com", mail.MAIL_CONTATO], enviados
-    assert "/privacidade" in enviados[0][2] and "Bloco 01 · Apto 101, Bloco 02 · Apto 102" in enviados[1][2]
+    assert "/privacidade" in enviados[0][2] and "Bloco 99 · Apto 998, Bloco 99 · Apto 999" in enviados[1][2]
     # login depois: mensagem própria; apto livre para novo cadastro; admin vê como histórico
     assert "excluída a seu pedido" in login().text
     from routers.morador import ocupante
     with SessionLocal() as db:
-        assert ocupante(db, unidade(db, "01", "101").id) is None
+        assert ocupante(db, unidade(db, "99", "998").id) is None
     assert "excluiu a conta" in ac.get(f"/admin/moradores/{ma.id}").text and "Conta excluída pelo próprio condômino" in ac.get(f"/admin/moradores/{ma.id}").text
     assert f"/admin/moradores/{ma.id}" in ac.get("/admin/moradores?status=excluido").text
     assert ac.post(f"/admin/moradores/{ma.id}/status", data={"status": "aprovado"}).status_code == 400  # final

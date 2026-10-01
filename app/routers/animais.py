@@ -228,12 +228,12 @@ def foto_morador(request: Request, aid: uuid.UUID, sessao: dict = Depends(auth.e
 @router.get("/admin/animais")
 def admin_pagina(request: Request, situacao: str = "", bloco: str = "", tipo: str = "", q: str = "",
                  admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    aptos = db.scalars(select(Unidade).where(Unidade.apto != "").order_by(Unidade.bloco, Unidade.apto)).all()
+    aptos = db.scalars(select(Unidade).where(Unidade.apto != "", Unidade.visivel).order_by(Unidade.bloco, Unidade.apto)).all()
     da_unidade = {}
     for a in db.scalars(select(Animal).where(Animal.excluido_em.is_(None)).order_by(Animal.numero)):
         da_unidade.setdefault(a.unidade_id, []).append(a)
-    sem = [u for u in aptos if u.ativa and u.sem_animais_em and u.id not in da_unidade]
-    pendentes = [u for u in aptos if u.ativa and not u.sem_animais_em and u.id not in da_unidade]
+    sem = [u for u in aptos if u.em_uso and u.sem_animais_em and u.id not in da_unidade]
+    pendentes = [u for u in aptos if u.em_uso and not u.sem_animais_em and u.id not in da_unidade]
     situacao, termo = situacao if situacao in SITUACOES else "", q.strip().lower()
     unidades, outras = {}, []  # unidade -> animais dela que passam no filtro · unidades sem animais (situação "sem" ou "pendente")
     if situacao:

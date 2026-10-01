@@ -17,8 +17,9 @@ from config import UPLOAD_DIR
 from db import SessionLocal
 from main import app
 import routers.admin as adm
-from models import AdminUser, Assembleia, Documento, Historico, Morador, Unidade
+from models import AdminUser, Assembleia, Documento, Historico, Morador
 from termo import TERMO
+from unidades_teste import unidades
 
 CPF = "52998224725"  # condômino de teste (área do condômino: resumo por competência e filtro)
 
@@ -176,7 +177,7 @@ try:
     ac.post(f"/admin/documentos/{dc_id}/publico", data={"publico": "1"})
     assert len(pushes) == n_push + 1  # tornar privado não avisa; publicar de novo avisa
     with SessionLocal() as db:
-        u = db.scalar(select(Unidade).order_by(Unidade.bloco, Unidade.apto))
+        u, = unidades(db)
         db.add(Morador(unidade_id=u.id, nome="Ana Teste", cpf=CPF, nascimento=auth.parse_data("1980-05-10"), email="ana@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO)); db.commit()
         m = db.scalar(select(Morador).where(Morador.cpf == CPF))
     mc = TestClient(app, base_url="https://t"); mc.cookies.set(auth.COOKIE, auth.criar_sessao("morador", str(m.id)))

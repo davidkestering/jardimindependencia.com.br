@@ -15,6 +15,7 @@ from db import SessionLocal
 from main import app
 from models import AdminUser, Morador, Residente, Unidade
 from termo import TERMO
+import unidades_teste  # noqa: F401  liga a visão das unidades de teste (Bloco 99) neste processo
 
 A, R, S = "52998224725", "11144477735", "16899535009"
 NASC = "1980-05-10"
@@ -44,7 +45,7 @@ limpar()
 try:
     with SessionLocal() as db:
         adm = db.scalar(select(AdminUser).where(AdminUser.master))
-        u1 = unidade(db, "01", "101")
+        u1 = unidade(db, "99", "999")
         db.add(Morador(unidade_id=u1.id, nome="Ana Titular", cpf=A, nascimento=auth.parse_data(NASC), email="ana@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO)); db.commit()
         ma = db.scalar(select(Morador).where(Morador.cpf == A))
     ac, mc = cliente("admin", adm.id), cliente("morador", ma.id)
@@ -64,7 +65,7 @@ try:
         rr = db.scalar(select(Residente).where(Residente.cpf == R)); assert rr.termo_texto == TERMO and rr.termo_aceito_em and rr.termo_ip
     assert "declaração aceita em" in ac.get(f"/admin/moradores/{ma.id}").text
     assert "não conferem" in login(R)[1].text
-    assert "2 residente(s)" in mc.get("/morador").text and "administrando <strong>Bloco 01 · Apto 101" in mc.get("/morador").text
+    assert "2 residente(s)" in mc.get("/morador").text and "administrando <strong>Bloco 99 · Apto 999" in mc.get("/morador").text
     with SessionLocal() as db:
         rs = {r.cpf: r.id for r in db.scalars(select(Residente).where(Residente.unidade_id == u1.id))}
     r = mc.post(f"/morador/residentes/{rs[S]}/excluir", data={"justificativa": "x"}, follow_redirects=False)  # sem justificativa: não remove
@@ -81,11 +82,11 @@ try:
     mc.post(f"/morador/residentes/{rs[S]}/excluir", data={"justificativa": "teste: de novo"})
 
     # admin: lista unificada e filtros
-    lst = ac.get("/admin/moradores?bloco=01&apto=101").text
+    lst = ac.get("/admin/moradores?bloco=99&apto=999").text
     assert "Cadastrado por <strong>Ana Titular</strong>" in lst and "· IP " in lst
     assert "Ana Titular" in lst and "Rui Inquilino" in lst and "Residente · inquilino" in lst and "Cadastrado pelo condômino Ana Titular" in lst and "Solicitou no site" in lst
-    so_res = ac.get("/admin/moradores?status=residente&bloco=01").text; assert "Rui Inquilino" in so_res and "Titular do acesso" not in so_res
-    assert "Rui Inquilino" not in ac.get("/admin/moradores?bloco=02").text
+    so_res = ac.get("/admin/moradores?status=residente&bloco=99").text; assert "Rui Inquilino" in so_res and "Titular do acesso" not in so_res
+    assert "Rui Inquilino" not in ac.get("/admin/moradores?bloco=99&apto=998").text
     assert "Rui Inquilino" in ac.get(f"/admin/moradores/{ma.id}").text
 
     # transferência: A -> transferido (com CPF/data), R -> PENDENTE; admin aprova; só R loga
@@ -110,26 +111,26 @@ try:
     lc, r = login(R); assert r.status_code == 303
     assert lc.get("/morador", follow_redirects=False).headers["location"] == "/morador/termo"  # nunca aceitou a declaração
     assert lc.post("/morador/termo", data={"declaracao": "sim"}, follow_redirects=False).status_code == 303
-    assert "administrando <strong>Bloco 01 · Apto 101" in lc.get("/morador").text
+    assert "administrando <strong>Bloco 99 · Apto 999" in lc.get("/morador").text
     with SessionLocal() as db:
         assert db.scalar(select(Morador).where(Morador.unidade_id == u1.id, Morador.status == "aprovado")).cpf == R  # 1 acesso por apto
     det = ac.get(f"/admin/moradores/{mr.id}").text; assert "Acesso transferido pelo condômino" in det and "Ana Titular" in det
     det_a = ac.get(f"/admin/moradores/{ma.id}").text; assert "transferiu o acesso" in det_a and "111.444.777-35" in det_a
 
-    # R também titular em 02/102: escolha no login e troca com confirmação
+    # R também titular em 99/998: escolha no login e troca com confirmação
     with SessionLocal() as db:
-        u2 = unidade(db, "02", "102")
+        u2 = unidade(db, "99", "998")
         db.add(Morador(unidade_id=u2.id, nome="Rui Inquilino", cpf=R, nascimento=auth.parse_data(NASC), email="r@example.com", telefone="91988880000", status="aprovado", termo_texto=TERMO)); db.commit()
         mr2 = db.scalar(select(Morador).where(Morador.cpf == R, Morador.unidade_id == u2.id))
-    lc, r = login(R); assert r.status_code == 200 and "Qual apartamento" in r.text and "Bloco 02 · Apto 102" in r.text
+    lc, r = login(R); assert r.status_code == 200 and "Qual apartamento" in r.text and "Bloco 99 · Apto 998" in r.text
     token = r.text.split('name="token" value="')[1].split('"')[0]
     assert lc.post("/morador/escolher", data={"token": token, "mid": str(ma.id)}).status_code == 403  # apto de outro CPF/negado
     assert lc.post("/morador/escolher", data={"token": token, "mid": str(mr2.id)}, follow_redirects=False).status_code == 303
-    pg = lc.get("/morador").text; assert "administrando <strong>Bloco 02 · Apto 102" in pg and f'value="{mr.id}"' in pg and "Trocar de apto" in pg
-    pg = lc.get(f"/morador/trocar/{mr.id}").text; assert "sair do <strong>Bloco 02 · Apto 102</strong>" in pg and "administrar o <strong>Bloco 01 · Apto 101</strong>" in pg
+    pg = lc.get("/morador").text; assert "administrando <strong>Bloco 99 · Apto 998" in pg and f'value="{mr.id}"' in pg and "Trocar de apto" in pg
+    pg = lc.get(f"/morador/trocar/{mr.id}").text; assert "sair do <strong>Bloco 99 · Apto 998</strong>" in pg and "administrar o <strong>Bloco 99 · Apto 999</strong>" in pg
     assert lc.post(f"/morador/trocar/{ma.id}").status_code == 403
     assert lc.post(f"/morador/trocar/{mr.id}", follow_redirects=False).status_code == 303
-    assert "administrando <strong>Bloco 01 · Apto 101" in lc.get("/morador").text
+    assert "administrando <strong>Bloco 99 · Apto 999" in lc.get("/morador").text
     print("check_residentes ok")
 finally:
     limpar()

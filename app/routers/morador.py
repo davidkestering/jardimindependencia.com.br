@@ -264,7 +264,7 @@ def cadastro_post(request: Request, nome: str = Form(...), cpf: str = Form(...),
         erro = "Data de nascimento inválida."
     elif erro_contato := validar_contato(email, telefone):
         erro = erro_contato
-    elif not (u := db.scalar(select(Unidade).where(Unidade.bloco == bloco, Unidade.apto == apto, Unidade.ativa))):
+    elif not (u := db.scalar(select(Unidade).where(Unidade.bloco == bloco, Unidade.apto == apto, Unidade.em_uso))):
         erro = f"Unidade bloco {bloco} apto {apto} não encontrada."
     elif ocup := ocupante(db, u.id):
         erro = msg_ocupado(u, ocup)

@@ -18,6 +18,7 @@ from main import app
 from models import LOGIN_PORTARIA, AdminUser, DispositivoApp, Morador, Unidade
 from routers.interfone import unidade_da_sessao
 from termo import TERMO
+from unidades_teste import unidades
 
 A, B = "52998224725", "11144477735"
 TOKEN = "token-teste-lista-interfone"
@@ -39,9 +40,7 @@ u1 = None
 try:
     with SessionLocal() as db:
         adm = db.scalar(select(AdminUser).where(AdminUser.master))
-        ocupadas = select(Morador.unidade_id).where(Morador.status.in_(("pendente", "aprovado")))
-        u1, u2, u3 = db.scalars(select(Unidade).where(Unidade.ativa, Unidade.apto != "", ~Unidade.id.in_(ocupadas))
-                                .order_by(Unidade.bloco, Unidade.apto).limit(3)).all()  # três unidades livres (a 3ª fica sem condômino)
+        u1, u2, u3 = unidades(db, 3)  # a 3ª fica sem condômino
         r1, r2, r3 = u1.rotulo, u2.rotulo, u3.rotulo
         for u, nome, cpf in ((u1, "Ana Ifone", A), (u2, "Bia Ifone", B)):
             db.add(Morador(unidade_id=u.id, nome=nome, cpf=cpf, nascimento=auth.parse_data("1980-05-10"), email="a@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO))
@@ -59,7 +58,7 @@ try:
     assert f"<td>{r2}</td><td>{OFF}</td><td>Não</td>" in pg, "apto offline sem aparelho"
     assert f"<td>Administração</td><td>{ON}</td>" in pg and "<td>Portaria</td>" in pg  # quem está vendo a página conta como online
     assert f"<td>{r3}</td>" not in pg  # sem condômino aprovado não tem interfone ativo
-    assert pg.index("<td>Portaria</td>") < pg.index("<td>Administração</td>") < pg.index(f"<td>{r1}</td>") < pg.index(f"<td>{r2}</td>")
+    assert pg.index("<td>Portaria</td>") < pg.index("<td>Administração</td>") < pg.index(f"<td>{r2}</td>") < pg.index(f"<td>{r1}</td>")  # apto 998 antes do 999
 
     # condômino: só Portaria e Administração; nada sobre os vizinhos
     pm = cb.get("/morador/interfone").text

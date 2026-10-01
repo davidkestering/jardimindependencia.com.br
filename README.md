@@ -45,6 +45,8 @@ Scripts ponta a ponta em `app/scripts/check_*.py` (rodam contra o banco real sem
 docker exec condominio-app python scripts/check_cadastro.py
 ```
 
+Os testes nunca usam apartamento real: trabalham nas unidades de teste do Bloco 99 (Apto 999 a principal; 998, 997 e 996 quando o teste precisa de mais de uma), criadas inativas pelo próprio app. Para o site elas não existem: ficam fora de toda lista, seleção, contagem e busca por bloco e apto, e só o processo do teste as enxerga (`scripts/unidades_teste.py`). `scripts/check_unidade_teste.py` confere essa invisibilidade.
+
 Há também `scripts/chamar_audio.py`, um chamador WebRTC de teste do interfone (instruções no arquivo).
 
 ## Segurança

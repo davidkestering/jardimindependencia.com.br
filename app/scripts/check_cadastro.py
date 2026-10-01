@@ -13,6 +13,7 @@ import auth
 from db import SessionLocal
 from main import app
 from models import AdminUser, Inadimplencia, Morador, Unidade
+import unidades_teste  # noqa: F401  liga a visão das unidades de teste (Bloco 99) neste processo
 
 CPF1, CPF2, CPF3 = "52998224725", "11144477735", "16899535009"
 BASE = dict(nascimento="1980-05-10", email="teste@example.com", telefone="(91) 99999-0000", declaracao="sim")
@@ -34,9 +35,9 @@ def cadastrar(nome, cpf, bloco, apto, **extra):
     return c.post("/morador/cadastro", data={**BASE, **captcha(), "nome": nome, "cpf": cpf, "bloco": bloco, "apto": apto, **extra}).text
 
 
-def morador(cpf, bloco):
+def morador(cpf, apto):
     with SessionLocal() as db:
-        return db.scalar(select(Morador).join(Unidade).where(Morador.cpf == cpf, Unidade.bloco == bloco))
+        return db.scalar(select(Morador).join(Unidade).where(Morador.cpf == cpf, Unidade.bloco == "99", Unidade.apto == apto))
 
 
 def admin_client():
@@ -59,22 +60,22 @@ try:
     assert "verificação incorreta" in c.post("/admin/login", data={"login": "x", "senha": "y", **captcha(False)}).text
     assert "Login ou senha incorretos" in c.post("/admin/login", data={"login": "x", "senha": "y", **captcha()}).text
     # obrigatórios
-    assert c.post("/morador/cadastro", data={"nome": "X", "cpf": CPF1, "nascimento": "1980-05-10", "bloco": "01", "apto": "101"}).status_code == 422
-    assert "aceitar a declaração" in cadastrar("Sem aceite", CPF1, "01", "101", declaracao="")
-    assert "verificação incorreta" in cadastrar("Captcha ruim", CPF1, "01", "101", **captcha(certo=False))
+    assert c.post("/morador/cadastro", data={"nome": "X", "cpf": CPF1, "nascimento": "1980-05-10", "bloco": "99", "apto": "999"}).status_code == 422
+    assert "aceitar a declaração" in cadastrar("Sem aceite", CPF1, "99", "999", declaracao="")
+    assert "verificação incorreta" in cadastrar("Captcha ruim", CPF1, "99", "999", **captcha(certo=False))
     # contato: captcha, selects e unidade do condômino logado
     ct = dict(nome="Zé", email="ze@example.com", mensagem="oi", declaracao="sim")
     assert "aceitar a declaração" in c.post("/contato", data={**ct, **captcha(), "declaracao": ""}).text and "art. 339" in c.get("/contato").text
     assert "verificação incorreta" in c.post("/contato", data={**ct, **captcha(False)}).text
-    assert "não conferem" in c.post("/contato", data={**ct, **captcha(), "bloco": "01", "apto": "201"}).text
-    assert "Mensagem enviada" in c.post("/contato", data={**ct, **captcha(), "bloco": "01", "apto": "101"}).text
+    assert "não conferem" in c.post("/contato", data={**ct, **captcha(), "bloco": "99", "apto": "201"}).text
+    assert "Mensagem enviada" in c.post("/contato", data={**ct, **captcha(), "bloco": "99", "apto": "999"}).text
     assert 'name="bloco"' in c.get("/contato").text and 'value="27"' in c.get("/contato").text
-    assert "Telefone inválido" in cadastrar("Tel ruim", CPF1, "01", "101", telefone="123")
+    assert "Telefone inválido" in cadastrar("Tel ruim", CPF1, "99", "999", telefone="123")
     # A ok, B mesmo apto bloqueado, C mesmo CPF outro apto ok
-    assert "Solicitação enviada" in cadastrar("Ana Teste", CPF1, "01", "101")
-    assert "já foi registrado em nome de Ana Teste (aguardando aprovação)" in cadastrar("Bia Teste", CPF2, "01", "101")
-    assert "Solicitação enviada" in cadastrar("Ana Teste", CPF1, "02", "102")
-    a, cc = morador(CPF1, "01"), morador(CPF1, "02")
+    assert "Solicitação enviada" in cadastrar("Ana Teste", CPF1, "99", "999")
+    assert "já foi registrado em nome de Ana Teste (aguardando aprovação)" in cadastrar("Bia Teste", CPF2, "99", "999")
+    assert "Solicitação enviada" in cadastrar("Ana Teste", CPF1, "99", "998")
+    a, cc = morador(CPF1, "999"), morador(CPF1, "998")
     from termo import TERMO
     assert a.termo_texto == TERMO and a.termo_aceito_em and a.termo_ip  # aceite gravado no registro
     # login pendente
@@ -86,15 +87,15 @@ try:
     assert ac.post(f"/admin/moradores/{a.id}/status", data={"status": "aprovado"}, follow_redirects=False).status_code == 303
     assert ac.post(f"/admin/moradores/{cc.id}/status", data={"status": "negado"}, follow_redirects=False).status_code == 303
     assert ac.post(f"/admin/moradores/{cc.id}/status", data={"status": "aprovado"}).status_code == 400  # negado é final
-    a, cc = morador(CPF1, "01"), morador(CPF1, "02")
+    a, cc = morador(CPF1, "999"), morador(CPF1, "998")
     assert a.status == "aprovado" and a.decidido_por and a.decidido_ip and cc.status == "negado"
     assert "Decidido por <strong>" in ac.get("/admin/moradores?status=aprovado").text and "· IP " in ac.get("/admin/moradores?status=aprovado").text
     assert "negado" in ac.get("/admin/moradores?status=negado").text
     assert "Habilitar novo registro" in ac.get(f"/admin/moradores/{a.id}").text
     # apto negado liberado
-    assert "Solicitação enviada" in cadastrar("Duda Teste", CPF3, "02", "102")
+    assert "Solicitação enviada" in cadastrar("Duda Teste", CPF3, "99", "998")
     # login aprovado + trocar unidade
-    lc, r = login(CPF1); assert r.status_code == 303 and lc.get("/morador").status_code == 200  # só 01/101 aprovado
+    lc, r = login(CPF1); assert r.status_code == 303 and lc.get("/morador").status_code == 200  # só 99/999 aprovado
     # declaração mudou -> pede novo aceite antes de qualquer página; aceite grava texto/data/IP novos
     with SessionLocal() as db:
         db.get(Morador, a.id).termo_texto = "versão antiga"; db.commit()
@@ -106,16 +107,16 @@ try:
     assert lc.get("/morador").status_code == 200
     with SessionLocal() as db: assert db.get(Morador, a.id).termo_texto == TERMO
     assert "Aceita em" in ac.get(f"/admin/moradores/{a.id}").text
-    pg = lc.get("/contato").text; assert 'value="01" selected' in pg and 'value="101" selected' in pg and 'value="27"' not in pg and "Ana Teste" in pg
-    assert "Mensagem enviada" in lc.post("/contato", data={**ct, **captcha(), "bloco": "01", "apto": "101"}).text
+    pg = lc.get("/contato").text; assert 'value="99" selected' in pg and 'value="999" selected' in pg and 'value="27"' not in pg and "Ana Teste" in pg
+    assert "Mensagem enviada" in lc.post("/contato", data={**ct, **captcha(), "bloco": "99", "apto": "999"}).text
     assert "Condômino logado: Ana Teste" in [c for p, _, c in enviados if p == mail.MAIL_CONTATO][-1]
-    d = morador(CPF3, "02"); assert lc.get(f"/morador/trocar/{d.id}", follow_redirects=False).status_code == 403
+    d = morador(CPF3, "998"); assert lc.get(f"/morador/trocar/{d.id}", follow_redirects=False).status_code == 403
     # inadimplência: registro manual com observação obrigatória, único por unidade, reflete na votação
     from financeiro import unidade_inadimplente
-    assert "não encontrada" in ac.post("/admin/financeiro", data={"bloco": "01", "apto": "201", "observacao": "x"}).text
-    assert "obrigatória" in ac.post("/admin/financeiro", data={"bloco": "01", "apto": "101", "observacao": "  "}).text
-    assert "Bloco 01 · Apto 101" in ac.post("/admin/financeiro", data={"bloco": "01", "apto": "101", "observacao": "taxa 08/2026"}).text
-    assert "já está registrada" in ac.post("/admin/financeiro", data={"bloco": "01", "apto": "101", "observacao": "de novo"}).text
+    assert "não encontrada" in ac.post("/admin/financeiro", data={"bloco": "99", "apto": "201", "observacao": "x"}).text
+    assert "obrigatória" in ac.post("/admin/financeiro", data={"bloco": "99", "apto": "999", "observacao": "  "}).text
+    assert "Bloco 99 · Apto 999" in ac.post("/admin/financeiro", data={"bloco": "99", "apto": "999", "observacao": "taxa 08/2026"}).text
+    assert "já está registrada" in ac.post("/admin/financeiro", data={"bloco": "99", "apto": "999", "observacao": "de novo"}).text
     with SessionLocal() as db:
         assert unidade_inadimplente(db, a.unidade_id)
         ina = db.scalar(select(Inadimplencia).where(Inadimplencia.unidade_id == a.unidade_id, Inadimplencia.encerrado_em.is_(None))); iid = ina.id
@@ -130,7 +131,7 @@ try:
     assert ac.post(f"/admin/moradores/{a.id}/status", data={"status": "negado"}, follow_redirects=False).status_code == 303
     _, r = login(CPF1); assert "não autorizado" in r.text
     assert lc.get("/morador", follow_redirects=False).status_code == 303  # sessão antiga cai
-    assert "Solicitação enviada" in cadastrar("Bia Teste", CPF2, "01", "101")
+    assert "Solicitação enviada" in cadastrar("Bia Teste", CPF2, "99", "999")
     time.sleep(0.3)
     assuntos = " | ".join(a for _, a, _ in enviados)
     assert "Acesso liberado" in assuntos and "não aprovada" in assuntos and "Acesso encerrado" in assuntos, assuntos

@@ -60,7 +60,7 @@ def interfones_ativos(db: Session, propria: Unidade, completa: bool) -> list[tup
         avisos.setdefault(uid, set()).add("Navegador")
     unidades = db.scalars(select(Unidade).where(Unidade.apto == "").order_by(Unidade.bloco.desc())).all()  # Portaria, Administração
     if completa:
-        unidades += db.scalars(select(Unidade).where(Unidade.apto != "", Unidade.id.in_(select(Morador.unidade_id).where(aprovado)))
+        unidades += db.scalars(select(Unidade).where(Unidade.apto != "", Unidade.visivel, Unidade.id.in_(select(Morador.unidade_id).where(aprovado)))
                                .order_by(Unidade.bloco, Unidade.apto)).all()
     online = set(ifone.conexoes) | {propria.id}
     return [(u, u.id in online, " · ".join(sorted(avisos.get(u.id, ())))) for u in unidades]
@@ -124,7 +124,7 @@ async def ws_interfone(ws: WebSocket):
                         alvo = db.scalar(select(Unidade).where(Unidade.bloco == msg["bloco"]))
                     else:
                         alvo = db.scalar(select(Unidade).where(Unidade.bloco == str(msg.get("bloco", "")).zfill(2),
-                                                               Unidade.apto == auth.so_digitos(str(msg.get("apto", ""))).zfill(3), Unidade.ativa))
+                                                               Unidade.apto == auth.so_digitos(str(msg.get("apto", ""))).zfill(3), Unidade.em_uso))
                 if not alvo or alvo.id == minha:
                     await ifone.enviar(ws, {"t": "erro", "msg": "Unidade não encontrada."})
                     continue

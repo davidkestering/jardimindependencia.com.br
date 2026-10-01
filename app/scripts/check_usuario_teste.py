@@ -16,8 +16,9 @@ import interfone
 from db import SessionLocal
 from main import app
 from models import (AREAS_ADMIN, LOGIN_TESTE, AdminUser, Assembleia, Comunicado, Documento, Enquete, Inadimplencia, Morador,
-                    OCUPA_APTO, Ocorrencia, OcorrenciaMensagem, Pauta, Unidade)
+                    Ocorrencia, OcorrenciaMensagem, Pauta)
 from routers import comunicados
+from unidades_teste import unidades
 
 MESTRE_LOGIN = "mestre.checagem"
 CPF_M, CPF_T, CPF_O = "52998224725", "11144477735", "12345678909"
@@ -57,9 +58,7 @@ try:
         db.add(AdminUser(login=MESTRE_LOGIN, nome="Mestre", senha_hash=auth.hash_senha("senha12345"), master=True)); db.commit()
         mestre = db.scalar(select(AdminUser).where(AdminUser.login == MESTRE_LOGIN))
         assert not mestre.teste
-        ocupadas = select(Morador.unidade_id).where(Morador.status.in_(OCUPA_APTO))
-        u1, u2, u3, u4 = db.scalars(select(Unidade).where(Unidade.apto != "", Unidade.id.not_in(ocupadas))
-                                    .order_by(Unidade.bloco.desc(), Unidade.apto.desc()).limit(4)).all()
+        u1, u2, u3, u4 = unidades(db, 4)
         # registros "oficiais" (do mestre) e um pendente vindo do site
         db.add_all([
             Comunicado(titulo="oficial", texto="x", autor=MESTRE_LOGIN),

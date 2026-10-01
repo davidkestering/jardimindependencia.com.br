@@ -57,7 +57,7 @@ def lista_votos(db: Session, V, O, filtro) -> list:
     V e O são o modelo do voto e o da opção (Voto/Opcao na assembleia, EnqueteVoto/EnqueteOpcao na enquete)."""
     return db.execute(select(Unidade, V, O.texto, Morador.nome).select_from(Unidade).outerjoin(V, and_(V.unidade_id == Unidade.id, filtro))
                       .outerjoin(O, O.id == V.opcao_id).outerjoin(Morador, Morador.id == V.morador_id)
-                      .where(or_(and_(Unidade.ativa, Unidade.apto != ""), V.id.isnot(None))).order_by(Unidade.bloco, Unidade.apto)).all()
+                      .where(or_(and_(Unidade.em_uso, Unidade.apto != ""), V.id.isnot(None))).order_by(Unidade.bloco, Unidade.apto)).all()
 
 
 def carregar(db: Session, aid) -> Assembleia:
@@ -96,7 +96,7 @@ def admin_detalhe(request: Request, aid: uuid.UUID, erro: str = "", ok: str = ""
     from routers.admin import MAX_TOTAL_MB, categorias
     votos = {p.id: lista_votos(db, Voto, Opcao, Voto.pauta_id == p.id) for p in a.pautas}
     return render(request, "admin/assembleia.html", a=a, res=resultado(db, a), votos=votos, documentos=docs, erro=erro, ok=ok, categorias=categorias(db), max_mb=MAX_TOTAL_MB,
-                  unidades_ativas=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.ativa, Unidade.apto != "")))
+                  unidades_ativas=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.em_uso, Unidade.apto != "")))
 
 
 @router.post("/admin/assembleias/{aid}/pautas")

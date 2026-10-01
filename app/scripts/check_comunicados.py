@@ -14,8 +14,9 @@ from sqlalchemy import delete, select
 import auth
 from db import SessionLocal
 from main import app
-from models import AdminUser, Comunicado, Morador, Unidade
+from models import AdminUser, Comunicado, Morador
 from termo import TERMO
+from unidades_teste import unidades
 
 CPF = "52998224725"
 TIT = "Comunicado de teste automático"
@@ -36,7 +37,7 @@ limpar()
 try:
     with SessionLocal() as db:
         adm = db.scalar(select(AdminUser).where(AdminUser.master))
-        u1, u2 = [db.scalar(select(Unidade).where(Unidade.bloco == b, Unidade.apto == a)) for b, a in (("01", "101"), ("02", "102"))]
+        u1, u2 = unidades(db, 2)
         for u in (u1, u2):  # mesmo CPF/e-mail em 2 aptos: deve receber 1 e-mail
             db.add(Morador(unidade_id=u.id, nome="Ana Teste", cpf=CPF, nascimento=auth.parse_data("1980-05-10"), email="ana@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO))
         db.commit()
@@ -60,11 +61,13 @@ try:
     dest = [e[0] for e in enviados]; assert dest.count("ana@example.com") == 1 and len(dest) == len(set(dest)), dest  # 1 por endereço (2 aptos)
     with SessionLocal() as db:
         c = db.get(Comunicado, cid); assert c.publicado_por == adm.login and c.publicado_ip
+        from routers.comunicados import por_mes
+        MES = por_mes([c])[0][0]  # título do grupo na lista: mês e ano da publicação
     assert "Publicado por" in ac.get("/admin/comunicados").text
     assert TIT in enviados[0][1] and f"/morador/comunicados/{cid}" in enviados[0][2]
     assert pushes and pushes[0]["tag"] == "comunicado" and pushes[0]["url"].endswith(str(cid))
     painel = mc.get("/morador").text; assert "1 comunicado(s) novo(s)" in painel and "Comunicados (1)" in painel
-    lst = mc.get("/morador/comunicados").text; assert TIT in lst and "· novo" in lst and "Setembro de 2026" in lst and "…" in lst and TEXTO not in lst
+    lst = mc.get("/morador/comunicados").text; assert TIT in lst and "· novo" in lst and MES in lst and "…" in lst and TEXTO not in lst
     assert "Comunicados (1)" not in mc.get("/morador").text  # badge zerado após abrir a lista
     assert TEXTO in mc.get(f"/morador/comunicados/{cid}").text
     assert TIT not in pub.get("/comunicados").text and TIT not in pub.get("/").text
@@ -73,7 +76,7 @@ try:
     ac.post(f"/admin/comunicados/{cid}/visibilidade", data={"visibilidade": "publico"}); time.sleep(0.3)
     assert len(enviados) == len(dest) and len(pushes) == 1  # nenhum reenvio ao mudar de nível
     home = pub.get("/").text; assert TIT in home and home.index("Comunicados públicos") < home.index("Para moradores") and TEXTO not in home
-    lst = pub.get("/comunicados").text; assert TIT in lst and "Setembro de 2026" in lst
+    lst = pub.get("/comunicados").text; assert TIT in lst and MES in lst
     assert TEXTO in pub.get(f"/comunicados/{cid}").text
 
     # edição e volta a rascunho

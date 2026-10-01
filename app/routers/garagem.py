@@ -42,7 +42,7 @@ def quem(m: Morador) -> str:
 
 def catalogo(db: Session) -> list[Unidade]:
     """Lista corrida das garagens dos apartamentos, em ordem de bloco e apto."""
-    return db.scalars(select(Unidade).where(Unidade.garagem.is_not(None)).order_by(Unidade.bloco, Unidade.apto)).all()
+    return db.scalars(select(Unidade).where(Unidade.garagem.is_not(None), Unidade.visivel).order_by(Unidade.bloco, Unidade.apto)).all()
 
 
 def utilizadas(db: Session, unidade_id) -> list[GaragemUtilizada]:
@@ -67,7 +67,7 @@ def incluir_utilizada(db: Session, request: Request, m: Morador, n: int, origem:
     u, atuais = m.unidade, utilizadas(db, m.unidade_id)
     if n == u.garagem:
         return "Esta já é a garagem do seu apartamento."
-    if not db.scalar(select(Unidade.id).where(Unidade.garagem == n)):
+    if not db.scalar(select(Unidade.id).where(Unidade.garagem == n, Unidade.visivel)):
         return "Garagem não encontrada na lista."
     if any(g.garagem == n for g in atuais):
         return f"A garagem {n} já está na sua lista."
@@ -107,7 +107,7 @@ def situacao(request: Request, uso: str = Form(""), para: str = Form(""), sessao
             destino = db.get(Unidade, uuid.UUID(para))
         except ValueError:
             destino = None
-        if not destino or not destino.garagem:
+        if not destino or not destino.garagem or not destino.visivel:
             return voltar("Para garagem alugada/cedida, informe o bloco e o apto que a está utilizando.")
         if destino.id == u.id:
             return voltar("Quem utiliza a garagem não pode ser o próprio apartamento.")
@@ -255,11 +255,13 @@ def admin_corrigir(request: Request, unidade: str = Form(""), garagem: str = For
     except ValueError:
         u = None
     n = numero(garagem)
-    if not u or not u.garagem or n is None or not 1 <= n <= ULTIMA:
+    outro = db.scalar(select(Unidade).where(Unidade.garagem == n)) if n is not None else None
+    # unidade de teste (garagem fora da numeração real) só troca com outra unidade de teste, e as reais só entre si
+    if not u or not u.garagem or n is None or not (outro is not None and outro.teste if u.teste else 1 <= n <= ULTIMA):
         return voltar(f"Apartamento ou número de garagem inválido (as garagens vão de 1 a {ULTIMA}).", para="/admin/garagem")
     if n == u.garagem:
         return voltar(ok=f"A garagem {n} já é a do {u.rotulo}.", para="/admin/garagem")
-    antiga, outro, quando = u.garagem, db.scalar(select(Unidade).where(Unidade.garagem == n)), agora()
+    antiga, quando = u.garagem, agora()
     if outro:  # o número é único: libera antes de atribuir
         outro.garagem = None
         db.flush()

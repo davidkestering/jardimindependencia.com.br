@@ -17,8 +17,9 @@ import auth
 from config import UPLOAD_DIR
 from db import SessionLocal
 from main import app
-from models import AdminUser, Animal, Morador, Unidade
+from models import BLOCO_TESTE, AdminUser, Animal, Morador, Unidade
 from termo import TERMO
+from unidades_teste import unidades
 
 A, B = "52998224725", "11144477735"
 ADM, SEM = "teste.animais", "teste.semarea"  # usuários de administração do teste: com e sem a área Animais de Estimação
@@ -28,7 +29,7 @@ JPG = b"\xff\xd8\xff\xe0" + b"\0" * 64
 
 def limpar():
     with SessionLocal() as db:
-        ids = list(db.scalars(select(Morador.unidade_id).where(Morador.cpf.in_([A, B]))))
+        ids = list(db.scalars(select(Unidade.id).where(Unidade.bloco == BLOCO_TESTE)))  # tudo o que houver nas unidades de teste é de teste
         for a in db.scalars(select(Animal).where(Animal.unidade_id.in_(ids))):
             if a.foto:
                 (Path(UPLOAD_DIR) / a.foto).unlink(missing_ok=True)
@@ -66,10 +67,7 @@ def geral(c):
 limpar()
 try:
     with SessionLocal() as db:
-        ocupadas = select(Morador.unidade_id).where(Morador.status.in_(("pendente", "aprovado")))
-        u1, u2 = db.scalars(select(Unidade).where(Unidade.ativa, Unidade.apto != "", ~Unidade.id.in_(ocupadas), ~Unidade.id.in_(select(Animal.unidade_id)),
-                                                  Unidade.sem_animais_em.is_(None))
-                            .order_by(Unidade.bloco, Unidade.apto).limit(2)).all()
+        u1, u2 = unidades(db, 2)
         r1, r2 = u1.rotulo, u2.rotulo
         for u, nome, cpf in ((u1, "Ana Animais", A), (u2, "Bia Animais", B)):
             db.add(Morador(unidade_id=u.id, nome=nome, cpf=cpf, nascimento=auth.parse_data("1980-05-10"), email="a@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO))

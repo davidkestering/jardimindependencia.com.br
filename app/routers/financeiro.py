@@ -23,7 +23,7 @@ def render(request: Request, nome: str, **ctx):
 
 def mapa_unidades(db: Session) -> dict[str, list[str]]:
     mapa: dict[str, list[str]] = {}
-    for u in db.scalars(select(Unidade).where(Unidade.apto != "", Unidade.ativa).order_by(Unidade.bloco, Unidade.apto)):
+    for u in db.scalars(select(Unidade).where(Unidade.apto != "", Unidade.em_uso).order_by(Unidade.bloco, Unidade.apto)):
         mapa.setdefault(u.bloco, []).append(u.apto)
     return mapa
 
@@ -40,7 +40,7 @@ def admin_lista(request: Request, erro: str = "", admin: AdminUser = Depends(adm
 def admin_registrar(request: Request, bloco: str = Form(...), apto: str = Form(...), observacao: str = Form(...),
                     admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     observacao = observacao.strip()[:2000]
-    u = db.scalar(select(Unidade).where(Unidade.bloco == bloco, Unidade.apto == auth.so_digitos(apto).zfill(3)[-3:], Unidade.ativa))
+    u = db.scalar(select(Unidade).where(Unidade.bloco == bloco, Unidade.apto == auth.so_digitos(apto).zfill(3)[-3:], Unidade.em_uso))
     if not u:
         return RedirectResponse("/admin/financeiro?erro=Unidade+não+encontrada", status_code=303)
     if not observacao:

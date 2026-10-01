@@ -16,8 +16,9 @@ import auth
 from db import SessionLocal
 from garagens import CONVENCAO
 from main import app
-from models import LOGIN_TESTE, AdminUser, GaragemUtilizada, Morador, Unidade, Veiculo
+from models import BLOCO_TESTE, LOGIN_TESTE, AdminUser, GaragemUtilizada, Morador, Unidade, Veiculo
 from termo import TERMO
+from unidades_teste import unidades
 
 A, B = "52998224725", "11144477735"
 ADM, SEM = "teste.garagem", "teste.semarea"  # usuários de administração do teste: com e sem a área Garagem e Veículos
@@ -25,7 +26,7 @@ ADM, SEM = "teste.garagem", "teste.semarea"  # usuários de administração do t
 
 def limpar():
     with SessionLocal() as db:
-        ids = list(db.scalars(select(Morador.unidade_id).where(Morador.cpf.in_([A, B]))))
+        ids = list(db.scalars(select(Unidade.id).where(Unidade.bloco == BLOCO_TESTE)))  # tudo o que houver nas unidades de teste é de teste
         db.execute(delete(Veiculo).where(Veiculo.unidade_id.in_(ids))); db.execute(delete(GaragemUtilizada).where(GaragemUtilizada.unidade_id.in_(ids)))
         trocadas = db.scalars(select(Unidade).where(Unidade.garagem_alterada_por == ADM)).all()  # vínculos que o teste trocou voltam ao que eram
         for u in trocadas:
@@ -51,17 +52,14 @@ limpar()
 try:
     with SessionLocal() as db:
         # convenção gravada no banco: uma garagem por apartamento, sem repetição; Portaria e Administração sem garagem
-        aptos = {(u.bloco, u.apto): u for u in db.scalars(select(Unidade).where(Unidade.apto != ""))}
+        aptos = {(u.bloco, u.apto): u for u in db.scalars(select(Unidade).where(Unidade.apto != "", Unidade.bloco != BLOCO_TESTE))}
         assert len(aptos) == 396 and all(aptos[k].garagem_convencao == n for k, n in CONVENCAO.items())
         assert len({u.garagem for u in aptos.values()}) == 396 and all(u.garagem is None for u in db.scalars(select(Unidade).where(Unidade.apto == "")))
         assert [aptos[k].garagem_convencao for k in (("01", "001"), ("03", "001"), ("17", "004"), ("27", "404"))] == [1, 11, 148, 384]
 
-        # quatro unidades livres e sem nenhum dado de garagem (a 3ª e a 4ª ficam sem condômino: são as donas das garagens g3 e g4)
-        ocupadas = select(Morador.unidade_id).where(Morador.status.in_(("pendente", "aprovado")))
-        u1, u2, u3, u4 = db.scalars(select(Unidade).where(
-            Unidade.ativa, Unidade.apto != "", ~Unidade.id.in_(ocupadas), Unidade.garagem_uso.is_(None), Unidade.garagem_alterada_em.is_(None),
-            Unidade.garagem == Unidade.garagem_convencao, ~Unidade.id.in_(select(Veiculo.unidade_id)), ~Unidade.id.in_(select(GaragemUtilizada.unidade_id)))
-            .order_by(Unidade.bloco, Unidade.apto).limit(4)).all()
+        # as quatro unidades de teste, sem nenhum dado de garagem (a 3ª e a 4ª ficam sem condômino: são as donas das garagens g3 e g4)
+        u1, u2, u3, u4 = unidades(db, 4)
+        assert all(u.garagem == u.garagem_convencao and not u.garagem_uso and not u.garagem_alterada_em for u in (u1, u2, u3, u4))
         (r1, g1), (r2, g2), (r3, g3), (r4, g4) = [(u.rotulo, u.garagem) for u in (u1, u2, u3, u4)]
         for u, nome, cpf in ((u1, "Ana Garagem", A), (u2, "Bia Garagem", B)):
             db.add(Morador(unidade_id=u.id, nome=nome, cpf=cpf, nascimento=auth.parse_data("1980-05-10"), email="a@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO))

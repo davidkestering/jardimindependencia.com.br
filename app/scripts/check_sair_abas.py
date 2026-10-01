@@ -12,8 +12,9 @@ from websockets.exceptions import ConnectionClosed
 
 import auth
 from db import SessionLocal
-from models import Morador, Unidade
+from models import Morador
 from termo import TERMO
+from unidades_teste import unidades
 
 CPF = "52998224725"
 WS, HTTP = "ws://localhost:8000/ws/interfone", "http://localhost:8000"
@@ -56,7 +57,7 @@ async def main(mid):
 limpar()
 try:
     with SessionLocal() as db:
-        u = db.scalar(select(Unidade).where(Unidade.bloco == "01", Unidade.apto == "101"))
+        u, = unidades(db)
         m = Morador(unidade_id=u.id, nome="Ana Teste", cpf=CPF, nascimento=auth.parse_data("1980-05-10"), email="ana@example.com",
                     telefone="91999990000", status="aprovado", termo_texto=TERMO)
         db.add(m); db.commit()

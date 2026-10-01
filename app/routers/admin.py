@@ -111,8 +111,8 @@ def sair(request: Request):
 def painel(request: Request, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     contagem = {s: n for s, n in db.execute(select(Morador.status, func.count()).group_by(Morador.status))}
     return render(request, "admin/painel.html", admin=admin, contagem=contagem,
-                  aptos=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.ativa, Unidade.apto != "")),
-                  areas=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.ativa, Unidade.apto == "")),
+                  aptos=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.em_uso, Unidade.apto != "")),
+                  areas=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.em_uso, Unidade.apto == "")),
                   documentos=db.scalar(select(func.count()).select_from(Documento).where(Documento.excluido_em.is_(None))),
                   excluidos=db.scalar(select(func.count()).select_from(Documento).where(Documento.excluido_em.is_not(None))))
 
@@ -168,7 +168,7 @@ def morador_criar(request: Request, nome: str = Form(...), cpf: str = Form(...),
                   admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     cpf_d, nasc = auth.so_digitos(cpf), auth.parse_data(nascimento)
     apto = "" if bloco in ("PORTARIA", "ADMINISTRACAO") else auth.so_digitos(apto).zfill(3)[-3:]
-    u = db.scalar(select(Unidade).where(Unidade.bloco == bloco, Unidade.apto == apto))
+    u = db.scalar(select(Unidade).where(Unidade.bloco == bloco, Unidade.apto == apto, Unidade.visivel))
     if not auth.cpf_valido(cpf_d):
         raise HTTPException(400, "CPF inválido")
     if not nasc or not u:

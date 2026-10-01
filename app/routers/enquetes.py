@@ -82,7 +82,7 @@ def admin_detalhe(request: Request, eid: uuid.UUID, admin: AdminUser = Depends(a
     e = carregar(db, eid)
     return render(request, "admin/enquete.html", e=e, res=resultado(db, e), aberta=aberta(e),
                   votos=lista_votos(db, EnqueteVoto, EnqueteOpcao, EnqueteVoto.enquete_id == e.id),
-                  unidades_ativas=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.ativa, Unidade.apto != "")))
+                  unidades_ativas=db.scalar(select(func.count()).select_from(Unidade).where(Unidade.em_uso, Unidade.apto != "")))
 
 
 @router.post("/admin/enquetes/{eid}/excluir")

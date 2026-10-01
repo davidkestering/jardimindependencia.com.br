@@ -14,8 +14,9 @@ import auth
 from config import UPLOAD_DIR
 from db import SessionLocal
 from main import app
-from models import AdminUser, Morador, Ocorrencia, OcorrenciaAnexo, OcorrenciaMensagem, Unidade
+from models import AdminUser, Morador, Ocorrencia, OcorrenciaAnexo, OcorrenciaMensagem
 from termo import TERMO, TERMO_OCORRENCIA
+from unidades_teste import unidades
 from urllib.parse import unquote_plus as unquote
 
 
@@ -45,7 +46,7 @@ limpar()
 try:
     with SessionLocal() as db:
         adm = db.scalar(select(AdminUser).where(AdminUser.master))
-        u1 = db.scalar(select(Unidade).where(Unidade.bloco == "01", Unidade.apto == "101"))
+        u1, = unidades(db)
         db.add(Morador(unidade_id=u1.id, nome="Ana Oc", cpf=A, nascimento=auth.parse_data("1980-05-10"), email="ana@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO)); db.commit()
         ma = db.scalar(select(Morador).where(Morador.cpf == A))
     ac, mc = cliente("admin", adm.id), cliente("morador", ma.id)

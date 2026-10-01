@@ -92,7 +92,7 @@ def contexto_contato(request: Request, db: Session) -> dict:
         unidades = [x.unidade for x in db.scalars(select(Morador).join(Unidade).where(Morador.cpf == m.cpf, Morador.status == "aprovado")
                                                   .order_by(Unidade.bloco, Unidade.apto))]
     else:
-        unidades = db.scalars(select(Unidade).where(Unidade.apto != "", Unidade.ativa).order_by(Unidade.bloco, Unidade.apto)).all()
+        unidades = db.scalars(select(Unidade).where(Unidade.apto != "", Unidade.em_uso).order_by(Unidade.bloco, Unidade.apto)).all()
     mapa: dict[str, list[str]] = {}
     for u in unidades:
         mapa.setdefault(u.bloco, []).append(u.apto)

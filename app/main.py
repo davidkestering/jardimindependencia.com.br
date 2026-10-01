@@ -12,7 +12,7 @@ from auth import hash_senha, ler_sessao
 from config import ADMIN_LOGIN, ADMIN_SENHA_INICIAL, CONDOMINIO, UPLOAD_DIR
 from db import SessionLocal
 from garagens import CONVENCAO
-from models import AdminUser, Morador, Ocorrencia, Unidade
+from models import APTOS_TESTE, BLOCO_TESTE, GARAGEM_TESTE, AdminUser, Morador, Ocorrencia, Unidade
 
 logging.basicConfig(level=logging.INFO)
 BASE = Path(__file__).parent
@@ -44,6 +44,10 @@ def seed():
             db.flush()
         for u in db.scalars(select(Unidade).where(Unidade.apto != "", Unidade.garagem_convencao.is_(None))):
             u.garagem = u.garagem_convencao = CONVENCAO.get((u.bloco, u.apto))  # garagem de cada apto conforme a convenção
+        existentes = set(db.scalars(select(Unidade.apto).where(Unidade.bloco == BLOCO_TESTE)))
+        for apto in APTOS_TESTE:  # unidades escondidas, só dos testes automatizados: inativas e com garagem fora da numeração real
+            if apto not in existentes:
+                db.add(Unidade(bloco=BLOCO_TESTE, apto=apto, ativa=False, garagem=GARAGEM_TESTE + int(apto), garagem_convencao=GARAGEM_TESTE + int(apto)))
         # Usuário inicial só quando não existe nenhum (primeiro acesso); depois os mestres criam os demais.
         if ADMIN_SENHA_INICIAL and db.scalar(select(AdminUser).limit(1)) is None:
             db.add(AdminUser(login=ADMIN_LOGIN, senha_hash=hash_senha(ADMIN_SENHA_INICIAL), nome="Administração", master=True))

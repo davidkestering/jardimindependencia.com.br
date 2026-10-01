@@ -2,11 +2,20 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, Sequence, String, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, Sequence, String, Text, UniqueConstraint, func, or_, text, true
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db import Base
+
+# Unidades só dos testes automatizados (scripts/check_*.py): Bloco 99, aptos 999 (a principal) a 996, criadas inativas pelo
+# seed do app. Para o site elas não existem: ficam fora de toda lista, seleção, contagem e busca por bloco e apto. Só o
+# processo dos próprios testes as enxerga, porque scripts/unidades_teste.py liga EM_TESTE nele; o servidor nunca liga.
+BLOCO_TESTE = "99"
+APTOS_TESTE = ("999", "998", "997", "996")
+GARAGEM_TESTE = 9000  # garagem da unidade de teste = 9000 + nº do apto: fora da numeração real (garagens.ULTIMA)
+EM_TESTE = False
 
 
 def uuid_pk():
@@ -48,6 +57,28 @@ class Unidade(Base):
     @property
     def rotulo_garagem(self):
         return f"{self.rotulo} · Garagem {self.garagem}" if self.garagem else self.rotulo
+
+    @property
+    def teste(self) -> bool:
+        return self.bloco == BLOCO_TESTE
+
+    @hybrid_property
+    def em_uso(self) -> bool:
+        """Unidade que o site considera: a ativa. Use sempre no lugar de `ativa` (as de teste só contam dentro dos testes)."""
+        return self.ativa or (EM_TESTE and self.teste)
+
+    @em_uso.expression
+    def em_uso(cls):
+        return or_(cls.ativa, cls.bloco == BLOCO_TESTE) if EM_TESTE else cls.ativa
+
+    @hybrid_property
+    def visivel(self) -> bool:
+        """Filtro das listas de unidades que não olham `ativa`: deixa de fora as unidades de teste (menos dentro dos testes)."""
+        return EM_TESTE or not self.teste
+
+    @visivel.expression
+    def visivel(cls):
+        return true() if EM_TESTE else cls.bloco != BLOCO_TESTE
 
 
 # Status que "ocupam" o apartamento: enquanto houver um morador nesses status, ninguém mais se cadastra na unidade.
