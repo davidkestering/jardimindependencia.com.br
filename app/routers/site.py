@@ -120,6 +120,10 @@ def contato_enviar(request: Request, nome: str = Form(...), email: str = Form(..
     ctx = contexto_contato(request, db)
     nome, email, mensagem = nome.strip()[:120], email.strip()[:160], mensagem.strip()[:4000]
     if not auth.captcha_ok(captcha_token, captcha):
+        chave = f"contato:{ip_de(request)}"
+        if not auth.bloqueado(chave):  # formulário público: robô insistindo não enche o histórico; só as primeiras falhas de cada IP
+            auth.registrar_tentativa(chave)
+            registrar("Mensagem de contato RECUSADA (captcha)", request, nome=nome, email=email, motivo=auth.captcha_falha(captcha_token, captcha))
         return render(request, "site/contato.html", erro="Resposta da conta de verificação incorreta. Tente novamente.", **ctx)
     if not declaracao:
         return render(request, "site/contato.html", erro="É preciso aceitar a declaração de responsabilidade.", **ctx)

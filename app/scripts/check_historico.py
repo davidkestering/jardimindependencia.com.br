@@ -83,7 +83,7 @@ try:
 
     # histórico visível só ao mestre, com busca
     hp = ac.get("/admin/historico").text; assert "Registro mais antigo" in hp and "<table" not in hp  # nada listado sem período
-    from datetime import date as _d; hoje = _d.today().isoformat()
+    from datetime import datetime as _dt; hoje = _dt.now(mail.FUSO).date().isoformat()  # o histórico filtra pela data de Belém, não pela do contêiner (UTC)
     hp = ac.get(f"/admin/historico?de={hoje}&ate={hoje}&q=hist-doc").text; assert "Documento excluído (lógico)" in hp and "203.0.113.9" in hp
     assert "Nenhum registro" in ac.get("/admin/historico?de=2000-01-01&ate=2000-01-02").text
     assert "anterior à inicial" in ac.get(f"/admin/historico?de={hoje}&ate=2000-01-01").text

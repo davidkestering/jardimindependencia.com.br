@@ -5,7 +5,8 @@ sys.path.insert(0, "/app")
 import mail
 enviados = []
 mail.enviar = lambda para, assunto, corpo, responder_para=None: (para == mail.MAIL_LOGS or enviados.append((para, assunto, corpo))) or True
-mail._gravar_historico = lambda *a, **k: None  # testes não entram no histórico de auditoria
+registros = []  # o que iria para o histórico de auditoria: testes não gravam nele, só conferem (ação, detalhes)
+mail._gravar_historico = lambda tipo, login, ip, acao, dados: registros.append((acao, dados))
 
 from pathlib import Path
 from fastapi.testclient import TestClient
@@ -54,6 +55,7 @@ try:
 
     # registro com anexo -> e-mail a contato@ e cópia ao condômino
     assert "verificação incorreta" in unquote(mc.post("/morador/ocorrencias", data={"titulo": TIT, "texto": "x", **captcha(False)}, follow_redirects=False).headers["location"])
+    assert registros[-1][0] == "Ocorrência RECUSADA (captcha)" and "resposta errada" in registros[-1][1]["motivo"]  # o erro de captcha fica no histórico
     assert "aceitar a declaração" in unquote(mc.post("/morador/ocorrencias", data={"titulo": TIT, "texto": "x", **captcha(), "declaracao": ""}, follow_redirects=False).headers["location"])
     assert "art. 339" in mc.get("/morador/ocorrencias").text and "quanto é" in mc.get("/morador/ocorrencias").text
     r = mc.post("/morador/ocorrencias", data={"titulo": TIT, "texto": "Lâmpada queimada.", **captcha()}, files=[("arquivos", ("foto.png", b"\x89PNG\r\n\x1a\n" + b"0" * 50, "image/png"))], follow_redirects=False)

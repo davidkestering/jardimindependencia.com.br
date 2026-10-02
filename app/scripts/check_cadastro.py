@@ -5,7 +5,8 @@ sys.path.insert(0, "/app")
 import mail
 enviados = []
 mail.enviar = lambda para, assunto, corpo, responder_para=None: enviados.append((para, assunto, corpo)) or True  # sem e-mail real
-mail._gravar_historico = lambda *a, **k: None  # testes não entram no histórico de auditoria
+registros = []  # o que iria para o histórico de auditoria: testes não gravam nele, só conferem (ação, detalhes)
+mail._gravar_historico = lambda tipo, login, ip, acao, dados: registros.append((acao, dados))
 
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
@@ -57,7 +58,12 @@ limpar()
 try:
     # captcha nos logins
     assert "verificação incorreta" in c.post("/morador/login", data={"cpf": CPF1, "nascimento": "1980-05-10", **captcha(False)}).text
-    assert "verificação incorreta" in c.post("/admin/login", data={"login": "x", "senha": "y", **captcha(False)}).text
+    acao, det = registros[-1]  # o erro de captcha fica no histórico, com o que foi digitado e o motivo
+    assert acao == "Login CONDÔMINO recusado (captcha)" and det["cpf"] == CPF1 and det["motivo"].startswith("resposta errada: digitou '")
+    assert "verificação incorreta" in c.post("/admin/login", data={"login": "x", "senha": "senha-secreta", **captcha(False)}).text
+    acao, det = registros[-1]
+    assert acao == "Login ADMIN recusado (captcha)" and det["login"] == "x" and "senha-secreta" not in str(det)  # a senha não é registrada
+    assert "expirada" in auth.captcha_falha(auth._captcha.dumps({"r": 5, "exp": 0}), "5") and "adulterada" in auth.captcha_falha("lixo", "5")
     assert "Login ou senha incorretos" in c.post("/admin/login", data={"login": "x", "senha": "y", **captcha()}).text
     # obrigatórios
     assert c.post("/morador/cadastro", data={"nome": "X", "cpf": CPF1, "nascimento": "1980-05-10", "bloco": "99", "apto": "999"}).status_code == 422
@@ -67,6 +73,7 @@ try:
     ct = dict(nome="Zé", email="ze@example.com", mensagem="oi", declaracao="sim")
     assert "aceitar a declaração" in c.post("/contato", data={**ct, **captcha(), "declaracao": ""}).text and "art. 339" in c.get("/contato").text
     assert "verificação incorreta" in c.post("/contato", data={**ct, **captcha(False)}).text
+    assert registros[-1][0] == "Mensagem de contato RECUSADA (captcha)" and registros[-1][1]["email"] == "ze@example.com"
     assert "não conferem" in c.post("/contato", data={**ct, **captcha(), "bloco": "99", "apto": "201"}).text
     assert "Mensagem enviada" in c.post("/contato", data={**ct, **captcha(), "bloco": "99", "apto": "999"}).text
     assert 'name="bloco"' in c.get("/contato").text and 'value="27"' in c.get("/contato").text

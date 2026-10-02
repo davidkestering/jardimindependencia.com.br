@@ -100,6 +100,7 @@ def login_post(request: Request, cpf: str = Form(...), nascimento: str = Form(..
         return render(request, "morador/login.html", erro="Muitas tentativas. Aguarde 15 minutos.", next=next)
     if not auth.captcha_ok(captcha_token, captcha):
         auth.registrar_tentativa(chave)
+        registrar("Login CONDÔMINO recusado (captcha)", request, cpf=cpf, nascimento=nascimento, motivo=auth.captcha_falha(captcha_token, captcha))
         return render(request, "morador/login.html", erro="Resposta da conta de verificação incorreta. Tente novamente.", next=next)
     nasc = auth.parse_data(nascimento)
     # O mesmo CPF pode ter mais de um apartamento: uma linha por unidade.

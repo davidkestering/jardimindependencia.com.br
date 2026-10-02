@@ -94,6 +94,7 @@ async def morador_registrar(request: Request, titulo: str = Form(...), texto: st
     m = morador_atual(request, db, sessao)
     titulo, texto = titulo.strip()[:200], texto.strip()[:10000]
     if not auth.captcha_ok(captcha_token, captcha):
+        registrar("Ocorrência RECUSADA (captcha)", request, condomino=m.nome, unidade=m.unidade.rotulo, titulo=titulo, motivo=auth.captcha_falha(captcha_token, captcha))
         return RedirectResponse("/morador/ocorrencias?erro=Resposta+da+conta+de+verificação+incorreta.+Tente+novamente.", status_code=303)
     if not declaracao:
         return RedirectResponse("/morador/ocorrencias?erro=É+preciso+aceitar+a+declaração+de+responsabilidade.", status_code=303)

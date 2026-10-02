@@ -125,6 +125,17 @@ def captcha_ok(token: str, resposta: str) -> bool:
     return d.get("exp", 0) > time.time() and so_digitos(resposta) == str(d.get("r"))
 
 
+def captcha_falha(token: str, resposta: str) -> str:
+    """Por que a conta de verificação não passou, para a auditoria: adulterada, expirada ou resposta errada."""
+    try:
+        d = _captcha.loads(token or "")
+    except BadSignature:
+        return "verificação ausente ou adulterada"
+    if d.get("exp", 0) <= time.time():
+        return f"verificação expirada: a página ficou aberta por mais de {CAPTCHA_MIN} minutos"
+    return f"resposta errada: digitou '{(resposta or '').strip()[:20]}', o certo era {d.get('r')}"
+
+
 def token_curto(tipo: str, valor: str, minutos: int = 10) -> str:
     """Token assinado de curta duração (ex.: escolha de apto após o login)."""
     return _captcha.dumps({"t": tipo, "v": valor, "exp": time.time() + minutos * 60})
