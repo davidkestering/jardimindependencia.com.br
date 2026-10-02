@@ -7,12 +7,12 @@
   {% if sucesso %}
   <p class="aviso ok" style="max-width:560px">Solicitação enviada. A administração vai conferir seus dados e liberar o acesso. Depois disso, entre com CPF e data de nascimento.</p>
   {% else %}
-  <p style="max-width:56ch">Informe seus dados e a unidade. A administração confere e aprova o acesso. Só uma pessoa pode ser cadastrada por apartamento.</p>
+  <p style="max-width:56ch">Informe seus dados e a unidade. A administração confere e aprova o acesso. Só uma pessoa pode ser cadastrada por apartamento. <strong>Digite apenas os números</strong>, tanto no CPF quanto na data de nascimento, sem pontos, traços ou barras.</p>
   {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
   <form class="card" method="post" action="/morador/cadastro">
     <label>Nome completo<input name="nome" required maxlength="120" value="{{ form.nome if form else '' }}"></label>
-    <label>CPF<input name="cpf" inputmode="numeric" required placeholder="000.000.000-00" value="{{ form.cpf if form else '' }}"></label>
-    <label>Data de nascimento<input name="nascimento" type="text" inputmode="numeric" placeholder="ddmmaaaa" maxlength="10" title="Digite só os números: ddmmaaaa" required value="{{ form.nascimento if form else '' }}"></label>
+    <label>CPF (digite apenas os números)<input name="cpf" inputmode="numeric" required placeholder="Apenas os números" title="Digite apenas os números do CPF" value="{{ form.cpf if form else '' }}"></label>
+    <label>Data de nascimento (digite apenas os números: dia, mês e ano)<input name="nascimento" type="text" inputmode="numeric" placeholder="ddmmaaaa" maxlength="10" title="Digite apenas os números: ddmmaaaa" required value="{{ form.nascimento if form else '' }}"></label>
     <div class="duas">
       {% set sb = form.bloco if form else (mapa|first) %}
       <label>Bloco<select name="bloco" id="bloco" required>{% for b in mapa %}<option value="{{ b }}" {% if b == sb %}selected{% endif %}>{{ b }}</option>{% endfor %}</select></label>
