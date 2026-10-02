@@ -4,12 +4,12 @@
 <section><div class="container">
   <div class="eyebrow">Área do condômino</div>
   <h1>Entrar</h1>
-  <p style="max-width:56ch">Use o CPF e a data de nascimento cadastrados na administração.</p>
+  <p style="max-width:56ch">Use o CPF e a data de nascimento cadastrados na administração. <strong>Digite apenas os números</strong>, tanto no CPF quanto na data de nascimento, sem pontos, traços ou barras.</p>
   {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
   <form class="card" method="post" action="/morador/login">
     <input type="hidden" name="next" value="{{ next }}">
-    <label>CPF<input name="cpf" inputmode="numeric" required placeholder="000.000.000-00" autocomplete="username"></label>
-    <label>Data de nascimento<input name="nascimento" type="text" inputmode="numeric" placeholder="ddmmaaaa" maxlength="10" title="Digite só os números: ddmmaaaa" required autocomplete="bday"></label>
+    <label>CPF (digite apenas os números)<input name="cpf" inputmode="numeric" required placeholder="Apenas os números" title="Digite apenas os números do CPF" autocomplete="username"></label>
+    <label>Data de nascimento (digite apenas os números: dia, mês e ano)<input name="nascimento" type="text" inputmode="numeric" placeholder="ddmmaaaa" maxlength="10" title="Digite apenas os números: ddmmaaaa" required autocomplete="bday"></label>
     {% include "_captcha.html" %}
     <button class="btn" type="submit">Entrar</button>
     <p style="margin:0;font-size:14px">Ainda não tem acesso? <a href="/morador/cadastro">Solicite seu cadastro</a>.</p>
