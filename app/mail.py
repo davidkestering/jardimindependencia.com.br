@@ -28,7 +28,9 @@ def _gravar_historico(tipo, login, ip, acao, dados) -> None:
 
 
 def registrar(assunto: str, request, **dados) -> None:
-    """Auditoria: grava em `historico` (quem, IP, data/hora, detalhes) e envia e-mail para MAIL_LOGS. Em thread."""
+    """Auditoria: grava em `historico` (quem, IP, data/hora, detalhes) e envia e-mail para MAIL_LOGS. Em thread.
+    so_historico=True grava sem e-mail: para o que pode vir em rajada (tentativas de login durante o bloqueio)."""
+    so_historico = dados.pop("so_historico", False)
     sessao = getattr(request.state, "sessao", None) or {}
     tipo, login, ip = sessao.get("t"), sessao.get("login"), ip_de(request)
     if not login:  # antes de existir sessão (logins, cadastro no site): usa o identificador informado na própria ação
@@ -40,7 +42,8 @@ def registrar(assunto: str, request, **dados) -> None:
               f"Navegador: {request.headers.get('user-agent', '')[:200]}", ""]
     linhas += [f"{k.replace('_', ' ').capitalize()}: {v}" for k, v in dados.items()]
     _gravar_historico(tipo, login, ip, assunto, dados)
-    threading.Thread(target=enviar, args=(MAIL_LOGS, f"[Log] {assunto}", "\n".join(linhas)), daemon=True).start()
+    if not so_historico:
+        threading.Thread(target=enviar, args=(MAIL_LOGS, f"[Log] {assunto}", "\n".join(linhas)), daemon=True).start()
 
 
 def anotar(assunto: str, request, **dados) -> None:

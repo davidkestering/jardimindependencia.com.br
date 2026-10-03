@@ -20,7 +20,7 @@ Desenvolvido por **David Alexandre de Souza Kestering** ([davidkestering.com](ht
 - Fale Conosco: sugestões, reclamações, ideias, conselhos e elogios à administração, com imagens e 1 vídeo de até 30 s opcionais; não é ocorrência (sem número, resposta ou finalização) e a administração apenas lê;
 - interfone virtual: PWA instalável, chamadas de voz WebRTC entre apartamentos, portaria e administração.
 
-**Administração** (usuários com áreas liberadas; dois usuários mestres): moradores e aprovações, documentos com categorias e envio múltiplo, comunicados com pré-visualização, Fale Conosco (leitura das mensagens, com quem enviou), inadimplência, garagem e veículos (consulta e correção do vínculo apartamento-garagem), animais de estimação (quantas e quais unidades registraram, informaram não possuir ou ainda não informaram, com filtros e fotos), assembleias, enquetes, ocorrências, usuários e histórico de auditoria. Toda ação registra quem, data/hora e IP; nada é apagado fisicamente (exclusão lógica).
+**Administração** (usuários com áreas liberadas; dois usuários mestres): moradores e aprovações, documentos com categorias e envio múltiplo, comunicados com pré-visualização, Fale Conosco (leitura das mensagens, com quem enviou), inadimplência, garagem e veículos (consulta e correção do vínculo apartamento-garagem), animais de estimação (quantas e quais unidades registraram, informaram não possuir ou ainda não informaram, com filtros e fotos), assembleias, enquetes, ocorrências, usuários e histórico de auditoria, com filtro exclusivo das tentativas de login que falharam nas duas áreas (total e contagem por dia do período, para detectar tentativas de invasão). Toda ação registra quem, data/hora e IP; nada é apagado fisicamente (exclusão lógica).
 
 ## Stack
 

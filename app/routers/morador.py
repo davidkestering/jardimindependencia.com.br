@@ -97,10 +97,11 @@ def login_post(request: Request, cpf: str = Form(...), nascimento: str = Form(..
     cpf_d = auth.so_digitos(cpf)
     chave = f"morador:{ip_de(request)}:{cpf_d}"
     if auth.bloqueado(chave):
+        registrar("Tentativa de login CONDÔMINO falhou (bloqueado por excesso de tentativas)", request, cpf=cpf, nascimento=nascimento, so_historico=True)
         return render(request, "morador/login.html", erro="Muitas tentativas. Aguarde 15 minutos.", next=next)
     if not auth.captcha_ok(captcha_token, captcha):
         auth.registrar_tentativa(chave)
-        registrar("Login CONDÔMINO recusado (captcha)", request, cpf=cpf, nascimento=nascimento, motivo=auth.captcha_falha(captcha_token, captcha))
+        registrar("Tentativa de login CONDÔMINO falhou (captcha)", request, cpf=cpf, nascimento=nascimento, motivo=auth.captcha_falha(captcha_token, captcha))
         return render(request, "morador/login.html", erro="Resposta da conta de verificação incorreta. Tente novamente.", next=next)
     nasc = auth.parse_data(nascimento)
     # O mesmo CPF pode ter mais de um apartamento: uma linha por unidade.
@@ -108,13 +109,13 @@ def login_post(request: Request, cpf: str = Form(...), nascimento: str = Form(..
                     .order_by(Unidade.bloco, Unidade.apto)).all() if auth.cpf_valido(cpf_d) and nasc else []
     if not ms:
         auth.registrar_tentativa(chave)
-        registrar("Login CONDÔMINO recusado", request, cpf=cpf, nascimento=nascimento, motivo="CPF ou data não conferem")
+        registrar("Tentativa de login CONDÔMINO falhou (CPF ou data não conferem)", request, cpf=cpf, nascimento=nascimento)
         return render(request, "morador/login.html", erro="CPF ou data de nascimento não conferem.", next=next)
     aprovados = [x for x in ms if x.status == "aprovado"]
     m = aprovados[0] if aprovados else None
     if not m:
         pior = min(ms, key=lambda x: list(MENSAGEM_STATUS).index(x.status))
-        registrar(f"Login CONDÔMINO recusado ({pior.status})", request, nome=pior.nome, unidade=pior.unidade.rotulo, cpf=cpf, nascimento=nascimento)
+        registrar(f"Tentativa de login CONDÔMINO falhou ({pior.status})", request, nome=pior.nome, unidade=pior.unidade.rotulo, cpf=cpf, nascimento=nascimento)
         return render(request, "morador/login.html", erro=MENSAGEM_STATUS[pior.status], next=next)
     auth.limpar_tentativas(chave)
     if len(aprovados) > 1:  # mais de um apto: escolhe qual vai administrar nesta sessão
@@ -130,6 +131,7 @@ def escolher(request: Request, token: str = Form(...), mid: uuid.UUID = Form(...
     cpf_d = auth.ler_token_curto("escolha", token)
     m = db.get(Morador, mid) if cpf_d else None
     if not m or m.cpf != cpf_d or m.status != "aprovado":
+        registrar("Tentativa de login CONDÔMINO falhou (escolha de apartamento inválida ou expirada)", request, cpf=cpf_d or "token inválido ou expirado")
         raise HTTPException(403, "Escolha inválida ou expirada. Entre novamente.")
     registrar("Login CONDÔMINO realizado", request, nome=m.nome, unidade=m.unidade.rotulo, cpf=cpf_d)
     return cookie_sessao(RedirectResponse(next if next.startswith("/") else "/morador", status_code=303), m)

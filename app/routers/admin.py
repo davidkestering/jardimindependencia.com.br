@@ -67,6 +67,10 @@ def admin_dep(request: Request, sessao: dict = Depends(auth.exigir("admin")), db
     return a
 
 
+# Tentativas de login que falharam, nas duas áreas (routers/morador.py e o login daqui). O segundo padrão é o nome que essas
+# ações tinham até 03/10/2026: os registros antigos continuam contando sem serem alterados.
+FALHA_LOGIN = Historico.acao.like("Tentativa de login%") | Historico.acao.like("Login % recusado%")
+
 MSG_TESTE = "Usuário de teste: esta ação só é permitida sobre registros criados por ele mesmo."
 # O usuário de teste aprova/nega cadastros e responde ocorrências como qualquer administrador: é o fluxo que a revisão
 # da App Store precisa ver funcionando. Só a alteração/exclusão de registros oficiais fica bloqueada (exigir_proprio).
@@ -88,15 +92,16 @@ def login_post(request: Request, login: str = Form(...), senha: str = Form(...),
                captcha: str = Form(""), captcha_token: str = Form(""), db: Session = Depends(get_db)):
     chave = f"admin:{ip_de(request)}"
     if auth.bloqueado(chave):
+        registrar("Tentativa de login ADMIN falhou (bloqueado por excesso de tentativas)", request, login=login, so_historico=True)
         return render(request, "admin/login.html", erro="Muitas tentativas. Aguarde 15 minutos.", next=next)
     if not auth.captcha_ok(captcha_token, captcha):
         auth.registrar_tentativa(chave)
-        registrar("Login ADMIN recusado (captcha)", request, login=login, motivo=auth.captcha_falha(captcha_token, captcha))  # a senha não é registrada
+        registrar("Tentativa de login ADMIN falhou (captcha)", request, login=login, motivo=auth.captcha_falha(captcha_token, captcha))  # a senha não é registrada
         return render(request, "admin/login.html", erro="Resposta da conta de verificação incorreta. Tente novamente.", next=next)
     a = db.scalar(select(AdminUser).where(AdminUser.login == login.strip().lower(), AdminUser.excluido_em.is_(None)))
     if not a or not auth.verificar_senha(senha, a.senha_hash):
         auth.registrar_tentativa(chave)
-        registrar("Login ADMIN recusado", request, login=login, senha_tentada=senha)
+        registrar("Tentativa de login ADMIN falhou (login ou senha incorretos)", request, login=login, senha_tentada=senha)
         return render(request, "admin/login.html", erro="Login ou senha incorretos.", next=next)
     auth.limpar_tentativas(chave)
     registrar("Login ADMIN realizado", request, login=a.login, senha="(correta; não registrada)")
@@ -606,10 +611,15 @@ def usuario_excluir(request: Request, uid: uuid.UUID, admin: AdminUser = Depends
 
 # ---- histórico de auditoria (só master; checagem em admin_dep) ----
 @router.get("/historico")
-def historico(request: Request, de: str = "", ate: str = "", q: str = "", admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    """Nada é listado sem período: o histórico cresce sem limite. Período = 00:00 de `de` até 23:59:59 de `ate` (hora de Belém)."""
+def historico(request: Request, de: str = "", ate: str = "", q: str = "", tentativas: str = "",
+              admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    """Nada é listado sem período: o histórico cresce sem limite. Período = 00:00 de `de` até 23:59:59 de `ate` (hora de Belém).
+    tentativas=1: só as tentativas de login que falharam (detecção de invasão), com total e contagem por dia; sem período, o dia de hoje."""
     from datetime import time as _time
     from mail import FUSO
+    if tentativas and not (de or ate):
+        de = ate = datetime.now(FUSO).date().isoformat()
+    resumo = None
     primeira = db.scalar(select(func.min(Historico.quando)))
     total = db.scalar(select(func.count()).select_from(Historico))
     itens, erro = [], ""
@@ -622,12 +632,19 @@ def historico(request: Request, de: str = "", ate: str = "", q: str = "", admin:
         else:
             ini = datetime.combine(d_de, _time.min, tzinfo=FUSO)
             fim = datetime.combine(d_ate, _time.max, tzinfo=FUSO)
-            stmt = select(Historico).where(Historico.quando >= ini, Historico.quando <= fim).order_by(Historico.quando.desc())
+            filtros = [Historico.quando >= ini, Historico.quando <= fim]
+            if tentativas:
+                filtros.append(FALHA_LOGIN)
             if q:
                 like = f"%{q}%"
-                stmt = stmt.where(Historico.acao.ilike(like) | Historico.login.ilike(like) | Historico.ip.ilike(like) | Historico.detalhe.cast(String).ilike(like))
-            itens = db.scalars(stmt.limit(500)).all()
-    return render(request, "admin/historico.html", itens=itens, q=q, de=de, ate=ate, erro=erro, total=total,
+                filtros.append(Historico.acao.ilike(like) | Historico.login.ilike(like) | Historico.ip.ilike(like) | Historico.detalhe.cast(String).ilike(like))
+            itens = db.scalars(select(Historico).where(*filtros).order_by(Historico.quando.desc()).limit(500)).all()
+            if tentativas:  # a contagem é de todo o período, não só das 500 linhas listadas
+                dia = func.date(func.timezone("America/Belem", Historico.quando))
+                da_admin = func.count().filter(Historico.acao.like("%ADMIN%"))
+                por_dia = db.execute(select(dia, func.count(), da_admin).where(*filtros).group_by(dia).order_by(dia.desc())).all()
+                resumo = {"total": sum(n for _, n, _ in por_dia), "por_dia": por_dia}
+    return render(request, "admin/historico.html", itens=itens, q=q, de=de, ate=ate, erro=erro, total=total, tentativas=tentativas, resumo=resumo,
                   primeira=primeira.astimezone(FUSO) if primeira else None, filtrado=bool(de or ate) and not erro)
 
 

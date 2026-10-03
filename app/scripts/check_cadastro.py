@@ -59,10 +59,10 @@ try:
     # captcha nos logins
     assert "verificação incorreta" in c.post("/morador/login", data={"cpf": CPF1, "nascimento": "1980-05-10", **captcha(False)}).text
     acao, det = registros[-1]  # o erro de captcha fica no histórico, com o que foi digitado e o motivo
-    assert acao == "Login CONDÔMINO recusado (captcha)" and det["cpf"] == CPF1 and det["motivo"].startswith("resposta errada: digitou '")
+    assert acao == "Tentativa de login CONDÔMINO falhou (captcha)" and det["cpf"] == CPF1 and det["motivo"].startswith("resposta errada: digitou '")
     assert "verificação incorreta" in c.post("/admin/login", data={"login": "x", "senha": "senha-secreta", **captcha(False)}).text
     acao, det = registros[-1]
-    assert acao == "Login ADMIN recusado (captcha)" and det["login"] == "x" and "senha-secreta" not in str(det)  # a senha não é registrada
+    assert acao == "Tentativa de login ADMIN falhou (captcha)" and det["login"] == "x" and "senha-secreta" not in str(det)  # a senha não é registrada
     assert "expirada" in auth.captcha_falha(auth._captcha.dumps({"r": 5, "exp": 0}), "5") and "adulterada" in auth.captcha_falha("lixo", "5")
     assert "Login ou senha incorretos" in c.post("/admin/login", data={"login": "x", "senha": "y", **captcha()}).text
     # obrigatórios
