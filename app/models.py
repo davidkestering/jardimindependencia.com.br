@@ -117,7 +117,7 @@ class Morador(Base):
 
 
 # Áreas da administração que podem ser liberadas a um usuário (chave -> rótulo). Prefixo de rota = /admin/<chave>.
-AREAS_ADMIN = {"moradores": "Moradores e cadastros", "documentos": "Documentos", "comunicados": "Comunicados",
+AREAS_ADMIN = {"moradores": "Moradores e cadastros", "documentos": "Documentos", "comunicados": "Comunicados", "fale-conosco": "Fale Conosco",
                "financeiro": "Inadimplência", "assembleias": "Assembleias", "enquetes": "Enquetes", "ocorrencias": "Ocorrências", "interfone": "Interfone",
                "garagem": "Garagem e Veículos", "animais": "Animais de Estimação"}
 
@@ -515,6 +515,41 @@ class OcorrenciaAnexo(Base):
     __tablename__ = "ocorrencia_anexo"
     id: Mapped[uuid.UUID] = uuid_pk()
     mensagem_id: Mapped[uuid.UUID] = fk("ocorrencia_mensagem")
+    arquivo: Mapped[str] = mapped_column(String(255))       # caminho relativo em UPLOAD_DIR
+    nome_original: Mapped[str] = mapped_column(String(255))
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class FaleConosco(Base):
+    """Mensagem do condômino à administração: sugestão, reclamação, ideia, conselho ou elogio. NÃO é ocorrência:
+    não tem número, resposta nem finalização. Imutável: sem edição nem exclusão; a administração só lê."""
+    __tablename__ = "fale_conosco"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    unidade_id: Mapped[uuid.UUID] = fk("unidade")
+    morador_id: Mapped[uuid.UUID] = fk("morador")
+    tipo: Mapped[str] = mapped_column(String(12))  # um dos routers.fale_conosco.TIPOS
+    texto: Mapped[str] = mapped_column(Text)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    criado_ip: Mapped[str | None] = mapped_column(String(45))
+    termo_texto: Mapped[str | None] = mapped_column(Text)  # declaração aceita ao enviar
+    termo_aceito_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    termo_ip: Mapped[str | None] = mapped_column(String(45))
+    lida_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # primeira vez que a administração abriu
+    lida_por: Mapped[str | None] = mapped_column(String(60))
+    unidade: Mapped[Unidade] = relationship()
+    morador: Mapped[Morador] = relationship()
+    anexos: Mapped[list["FaleConoscoAnexo"]] = relationship(order_by="FaleConoscoAnexo.numero", viewonly=True)
+
+
+class FaleConoscoAnexo(Base):
+    """Imagem ou vídeo de uma mensagem do Fale Conosco. numero: sequencial do arquivo dentro do apartamento, nunca reaproveitado
+    (dá nome ao arquivo: arquivos_fale_conosco/BL_XX_AP_XXX_fale_DDMMYYYY_HHMMSS_<numero>.<extensão>)."""
+    __tablename__ = "fale_conosco_anexo"
+    __table_args__ = (UniqueConstraint("unidade_id", "numero"),)
+    id: Mapped[uuid.UUID] = uuid_pk()
+    mensagem_id: Mapped[uuid.UUID] = fk("fale_conosco")
+    unidade_id: Mapped[uuid.UUID] = fk("unidade")
+    numero: Mapped[int] = mapped_column(Integer)
     arquivo: Mapped[str] = mapped_column(String(255))       # caminho relativo em UPLOAD_DIR
     nome_original: Mapped[str] = mapped_column(String(255))
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

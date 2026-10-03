@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block titulo %}Fale Conosco · Minha área{% endblock %}
+{% block head %}<style>.fale-anexos{display:flex;flex-wrap:wrap;gap:12px;margin:10px 0 0}.fale-anexos figure{margin:0;max-width:min(100%,360px)}.fale-anexos img,.fale-anexos video{display:block;max-width:100%;max-height:360px;border-radius:8px;border:1px solid var(--bege-claro)}.fale-anexos figcaption{font-size:13px;margin-top:4px;overflow-wrap:anywhere}.nova{background:#fbe9e3;color:#7a2e12;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.filtro{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}.filtro select{width:auto}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "morador/_menu.html" %}
+  {% set base = '/morador/fale-conosco' %}
+  <h1>Fale Conosco</h1>
+  <div class="aviso" style="max-width:70ch"><strong>Este espaço não é para registro de ocorrências.</strong> Aqui você fala diretamente com a administração para expor ideias, sugestões, conselhos, elogios e reclamações, em benefício do condomínio. As mensagens enviadas aqui não geram ocorrência, não têm número de registro e não recebem resposta por este canal. Para registrar um fato que exija apuração e resposta da administração, use o menu <a href="/morador/ocorrencias">Ocorrências</a>.</div>
+  {% if erro %}<p class="aviso" style="max-width:560px" role="alert">{{ erro }}</p>{% endif %}
+  {% if ok %}<p class="aviso ok" style="max-width:560px" role="status">{{ ok }}</p>{% endif %}
+  <h2 style="margin-top:28px">Enviar mensagem à administração</h2>
+  <form class="card" method="post" action="{{ base }}" enctype="multipart/form-data">
+    <label>Tipo da mensagem<select name="tipo" required><option value="">Escolha…</option>{% for chave, rotulo in tipos.items() %}<option value="{{ chave }}">{{ rotulo }}</option>{% endfor %}</select></label>
+    <label>Mensagem<textarea name="texto" rows="6" required maxlength="10000"></textarea></label>
+    <label>Imagens ou vídeo para complementar o texto (opcional): até {{ max_imagens }} imagens JPG ou PNG e 1 vídeo MP4 ou MOV de até {{ max_video_s }} segundos; até {{ max_mb }} MB no total<input name="arquivos" type="file" accept=".jpg,.jpeg,.png,.mp4,.mov" multiple data-video-s="{{ max_video_s }}"></label>
+    {% include "_captcha.html" %}
+    <p style="font-size:13px;line-height:1.5;color:#6b5a4c;margin:4px 0 8px">{{ termo_fale_conosco }}</p>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400"><input type="checkbox" name="declaracao" value="sim" required style="width:auto;margin-top:3px"> Li e aceito a declaração acima.</label>
+    <p style="font-size:13px;color:#6b5a4c">Você receberá uma cópia por e-mail. Depois de enviada, a mensagem não pode ser alterada nem excluída, e não é respondida por este canal.</p>
+    <button class="btn" type="submit">Enviar mensagem</button>
+  </form>
+  <h2 style="margin-top:36px">Mensagens enviadas</h2>
+  <div style="max-width:760px">
+  {% for f in mensagens %}
+    <div class="item" style="margin:10px 0;border-left:4px solid var(--bege-medio)">
+      <div class="eyebrow">{{ tipos.get(f.tipo, f.tipo) }} · {{ f.criado_em|local }} · {% if f.lida_em %}Lida pela administração em {{ f.lida_em|local }}{% else %}ainda não lida pela administração{% endif %}</div>
+      <p style="white-space:pre-wrap;margin:6px 0 0">{{ f.texto }}</p>
+      {% include "_fale_anexos.html" %}
+    </div>
+  {% else %}<p>Nenhuma mensagem enviada.</p>{% endfor %}
+  </div>
+</div></section>
+{% endblock %}

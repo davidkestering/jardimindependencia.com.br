@@ -12,7 +12,7 @@ from auth import hash_senha, ler_sessao
 from config import ADMIN_LOGIN, ADMIN_SENHA_INICIAL, CONDOMINIO, UPLOAD_DIR
 from db import SessionLocal
 from garagens import CONVENCAO
-from models import APTOS_TESTE, BLOCO_TESTE, GARAGEM_TESTE, AdminUser, Morador, Ocorrencia, Unidade
+from models import APTOS_TESTE, BLOCO_TESTE, GARAGEM_TESTE, AdminUser, FaleConosco, Morador, Ocorrencia, Unidade
 
 logging.basicConfig(level=logging.INFO)
 BASE = Path(__file__).parent
@@ -22,6 +22,9 @@ from termo import TERMO  # noqa: E402
 templates.env.globals["termo"] = TERMO
 from termo import TERMO_OCORRENCIA  # noqa: E402
 templates.env.globals["termo_ocorrencia"] = TERMO_OCORRENCIA
+from termo import TERMO_CONTATO, TERMO_FALE_CONOSCO  # noqa: E402
+templates.env.globals["termo_fale_conosco"] = TERMO_FALE_CONOSCO
+templates.env.globals["termo_contato"] = TERMO_CONTATO
 from mail import FUSO  # noqa: E402
 templates.env.filters["local"] = lambda dt: dt.astimezone(FUSO).strftime("%d/%m/%Y %H:%M") if dt else ""
 
@@ -87,7 +90,8 @@ async def sessao_no_template(request: Request, call_next):
             a = a if a and not a.excluido_em else None  # desativado: sessão morre
             pend = db.scalar(select(func.count()).select_from(Morador).where(Morador.status == "pendente")) if a else 0
             aguard = sum(1 for o in db.scalars(select(Ocorrencia).where(Ocorrencia.status == "aberta")) if o.aguarda_admin) if a else 0
-            s = {**s, "login": a.login, "master": bool(a.master), "areas": list(a.areas or []), "pendentes": pend, "ocorrencias": aguard} if a else None
+            fale = db.scalar(select(func.count()).select_from(FaleConosco).where(FaleConosco.lida_em.is_(None))) if a else 0
+            s = {**s, "login": a.login, "master": bool(a.master), "areas": list(a.areas or []), "pendentes": pend, "ocorrencias": aguard, "fale": fale} if a else None
     elif s and s["t"] == "morador":  # menu mostra o apto administrado e os outros aptos aprovados do CPF
         with SessionLocal() as db:
             m = db.get(Morador, s["id"])
@@ -101,7 +105,7 @@ async def sessao_no_template(request: Request, call_next):
     return await call_next(request)
 
 
-from routers import admin, animais, comunicados, enquetes, financeiro, garagem, interfone, morador, ocorrencias, residentes, site, votacao  # noqa: E402
+from routers import admin, animais, comunicados, enquetes, fale_conosco, financeiro, garagem, interfone, morador, ocorrencias, residentes, site, votacao  # noqa: E402
 
 app.include_router(site.router)
 app.include_router(morador.router)
@@ -115,6 +119,7 @@ app.include_router(enquetes.router)
 app.include_router(ocorrencias.router)
 app.include_router(garagem.router)
 app.include_router(animais.router)
+app.include_router(fale_conosco.router)
 
 
 if __name__ == "__main__":

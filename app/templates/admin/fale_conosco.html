@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}Fale Conosco · Administração{% endblock %}
+{% block head %}<style>.fale-anexos{display:flex;flex-wrap:wrap;gap:12px;margin:10px 0 0}.fale-anexos figure{margin:0;max-width:min(100%,360px)}.fale-anexos img,.fale-anexos video{display:block;max-width:100%;max-height:360px;border-radius:8px;border:1px solid var(--bege-claro)}.fale-anexos figcaption{font-size:13px;margin-top:4px;overflow-wrap:anywhere}.nova{background:#fbe9e3;color:#7a2e12;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}.filtro{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}.filtro select,.filtro input{width:auto}</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "admin/_menu.html" %}
+  <h1>Fale Conosco</h1>
+  <p style="max-width:70ch">Mensagens enviadas pelos condôminos: sugestões, reclamações, ideias, conselhos e elogios. <strong>Não é ocorrência:</strong> não tem número, resposta nem finalização; a administração apenas lê. Abrir a mensagem marca como lida.</p>
+  <form method="get" class="filtro">
+    <select name="tipo" aria-label="Tipo da mensagem"><option value="">Todos os tipos</option>{% for chave, rotulo in tipos.items() %}<option value="{{ chave }}" {% if chave == tipo %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+    <select name="situacao" aria-label="Situação">{% for chave, rotulo in situacoes.items() %}<option value="{{ chave }}" {% if chave == situacao %}selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select>
+    <label style="display:flex;gap:6px;align-items:center;margin:0">Enviadas de <input type="date" name="de" value="{{ de }}"></label>
+    <label style="display:flex;gap:6px;align-items:center;margin:0">até <input type="date" name="ate" value="{{ ate }}"></label>
+    <button class="btn" type="submit">Filtrar</button>
+    {% if tipo or situacao or de or ate %}<a class="btn sec" href="/admin/fale-conosco">Limpar</a>{% endif %}
+  </form>
+  <div style="overflow-x:auto"><table>
+    <tr><th>Enviada em</th><th>Enviada por</th><th>Tipo</th><th>Mensagem</th><th>Anexos</th><th>Situação</th><th></th></tr>
+    {% for f in mensagens %}<tr>
+      <td>{{ f.criado_em|local }}</td>
+      <td style="font-size:13px"><strong>{{ f.morador.nome }}</strong><br>{{ f.unidade.rotulo }}<br>IP {{ f.criado_ip or '?' }}</td>
+      <td>{{ tipos.get(f.tipo, f.tipo) }}</td>
+      <td>{{ f.texto|truncate(140) }}</td>
+      <td>{{ f.anexos|length or '—' }}</td>
+      <td style="font-size:13px">{% if f.lida_em %}Lida em {{ f.lida_em|local }}<br>por {{ f.lida_por }}{% else %}<span class="nova">não lida</span>{% endif %}</td>
+      <td><a class="btn sec" href="/admin/fale-conosco/{{ f.id }}">Abrir</a></td>
+    </tr>{% else %}<tr><td colspan="7">Nenhuma mensagem.</td></tr>{% endfor %}
+  </table></div>
+</div></section>
+{% endblock %}

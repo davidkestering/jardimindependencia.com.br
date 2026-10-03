@@ -17,7 +17,7 @@ from db import get_db
 from mail import FUSO, ip_de, notificar, registrar
 from models import AdminUser, Morador, Ocorrencia, OcorrenciaAnexo, OcorrenciaMensagem
 from termo import TERMO_OCORRENCIA
-from routers.admin import ERRO_UPLOAD, EXT_OK, MAX_TOTAL_MB, _gravar_em_blocos, admin_dep
+from routers.admin import ERRO_UPLOAD, EXT_OK, EXT_VIDEO, MAX_TOTAL_MB, MAX_VIDEO_S, _gravar_em_blocos, admin_dep
 from routers.morador import morador_atual
 
 router = APIRouter()
@@ -26,7 +26,7 @@ ASSUNTO = "[Jardim Independência] Ocorrência nº {n}: {t}"
 
 def render(request: Request, nome: str, **ctx):
     from main import templates
-    return templates.TemplateResponse(request, nome, {"sessao": request.state.sessao, "max_mb": MAX_TOTAL_MB, "captcha": auth.captcha_novo(), **ctx})
+    return templates.TemplateResponse(request, nome, {"sessao": request.state.sessao, "max_mb": MAX_TOTAL_MB, "max_video_s": MAX_VIDEO_S, "captcha": auth.captcha_novo(), **ctx})
 
 
 def carregar(db: Session, oid) -> Ocorrencia:
@@ -40,21 +40,29 @@ def carregar(db: Session, oid) -> Ocorrencia:
 async def _anexar(db: Session, msg: OcorrenciaMensagem, arquivos: list[UploadFile]) -> str | None:
     """Grava anexos em blocos (mesma regra dos documentos). Devolve mensagem de erro ou None."""
     arquivos = [a for a in arquivos if a and a.filename]
-    if any(Path(a.filename).suffix.lower() not in EXT_OK for a in arquivos):
-        return "Anexos: envie apenas PDF, JPG ou PNG"
+    extensoes = [Path(a.filename).suffix.lower() for a in arquivos]
+    if any(e not in EXT_OK | EXT_VIDEO for e in extensoes):
+        return "Anexos: envie apenas PDF, JPG, PNG ou vídeo MP4/MOV"
+    if sum(e in EXT_VIDEO for e in extensoes) > 1:
+        return "Anexos: envie no máximo 1 vídeo por mensagem"
     restante, gravados = MAX_TOTAL_MB * 1024 * 1024, []
-    for a in arquivos:
-        aid = db.scalar(text("select uuidv7()"))
-        nome = f"ocorrencias/{aid}_{datetime.now(FUSO):%d%m%Y_%H%M%S}{Path(a.filename).suffix.lower()}"
-        destino = Path(UPLOAD_DIR) / nome
-        gravados.append(destino)
-        n = await _gravar_em_blocos(a, destino, restante)
-        if n < 0:
-            for g in gravados:
-                g.unlink(missing_ok=True)
-            return ERRO_UPLOAD[n].format(mb=MAX_TOTAL_MB, nome=a.filename).replace("O envio passou", "Os anexos passaram")
-        restante -= n
-        db.add(OcorrenciaAnexo(id=aid, mensagem_id=msg.id, arquivo=nome, nome_original=Path(a.filename).name[:255]))
+    try:
+        for a in arquivos:
+            aid = db.scalar(text("select uuidv7()"))
+            nome = f"ocorrencias/{aid}_{datetime.now(FUSO):%d%m%Y_%H%M%S}{Path(a.filename).suffix.lower()}"
+            destino = Path(UPLOAD_DIR) / nome
+            gravados.append(destino)
+            n = await _gravar_em_blocos(a, destino, restante)
+            if n < 0:
+                for g in gravados:
+                    g.unlink(missing_ok=True)
+                return ERRO_UPLOAD[n].format(mb=MAX_TOTAL_MB, nome=a.filename).replace("O envio passou", "Os anexos passaram")
+            restante -= n
+            db.add(OcorrenciaAnexo(id=aid, mensagem_id=msg.id, arquivo=nome, nome_original=Path(a.filename).name[:255]))
+    except BaseException:  # conexão caiu ou o disco falhou no meio do envio: nada fica órfão
+        for g in gravados:
+            g.unlink(missing_ok=True)
+        raise
     return None
 
 

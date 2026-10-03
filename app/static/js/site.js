@@ -77,3 +77,25 @@ document.querySelectorAll('table').forEach(t => {
     if (form) { e.preventDefault(); abrir(form); }
   });
 })();
+
+// Anexos com vídeo: <input type="file" data-video-s="30"> avisa, antes do envio, se há mais de um vídeo ou se ele passa do
+// limite de segundos. É só conforto para não esperar o envio à toa: o servidor confere de novo.
+(function () {
+  document.addEventListener('change', e => {
+    const inp = e.target.closest('input[type=file][data-video-s]');
+    if (!inp) return;
+    inp.setCustomValidity('');
+    const videos = [...inp.files].filter(f => /\.(mp4|mov)$/i.test(f.name)), max = +inp.dataset.videoS;
+    if (videos.length > 1) { inp.setCustomValidity('Envie no máximo 1 vídeo.'); inp.reportValidity(); return; }
+    if (!videos.length) return;
+    const v = document.createElement('video'), url = URL.createObjectURL(videos[0]);
+    v.preload = 'metadata';
+    v.onloadedmetadata = () => {
+      URL.revokeObjectURL(url);
+      if (![...inp.files].includes(videos[0])) return;  // a seleção mudou enquanto o vídeo carregava
+      if (v.duration > max + 1) { inp.setCustomValidity(`O vídeo tem ${Math.round(v.duration)} segundos; o máximo é ${max}.`); inp.reportValidity(); }
+    };
+    v.onerror = () => URL.revokeObjectURL(url);  // o navegador não lê o formato: o servidor decide
+    v.src = url;
+  });
+})();

@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import re
+import struct
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -29,6 +31,9 @@ router = APIRouter(prefix="/admin")
 def categorias(db: Session) -> list[str]:
     return [c.nome for c in db.scalars(select(CategoriaDocumento).order_by(CategoriaDocumento.nome))]
 EXT_OK = {".pdf", ".jpg", ".jpeg", ".png"}
+EXT_VIDEO = {".mp4", ".mov"}  # anexo de ocorrências e do Fale Conosco: 1 vídeo por envio
+MAX_VIDEO_S = 30
+FOLGA_VIDEO_S = 1    # a gravação de "30 segundos" do celular costuma sair com 30,x s
 MAX_TOTAL_MB = 100   # soma de todos os arquivos de um envio
 BLOCO = 1024 * 1024  # gravação em blocos de 1 MB: nunca carrega o arquivo inteiro em memória
 CONDOMINIO_CURTO = "Jardim Independência"
@@ -226,13 +231,13 @@ def documentos(request: Request, erro: str = "", ok: str = "", cad_de: str = "",
                db: Session = Depends(get_db)):
     """Lista com filtros (período de cadastro, de competência, assembleia, categoria, situação), total e paginação de POR_PAGINA.
     Sem filtro = todos os ativos; situacao=excluidos lista só os excluídos logicamente (só a administração vê), com os mesmos filtros."""
+    if not (erro or ok):  # a volta de uma ação da própria tela não é um novo acesso
+        anotar("Documentos: página acessada", request, filtros=request.url.query or "nenhum")
     cats = categorias(db)
     assembleias = db.scalars(select(Assembleia).where(Assembleia.excluido_em.is_(None)).order_by(Assembleia.abre_em.desc())).all()
     f = {"cad_de": _data(cad_de), "cad_ate": _data(cad_ate), "comp_de": _data(comp_de), "comp_ate": _data(comp_ate),
          "categoria": categoria if categoria in cats else "", "assembleia": assembleia if assembleia in ("avulso", *[str(a.id) for a in assembleias]) else "",
          "situacao": "excluidos" if situacao == "excluidos" else ""}
-    if not (erro or ok):  # a volta de uma ação da própria tela não é um novo acesso
-        anotar("Documentos: página acessada", request, filtros=request.url.query or "nenhum")
     cond = [Documento.excluido_em.is_not(None) if f["situacao"] else Documento.excluido_em.is_(None)]
     if f["cad_de"]:
         cond.append(Documento.criado_em >= datetime.combine(f["cad_de"], datetime.min.time(), FUSO))
@@ -264,7 +269,8 @@ ASSINATURAS = {".pdf": (b"%PDF",), ".jpg": (b"\xff\xd8\xff",), ".jpeg": (b"\xff\
 PDF_ATIVO = (b"/JavaScript", b"/JS ", b"/JS(", b"/JS<", b"/OpenAction", b"/AA ", b"/AA<", b"/Launch", b"/EmbeddedFile", b"/RichMedia")
 ERRO_CONTEUDO = "Arquivo recusado: o conteúdo não corresponde ao tipo informado ou o PDF tem conteúdo ativo (JavaScript, ação automática ou anexo embutido)"
 ERRO_UPLOAD = {-1: "O envio passou de {mb} MB no total", -2: ERRO_CONTEUDO + " ({nome})",
-               -3: "Antivírus indisponível no momento; tente novamente em alguns minutos", -4: "Arquivo recusado pelo antivírus ({nome})"}
+               -3: "Antivírus indisponível no momento; tente novamente em alguns minutos", -4: "Arquivo recusado pelo antivírus ({nome})",
+               -5: f"O vídeo deve ter no máximo {MAX_VIDEO_S} segundos ({{nome}})"}
 
 
 def conteudo_valido(destino: Path, ext: str) -> bool:
@@ -283,9 +289,54 @@ def conteudo_valido(destino: Path, ext: str) -> bool:
     return True
 
 
+def _atomos(f, inicio: int, fim: int):
+    """Átomos (tipo, início do conteúdo, fim) de um trecho de arquivo MP4/MOV. Para no primeiro átomo malformado."""
+    pos = inicio
+    for _ in range(1000):  # um vídeo de verdade tem poucos átomos por nível
+        if pos + 8 > fim:
+            return
+        f.seek(pos)
+        tam, tipo = struct.unpack(">I4s", f.read(8))
+        cabecalho = 8
+        if tam == 1:  # tamanho de 64 bits logo depois do tipo
+            tam, cabecalho = struct.unpack(">Q", f.read(8))[0], 16
+        elif tam == 0:  # vai até o fim do arquivo
+            tam = fim - pos
+        if tam < cabecalho or pos + tam > fim:
+            return
+        yield tipo, pos + cabecalho, pos + tam
+        pos += tam
+
+
+def duracao_video(caminho: Path) -> float | None:
+    """Duração, em segundos, declarada no cabeçalho de um MP4/MOV (átomo moov/mvhd). None se o arquivo não tiver a estrutura
+    de um vídeo desses (começa por ftyp) ou não declarar a duração."""
+    # ponytail: confia na duração declarada no cabeçalho, sem decodificar o vídeo; o teto de MAX_TOTAL_MB limita o abuso.
+    # Se for preciso medir de verdade, instalar ffmpeg na imagem e usar ffprobe aqui.
+    try:
+        with caminho.open("rb") as f:
+            topo = _atomos(f, 0, caminho.stat().st_size)
+            if next(topo, (b"",))[0] != b"ftyp":
+                return None
+            for tipo, inicio, fim in topo:
+                if tipo != b"moov":
+                    continue
+                for t, i, _ in _atomos(f, inicio, fim):
+                    if t == b"mvhd":
+                        f.seek(i)
+                        d = f.read(32)
+                        escala, duracao = struct.unpack(">II", d[12:20]) if d[0] == 0 else struct.unpack(">IQ", d[20:32])
+                        return duracao / escala if escala and duracao else None
+                return None
+    except (struct.error, IndexError):
+        pass
+    return None
+
+
 async def _gravar_em_blocos(arquivo: UploadFile, destino: Path, restante: int) -> int:
     """Copia o upload para o disco em blocos. Devolve os bytes gravados; -1 se estourar o limite; -2 se o conteúdo
-    for inválido (assinatura interna diferente da extensão ou PDF com conteúdo ativo). Em erro, o arquivo é apagado."""
+    for inválido (assinatura interna diferente da extensão, PDF com conteúdo ativo ou vídeo sem cabeçalho legível); -5 se o
+    vídeo passar de MAX_VIDEO_S; -3/-4 se o antivírus estiver fora ou recusar. Em erro, o arquivo é apagado."""
     destino.parent.mkdir(parents=True, exist_ok=True)
     total = 0
     with destino.open("wb") as f:
@@ -295,10 +346,17 @@ async def _gravar_em_blocos(arquivo: UploadFile, destino: Path, restante: int) -
                 destino.unlink(missing_ok=True)
                 return -1
             f.write(bloco)
-    if not conteudo_valido(destino, destino.suffix.lower()):
+    ext = destino.suffix.lower()
+    if ext in EXT_VIDEO:
+        duracao = duracao_video(destino)
+        if not duracao or duracao > MAX_VIDEO_S + FOLGA_VIDEO_S:
+            log.warning("upload recusado (%s): vídeo %s", destino.name, f"de {duracao:.1f} s" if duracao else "sem cabeçalho MP4/MOV legível")
+            destino.unlink(missing_ok=True)
+            return -5 if duracao else -2
+    elif not conteudo_valido(destino, ext):
         destino.unlink(missing_ok=True)
         return -2
-    limpo, detalhe = escanear(destino)  # ClamAV; falha fechada se indisponível
+    limpo, detalhe = await asyncio.to_thread(escanear, destino)  # ClamAV, fora do laço de eventos; falha fechada se indisponível
     if not limpo:
         log.warning("upload recusado (%s): %s", destino.name, detalhe)
         destino.unlink(missing_ok=True)

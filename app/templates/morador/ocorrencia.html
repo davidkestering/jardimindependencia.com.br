@@ -22,7 +22,7 @@
   <h2 style="margin-top:24px;font-size:22px">Responder</h2>
   <form class="card" method="post" action="{{ base }}/{{ o.id }}/mensagem" enctype="multipart/form-data" style="max-width:760px">
     <label>{{ rotulo }}<textarea name="texto" rows="5" required maxlength="10000"></textarea></label>
-    <label>Anexos (PDF, JPG ou PNG; vários; até {{ max_mb }} MB no total)<input name="arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple></label>
+    <label>Anexos (PDF, JPG ou PNG, vários, e 1 vídeo MP4 ou MOV de até {{ max_video_s }} segundos; até {{ max_mb }} MB no total)<input name="arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png,.mp4,.mov" multiple data-video-s="{{ max_video_s }}"></label>
     <button class="btn" type="submit">Enviar</button>
   </form>
   <form method="post" action="/morador/ocorrencias/{{ o.id }}/finalizar" data-confirm="Finalizar a ocorrência? Não haverá mais troca de mensagens." style="margin-top:16px"><button class="btn sec" type="submit">Finalizar ocorrência</button></form>

@@ -1,0 +1,6 @@
+{# anexos de uma mensagem do Fale Conosco: espera `f` (a mensagem) e `base` (/morador/fale-conosco ou /admin/fale-conosco) #}
+{% if f.anexos %}<div class="fale-anexos">{% for a in f.anexos %}{% set url = base ~ '/anexo/' ~ a.id %}<figure>
+  {% if a.arquivo.rsplit('.', 1)[-1] in ('mp4', 'mov') %}<video controls preload="none" src="{{ url }}" aria-label="Vídeo anexado: {{ a.nome_original }}"></video>
+  {% else %}<img src="{{ url }}" loading="lazy" alt="Imagem anexada: {{ a.nome_original }}">{% endif %}
+  <figcaption><a href="{{ url }}">📎 {{ a.nome_original }}</a></figcaption>
+</figure>{% endfor %}</div>{% endif %}

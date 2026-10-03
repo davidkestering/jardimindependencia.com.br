@@ -1,6 +1,6 @@
 """Ocorrências: registro imutável com anexos, e-mails (contato@ + cópia), resposta da administração com e-mail e aviso,
 mensagem do condômino, finalização. Limpa o que cria: docker exec condominio-app python scripts/check_ocorrencias.py"""
-import sys, time
+import struct, sys, time
 sys.path.insert(0, "/app")
 import mail
 enviados = []
@@ -53,6 +53,11 @@ try:
     ac, mc = cliente("admin", adm.id), cliente("morador", ma.id)
     pdf = b"%PDF-1.4 teste"
 
+    def video(segundos, nome="v.mp4"):
+        """MP4 mínimo: ftyp + moov/mvhd declarando a duração (é o que a verificação lê)."""
+        mvhd = struct.pack(">I4sIIIII", 28, b"mvhd", 0, 0, 0, 1000, int(segundos * 1000))
+        return nome, struct.pack(">I4s4sI", 16, b"ftyp", b"isom", 0) + struct.pack(">I4s", 8 + len(mvhd), b"moov") + mvhd, "video/mp4"
+
     # registro com anexo -> e-mail a contato@ e cópia ao condômino
     assert "verificação incorreta" in unquote(mc.post("/morador/ocorrencias", data={"titulo": TIT, "texto": "x", **captcha(False)}, follow_redirects=False).headers["location"])
     assert registros[-1][0] == "Ocorrência RECUSADA (captcha)" and "resposta errada" in registros[-1][1]["motivo"]  # o erro de captcha fica no histórico
@@ -76,6 +81,11 @@ try:
     # anexo inválido é recusado sem gravar
     assert "apenas PDF" in unquote(mc.post("/morador/ocorrencias", data={"titulo": TIT, "texto": "x", **captcha()}, files=[("arquivos", ("v.exe", b"1", "application/octet-stream"))], follow_redirects=False).headers["location"])
     assert "Arquivo recusado" in unquote(mc.post("/morador/ocorrencias", data={"titulo": TIT, "texto": "x", **captcha()}, files=[("arquivos", ("v.png", b"MZ\x90\x00 nao e png", "image/png"))], follow_redirects=False).headers["location"])
+    # vídeo: no máximo 1 por mensagem, de até 30 segundos
+    assert "no máximo 1 vídeo" in unquote(mc.post("/morador/ocorrencias", data={"titulo": TIT, "texto": "x", **captcha()}, files=[("arquivos", video(5)), ("arquivos", video(5, "b.mov"))], follow_redirects=False).headers["location"])
+    assert "no máximo 30 segundos" in unquote(mc.post("/morador/ocorrencias", data={"titulo": TIT, "texto": "x", **captcha()}, files=[("arquivos", video(40))], follow_redirects=False).headers["location"])
+    with SessionLocal() as db:
+        assert len(db.scalars(select(Ocorrencia).where(Ocorrencia.titulo == TIT)).all()) == 1  # as recusas não registraram nada
 
     # admin vê "aguardando resposta", responde com anexo -> e-mail ao condômino e aviso na área
     lst = ac.get("/admin/ocorrencias").text; assert "aguardando resposta" in lst and "Registrada por · quando · IP" in lst and "Última interação" in lst and "<strong>Ana Oc</strong>" in lst
@@ -83,8 +93,9 @@ try:
     assert "Declaração de responsabilidade aceita" in ac.get(f"/admin/ocorrencias/{oid}").text  # abrir marca como vista
     assert "Ocorrências (1)" not in ac.get("/admin").text
     enviados.clear()
-    r = ac.post(f"/admin/ocorrencias/{oid}/mensagem", data={"texto": "Zelador trocará amanhã."}, files=[("arquivos", ("os.pdf", pdf, "application/pdf"))], follow_redirects=False)
-    assert r.status_code == 303, r.headers; time.sleep(0.5)
+    r = ac.post(f"/admin/ocorrencias/{oid}/mensagem", data={"texto": "Zelador trocará amanhã."}, files=[("arquivos", ("os.pdf", pdf, "application/pdf")), ("arquivos", video(12))], follow_redirects=False)
+    assert r.status_code == 303 and "erro" not in r.headers["location"], r.headers; time.sleep(0.5)
+    assert "v.mp4" in enviados[0][2]  # o vídeo de até 30 s entra como anexo
     assert [p for p, _, _ in enviados] == ["ana@example.com"] and "resposta da administração" in enviados[0][1] and "Zelador trocará" in enviados[0][2] and "os.pdf" in enviados[0][2]
     assert "Ocorrências (1)" in mc.get("/morador").text and "resposta nova" in mc.get("/morador/ocorrencias").text and "1 ocorrência(s) com resposta nova" in mc.get("/morador").text
     pg = mc.get(f"/morador/ocorrencias/{oid}").text; assert "Zelador trocará" in pg and "os.pdf" in pg and "Administração ·" in pg

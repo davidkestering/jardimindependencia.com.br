@@ -16,10 +16,11 @@ Desenvolvido por **David Alexandre de Souza Kestering** ([davidkestering.com](ht
 - animais de estimação: nome, tipo, raça e foto (opcionais) de cada animal do apartamento, com edição e exclusão, para identificar um animal visto solto; ou a informação de que a unidade não possui animais;
 - comunicados com aviso por e-mail e notificação push;
 - documentos do condomínio; assembleias e enquetes com voto por unidade (unidade inadimplente vota sem contar);
-- registro de ocorrências, imutável, com anexos e respostas da administração;
+- registro de ocorrências, imutável, com anexos (PDF, imagens e 1 vídeo de até 30 s por mensagem) e respostas da administração;
+- Fale Conosco: sugestões, reclamações, ideias, conselhos e elogios à administração, com imagens e 1 vídeo de até 30 s opcionais; não é ocorrência (sem número, resposta ou finalização) e a administração apenas lê;
 - interfone virtual: PWA instalável, chamadas de voz WebRTC entre apartamentos, portaria e administração.
 
-**Administração** (usuários com áreas liberadas; dois usuários mestres): moradores e aprovações, documentos com categorias e envio múltiplo, comunicados com pré-visualização, inadimplência, garagem e veículos (consulta e correção do vínculo apartamento-garagem), animais de estimação (quantas e quais unidades registraram, informaram não possuir ou ainda não informaram, com filtros e fotos), assembleias, enquetes, ocorrências, usuários e histórico de auditoria. Toda ação registra quem, data/hora e IP; nada é apagado fisicamente (exclusão lógica).
+**Administração** (usuários com áreas liberadas; dois usuários mestres): moradores e aprovações, documentos com categorias e envio múltiplo, comunicados com pré-visualização, Fale Conosco (leitura das mensagens, com quem enviou), inadimplência, garagem e veículos (consulta e correção do vínculo apartamento-garagem), animais de estimação (quantas e quais unidades registraram, informaram não possuir ou ainda não informaram, com filtros e fotos), assembleias, enquetes, ocorrências, usuários e histórico de auditoria. Toda ação registra quem, data/hora e IP; nada é apagado fisicamente (exclusão lógica).
 
 ## Stack
 

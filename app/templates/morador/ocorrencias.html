@@ -18,7 +18,7 @@
   <form class="card" method="post" action="/morador/ocorrencias" enctype="multipart/form-data">
     <label>Título<input name="titulo" required maxlength="200" placeholder="Ex.: Lâmpada queimada na escada do bloco"></label>
     <label>Descrição<textarea name="texto" rows="6" required maxlength="10000"></textarea></label>
-    <label>Anexos (PDF, JPG ou PNG; vários; até {{ max_mb }} MB no total)<input name="arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple></label>
+    <label>Anexos (PDF, JPG ou PNG, vários, e 1 vídeo MP4 ou MOV de até {{ max_video_s }} segundos; até {{ max_mb }} MB no total)<input name="arquivos" type="file" accept=".pdf,.jpg,.jpeg,.png,.mp4,.mov" multiple data-video-s="{{ max_video_s }}"></label>
     {% include "_captcha.html" %}
     <p style="font-size:13px;line-height:1.5;color:#6b5a4c;margin:4px 0 8px">{{ termo_ocorrencia }}</p>
     <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400"><input type="checkbox" name="declaracao" value="sim" required style="width:auto;margin-top:3px"> Li e aceito a declaração acima.</label>

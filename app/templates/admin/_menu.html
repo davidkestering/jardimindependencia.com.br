@@ -4,6 +4,7 @@
   {% if sessao.master or 'moradores' in sessao.areas %}<a class="btn sec" href="/admin/moradores{% if sessao.pendentes %}?status=pendente{% endif %}">Moradores{% if sessao.pendentes %} ({{ sessao.pendentes }} pendente{{ 's' if sessao.pendentes > 1 }}){% endif %}</a>{% endif %}
   {% if sessao.master or 'documentos' in sessao.areas %}<a class="btn sec" href="/admin/documentos">Documentos</a>{% endif %}
   {% if sessao.master or 'comunicados' in sessao.areas %}<a class="btn sec" href="/admin/comunicados">Comunicados</a>{% endif %}
+  {% if sessao.master or 'fale-conosco' in sessao.areas %}<a class="btn sec" href="/admin/fale-conosco">Fale Conosco{% if sessao.fale %} ({{ sessao.fale }}){% endif %}</a>{% endif %}
   {% if sessao.master or 'financeiro' in sessao.areas %}<a class="btn sec" href="/admin/financeiro">Inadimplência</a>{% endif %}
   {% if sessao.master or 'garagem' in sessao.areas %}<a class="btn sec" href="/admin/garagem">Garagem e Veículos</a>{% endif %}
   {% if sessao.master or 'animais' in sessao.areas %}<a class="btn sec" href="/admin/animais">Animais de Estimação</a>{% endif %}
