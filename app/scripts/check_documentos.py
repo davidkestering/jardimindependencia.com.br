@@ -188,6 +188,17 @@ try:
     import routers.morador as mor
     mor.POR_PAGINA = 1000  # sem filtro lista tudo (paginado em produção; aqui numa página só para conferir)
     tudo = mc.get("/morador/documentos").text; assert "Contrato antigo" in tudo and "teste-ata" in tudo
+    # histórico: quem acessou a página de documentos e quem baixou cada documento (só histórico, sem e-mail a logs@)
+    import re as _re, uuid as _uuid
+    vistos = []; mail._gravar_historico = lambda tipo, login, ip, acao, dados: vistos.append((tipo, acao, dados))
+    mc.get("/morador/documentos?categoria=Outros"); ac.get("/admin/documentos"); ac.get("/admin/documentos?ok=feito")  # volta de ação não conta como acesso
+    did = _re.search(r'href="/morador/documentos/([0-9a-f-]{36})"', tudo).group(1)
+    assert mc.get(f"/morador/documentos/{did}").status_code == 200 and ac.get(f"/admin/documentos/{did}").status_code == 200
+    assert mc.get(f"/morador/documentos/{_uuid.uuid4()}").status_code == 404  # download que não aconteceu não entra
+    mail._gravar_historico = lambda *a, **k: None
+    assert [(t, a) for t, a, _ in vistos] == [("morador", "Documentos: página acessada"), ("admin", "Documentos: página acessada"),
+                                              ("morador", "Documento baixado"), ("admin", "Documento baixado")], vistos
+    assert vistos[0][2]["filtros"] == "categoria=Outros" and vistos[1][2]["filtros"] == "nenhum" and vistos[2][2]["documento"] and vistos[2][2]["arquivo"] and "assembleia" in vistos[2][2]
     assert "Contrato antigo" in mc.get("/morador/documentos?categoria=Inexistente").text  # categoria desconhecida é ignorada
     mor.POR_PAGINA = 10
     # filtro por categoria, independente da competência: lista da categoria por ordem de cadastro, com competência e data de cadastro

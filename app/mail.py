@@ -43,6 +43,12 @@ def registrar(assunto: str, request, **dados) -> None:
     threading.Thread(target=enviar, args=(MAIL_LOGS, f"[Log] {assunto}", "\n".join(linhas)), daemon=True).start()
 
 
+def anotar(assunto: str, request, **dados) -> None:
+    """Só o histórico, sem e-mail a MAIL_LOGS: para o que acontece muitas vezes por dia (acesso, leitura e download)."""
+    sessao = getattr(request.state, "sessao", None) or {}
+    _gravar_historico(sessao.get("t"), sessao.get("login"), ip_de(request), assunto, dados)
+
+
 def notificar(para: str, assunto: str, corpo: str) -> None:
     """Envio em thread para não atrasar a resposta HTTP."""
     threading.Thread(target=enviar, args=(para, assunto, corpo), daemon=True).start()

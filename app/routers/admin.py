@@ -16,7 +16,7 @@ import interfone as ifone
 from config import UPLOAD_DIR
 from db import get_db
 from config import SITE_URL
-from mail import FUSO, ip_de, notificar, registrar
+from mail import anotar, FUSO, ip_de, notificar, registrar
 from models import AREAS_ADMIN, AdminUser, Assembleia, CategoriaDocumento, Documento, Historico, Morador, Residente, Unidade
 from antivirus import escanear
 from routers.arquivos import servir_documento
@@ -231,6 +231,8 @@ def documentos(request: Request, erro: str = "", ok: str = "", cad_de: str = "",
     f = {"cad_de": _data(cad_de), "cad_ate": _data(cad_ate), "comp_de": _data(comp_de), "comp_ate": _data(comp_ate),
          "categoria": categoria if categoria in cats else "", "assembleia": assembleia if assembleia in ("avulso", *[str(a.id) for a in assembleias]) else "",
          "situacao": "excluidos" if situacao == "excluidos" else ""}
+    if not (erro or ok):  # a volta de uma ação da própria tela não é um novo acesso
+        anotar("Documentos: página acessada", request, filtros=request.url.query or "nenhum")
     cond = [Documento.excluido_em.is_not(None) if f["situacao"] else Documento.excluido_em.is_(None)]
     if f["cad_de"]:
         cond.append(Documento.criado_em >= datetime.combine(f["cad_de"], datetime.min.time(), FUSO))
@@ -451,8 +453,8 @@ def documento_excluir(request: Request, did: uuid.UUID, justificativa: str = For
 
 
 @router.get("/documentos/{did}")
-def documento_baixar(did: str, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    return servir_documento(db, did, apenas_publicos=False)
+def documento_baixar(request: Request, did: str, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    return servir_documento(request, db, did, apenas_publicos=False)
 
 
 @router.post("/categorias")

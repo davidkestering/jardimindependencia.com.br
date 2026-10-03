@@ -14,7 +14,7 @@ import auth
 import interfone
 from config import SITE_URL
 from db import SessionLocal, get_db
-from mail import enviar, ip_de, registrar
+from mail import anotar, enviar, ip_de, registrar
 from models import AdminUser, Comunicado, Morador
 from routers.admin import admin_dep, exigir_proprio
 from routers.morador import morador_atual
@@ -167,6 +167,7 @@ def morador_lista(request: Request, sessao: dict = Depends(auth.exigir("morador"
     lista = visiveis(db, ("condominos", "publico"))
     m.comunicados_vistos_em = datetime.now(timezone.utc)
     db.commit()
+    anotar("Comunicados: página acessada", request, novos=len(novos))
     return render(request, "morador/comunicados.html", morador=m, grupos=por_mes(lista), novos_ids=novos)
 
 
@@ -176,6 +177,7 @@ def morador_ver(request: Request, cid: uuid.UUID, sessao: dict = Depends(auth.ex
     c = db.get(Comunicado, cid)
     if not c or c.visibilidade == "rascunho" or c.excluido_em:
         raise HTTPException(404)
+    anotar("Comunicado lido", request, comunicado=c.titulo)
     return render(request, "morador/comunicado.html", morador=m, c=c)
 
 

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 import auth
 import interfone as ifone
 from db import get_db
-from mail import FUSO, ip_de, notificar, registrar
+from mail import anotar, FUSO, ip_de, notificar, registrar
 from config import MAIL_CONTATO, SITE_URL
 from models import OCUPA_APTO, DispositivoApp, Documento, Morador, Unidade
 from termo import TERMO
@@ -350,6 +350,7 @@ def documentos(request: Request, de: str = "", ate: str = "", categoria: str = "
     pagina = min(max(1, pagina), paginas)
     docs = db.scalars(q.offset((pagina - 1) * POR_PAGINA).limit(POR_PAGINA)).all()
     filtro = {k: v for k, v in (("de", de if d1 else ""), ("ate", ate if d2 else ""), ("categoria", categoria)) if v}
+    anotar("Documentos: página acessada", request, filtros=request.url.query or "nenhum")
     return render(request, "morador/documentos.html", documentos=docs, total=total, pagina=pagina, paginas=paginas, filtro=filtro,
                   de=filtro.get("de", ""), ate=filtro.get("ate", ""), categoria=categoria, categorias=cats, meses=MESES)
 
@@ -358,4 +359,4 @@ def documentos(request: Request, de: str = "", ate: str = "", categoria: str = "
 def baixar(doc_id: str, request: Request, sessao: dict = Depends(auth.exigir("morador")), db: Session = Depends(get_db)):
     from routers.arquivos import servir_documento
     morador_atual(request, db, sessao)
-    return servir_documento(db, doc_id, apenas_publicos=True)
+    return servir_documento(request, db, doc_id, apenas_publicos=True)

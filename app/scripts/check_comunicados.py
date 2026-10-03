@@ -70,6 +70,10 @@ try:
     lst = mc.get("/morador/comunicados").text; assert TIT in lst and "· novo" in lst and MES in lst and "…" in lst and TEXTO not in lst
     assert "Comunicados (1)" not in mc.get("/morador").text  # badge zerado após abrir a lista
     assert TEXTO in mc.get(f"/morador/comunicados/{cid}").text
+    # histórico: quem abriu a página de comunicados e quem leu cada comunicado (só histórico, sem e-mail a logs@)
+    _h = mail._gravar_historico; lidos = []; mail._gravar_historico = lambda tipo, login, ip, acao, dados: lidos.append((tipo, acao, dados.get("comunicado")))
+    mc.get("/morador/comunicados"); mc.get(f"/morador/comunicados/{cid}"); mail._gravar_historico = _h
+    assert lidos == [("morador", "Comunicados: página acessada", None), ("morador", "Comunicado lido", TIT)], lidos
     assert TIT not in pub.get("/comunicados").text and TIT not in pub.get("/").text
 
     # público: home (antes dos cards de moradores), lista por mês, detalhe; sem reenvio

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 import apns
 import auth
 from db import get_db
-from mail import ip_de, registrar
+from mail import anotar, ip_de, registrar
 from financeiro import unidade_inadimplente
 from models import AdminUser, Assembleia, Documento, Morador, Opcao, Pauta, Unidade, Voto
 from routers.admin import admin_dep, exigir_proprio
@@ -157,6 +157,7 @@ def morador_detalhe(request: Request, aid: uuid.UUID, msg: str = "", sessao: dic
     votos = {v.pauta_id: v for v in db.scalars(select(Voto).join(Pauta).where(Pauta.assembleia_id == aid, Voto.unidade_id == m.unidade_id))}
     aberta = a.abre_em <= agora() <= a.fecha_em
     docs = db.scalars(select(Documento).where(Documento.assembleia_id == aid, Documento.publico, Documento.excluido_em.is_(None)).order_by(Documento.criado_em)).all()
+    anotar("Assembleia acessada", request, assembleia=a.titulo, documentos=len(docs))
     return render(request, "morador/assembleia.html", morador=m, a=a, votos=votos, aberta=aberta, documentos=docs,
                   res=resultado(db, a) if agora() > a.fecha_em else None, msg=msg,
                   inadimplente=unidade_inadimplente(db, m.unidade_id), MSG_INADIMPLENTE=MSG_INADIMPLENTE)
