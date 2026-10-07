@@ -240,6 +240,8 @@ class Comunicado(Base):
     id: Mapped[uuid.UUID] = uuid_pk()
     titulo: Mapped[str] = mapped_column(String(200))
     texto: Mapped[str] = mapped_column(Text)
+    # documento opcional (PDF/Word): é um Documento na categoria "Comunicados", listado também na tela de Documentos
+    documento_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("documento.id", ondelete="SET NULL"), index=True)
     visibilidade: Mapped[str] = mapped_column(String(12), default="rascunho", server_default="rascunho")
     autor: Mapped[str] = mapped_column(String(60))                 # login de quem criou
     criado_ip: Mapped[str | None] = mapped_column(String(45))
@@ -250,6 +252,7 @@ class Comunicado(Base):
     excluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exclusão lógica: nunca apagar de verdade
     excluido_por: Mapped[str | None] = mapped_column(String(120))
     excluido_ip: Mapped[str | None] = mapped_column(String(45))
+    documento: Mapped["Documento | None"] = relationship()
 
 
 class Inadimplencia(Base):

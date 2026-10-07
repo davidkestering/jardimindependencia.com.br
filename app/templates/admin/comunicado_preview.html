@@ -16,6 +16,7 @@
     <div class="eyebrow">{{ (c.publicado_em or c.criado_em).strftime('%d/%m/%Y') }} · Administração</div>
     <h1>{{ c.titulo }}</h1>
     <div style="white-space:pre-wrap;line-height:1.6">{{ c.texto }}</div>
+    {% set d = documento_de(c) %}{% if d %}<p style="margin-top:18px"><a class="btn" href="/admin/comunicados/{{ c.id }}/documento">📎 Baixar documento: {{ d.nome_original }}</a></p>{% endif %}
   </div>
   <p style="font-size:13px;color:#6b5a4c;margin-top:12px">É assim que o comunicado aparece na página do site e na área do condômino.</p>
 </div></section>

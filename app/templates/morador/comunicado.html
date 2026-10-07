@@ -7,5 +7,6 @@
   <div class="eyebrow">{{ c.publicado_em.strftime('%d/%m/%Y') }}</div>
   <h1>{{ c.titulo }}</h1>
   <div class="card" style="white-space:pre-wrap;max-width:72ch;line-height:1.6">{{ c.texto }}</div>
+  {% set d = documento_de(c) %}{% if d %}<p style="margin-top:18px"><a class="btn" href="/morador/comunicados/{{ c.id }}/documento">📎 Baixar documento: {{ d.nome_original }}</a></p>{% endif %}
 </div></section>
 {% endblock %}

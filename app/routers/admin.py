@@ -3,6 +3,7 @@ import logging
 import re
 import struct
 import uuid
+import zipfile
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote, urlencode
@@ -269,10 +270,51 @@ def documentos(request: Request, erro: str = "", ok: str = "", cad_de: str = "",
                   excluidos=bool(f["situacao"]), categorias=cats, assembleias=assembleias, max_mb=MAX_TOTAL_MB, erro=erro, ok=ok, hoje=datetime.now(FUSO).date())
 
 
-ASSINATURAS = {".pdf": (b"%PDF",), ".jpg": (b"\xff\xd8\xff",), ".jpeg": (b"\xff\xd8\xff",), ".png": (b"\x89PNG\r\n\x1a\n",)}
+ASSINATURAS = {".pdf": (b"%PDF",), ".jpg": (b"\xff\xd8\xff",), ".jpeg": (b"\xff\xd8\xff",), ".png": (b"\x89PNG\r\n\x1a\n",), ".docx": (b"PK\x03\x04",)}
 # PDF com conteúdo ativo (onde vive a maior parte do malware em PDF): recusado
 PDF_ATIVO = (b"/JavaScript", b"/JS ", b"/JS(", b"/JS<", b"/OpenAction", b"/AA ", b"/AA<", b"/Launch", b"/EmbeddedFile", b"/RichMedia")
-ERRO_CONTEUDO = "Arquivo recusado: o conteúdo não corresponde ao tipo informado ou o PDF tem conteúdo ativo (JavaScript, ação automática ou anexo embutido)"
+ERRO_CONTEUDO = ("Arquivo recusado: o conteúdo não corresponde ao tipo informado, o PDF tem conteúdo ativo (JavaScript, ação automática ou anexo "
+                 "embutido) ou o Word tem macro, objeto embutido ou campo DDE")
+# Word (.docx) é um ZIP Office. Só .docx: .doc (binário OLE) e .docm (com macro) nunca entram.
+DOCX_PROIBIDO = ("vbaproject", "/embeddings/", "/activex/", "oleobject", "macroenabled")
+DOCX_MEMBROS_MAX, DOCX_TOTAL_MAX, DOCX_XML_MAX = 2000, 100 * 1024 * 1024, 5 * 1024 * 1024  # descompactado; barra zip bomb
+RE_DDE = re.compile(rb"\bDDE(AUTO)?\s")
+RE_EXTERNO = re.compile(rb'<Relationship\b[^>]*TargetMode="External"[^>]*>', re.I)
+
+
+def docx_valido(destino: Path) -> bool:
+    """ZIP Office íntegro, com word/document.xml, sem macro (vbaProject), OLE/ActiveX embutido, relação externa que não seja
+    hiperlink (modelo remoto, OLE vinculado) nem campo DDE em qualquer parte XML (corpo, cabeçalhos, rodapés, notas, comentários)."""
+    try:
+        with zipfile.ZipFile(destino) as z:
+            infos = z.infolist()
+            nomes = [i.filename.lower() for i in infos]
+            if "[content_types].xml" not in nomes or "word/document.xml" not in nomes or len(nomes) != len(set(nomes)):
+                return False
+            if len(nomes) > DOCX_MEMBROS_MAX or sum(i.file_size for i in infos) > DOCX_TOTAL_MAX:
+                return False
+            if any(p in n for n in nomes for p in DOCX_PROIBIDO):
+                return False
+            for i in infos:
+                n = i.filename.lower()
+                if not (n.endswith((".xml", ".rels"))):
+                    continue
+                with z.open(i) as f:
+                    xml = f.read(DOCX_XML_MAX + 1)
+                if len(xml) > DOCX_XML_MAX or xml[:2] in (b"\xff\xfe", b"\xfe\xff"):  # UTF-16 escaparia das regex
+                    return False
+                if n.endswith(".rels") and any(b"/hyperlink" not in r for r in RE_EXTERNO.findall(xml)):
+                    return False
+                if b"macroenabled" in xml.lower():
+                    return False
+                # ponytail: campo DDE partido em vários runs: tira as tags e procura no texto corrido
+                if n.startswith("word/") and RE_DDE.search(re.sub(rb"<[^>]+>", b"", xml)):
+                    return False
+            return True
+    except (zipfile.BadZipFile, KeyError, OSError):
+        return False
+
+
 ERRO_UPLOAD = {-1: "O envio passou de {mb} MB no total", -2: ERRO_CONTEUDO + " ({nome})",
                -3: "Antivírus indisponível no momento; tente novamente em alguns minutos", -4: "Arquivo recusado pelo antivírus ({nome})",
                -5: f"O vídeo deve ter no máximo {MAX_VIDEO_S} segundos ({{nome}})"}
@@ -284,6 +326,9 @@ def conteudo_valido(destino: Path, ext: str) -> bool:
         inicio = f.read(16)
     if not any(inicio.startswith(a) for a in ASSINATURAS.get(ext, ())):
         log.warning("upload recusado (%s): assinatura interna %r não bate com %s", destino.name, inicio[:8], ext)
+        return False
+    if ext == ".docx" and not docx_valido(destino):
+        log.warning("upload recusado (%s): Word inválido, com macro, objeto embutido ou DDE", destino.name)
         return False
     if ext == ".pdf":
         with destino.open("rb") as f:
