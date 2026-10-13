@@ -14,7 +14,7 @@
   </div>
   {% if excluidas %}<details style="margin-top:24px"><summary style="cursor:pointer;font-weight:600">Histórico: {{ excluidas|length }} enquete(s) excluída(s)</summary>
   <ul style="margin-top:10px">{% for e in excluidas %}<li><a href="/admin/enquetes/{{ e.id }}">{{ e.pergunta }}</a> · excluída por <strong>{{ e.excluido_por }}</strong> em {{ e.excluido_em|local }} · IP {{ e.excluido_ip or '?' }}</li>{% endfor %}</ul></details>{% endif %}
-  <h2 style="margin-top:36px;font-size:22px">Nova enquete</h2>
+  {% if pode(sessao, 'enquetes', 'criar') %}<h2 style="margin-top:36px;font-size:22px">Nova enquete</h2>
   <form class="card" method="post" action="/admin/enquetes">
     <label>Pergunta<input name="pergunta" required maxlength="300" placeholder="Ex.: Qual horário prefere para a limpeza da piscina?"></label>
     <label>Descrição (opcional)<textarea name="descricao" rows="3" maxlength="4000"></textarea></label>
@@ -24,6 +24,6 @@
       <label>Fecha em<input name="fecha_em" type="datetime-local" required></label>
     </div>
     <button class="btn" type="submit">Criar enquete</button>
-  </form>
+  </form>{% endif %}
 </div></section>
 {% endblock %}

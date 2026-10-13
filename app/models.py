@@ -120,6 +120,39 @@ class Morador(Base):
 AREAS_ADMIN = {"moradores": "Moradores e cadastros", "documentos": "Documentos", "comunicados": "Comunicados", "fale-conosco": "Fale Conosco",
                "financeiro": "Inadimplência", "assembleias": "Assembleias", "enquetes": "Enquetes", "ocorrencias": "Ocorrências", "interfone": "Interfone",
                "garagem": "Garagem e Veículos", "animais": "Animais de Estimação"}
+# Ações que cada área tem (chave -> rótulo). "ver" inclui listar, abrir e baixar; é implícita quando qualquer outra ação é liberada.
+# Só o que existe de fato nas rotas: Fale Conosco, Animais e Interfone são só leitura/uso.
+ACAO_VER = "ver"
+ACOES_ADMIN = {
+    "moradores": {"ver": "Visualizar", "criar": "Cadastrar", "aprovar": "Aprovar ou negar cadastro", "encerrar": "Encerrar acesso (habilitar novo registro)"},
+    "documentos": {"ver": "Visualizar e baixar", "criar": "Enviar documento e criar categoria", "alterar": "Alterar competência e categoria",
+                   "publicar": "Publicar ou tornar privado", "excluir": "Excluir"},
+    "comunicados": {"ver": "Visualizar", "criar": "Criar", "alterar": "Alterar", "publicar": "Publicar ou voltar a rascunho", "excluir": "Excluir"},
+    "fale-conosco": {"ver": "Visualizar"},
+    "financeiro": {"ver": "Visualizar", "criar": "Registrar inadimplência", "encerrar": "Marcar como regularizada"},
+    "assembleias": {"ver": "Visualizar", "criar": "Criar assembleia e pautas", "excluir": "Excluir assembleia e pautas"},
+    "enquetes": {"ver": "Visualizar", "criar": "Criar", "excluir": "Excluir"},
+    "ocorrencias": {"ver": "Visualizar", "responder": "Responder (com anexos)"},
+    "interfone": {"ver": "Usar o interfone"},
+    "garagem": {"ver": "Visualizar", "corrigir": "Corrigir vínculo de garagem"},
+    "animais": {"ver": "Visualizar"},
+}
+assert set(ACOES_ADMIN) == set(AREAS_ADMIN)
+
+
+def permissoes_totais(areas: list[str]) -> dict[str, list[str]]:
+    """Todas as ações de cada área da lista (migração da lista antiga e usuários de teste)."""
+    return {a: list(ACOES_ADMIN[a]) for a in areas if a in ACOES_ADMIN}
+
+
+def normalizar_permissoes(perm: dict) -> dict[str, list[str]]:
+    """Descarta áreas e ações desconhecidas, remove áreas vazias e liga "ver" em toda área com alguma ação."""
+    saida = {}
+    for area, acoes in (perm or {}).items():
+        validas = [ac for ac in ACOES_ADMIN.get(area, {}) if ac in (acoes or [])]
+        if validas:
+            saida[area] = [ACAO_VER] + [ac for ac in validas if ac != ACAO_VER]
+    return saida
 
 
 class Residente(Base):
@@ -159,7 +192,7 @@ LOGIN_PORTARIA = "usuario.portaria"
 
 
 class AdminUser(Base):
-    """master: pode tudo e gerencia usuários. Os demais só acessam as áreas listadas em `areas`.
+    """master: pode tudo e gerencia usuários. Os demais só fazem as ações liberadas em `areas` ({area: [acoes]}, ver ACOES_ADMIN).
     teste (login em LOGINS_TESTE): não altera nem exclui registro alheio e não notifica os condôminos.
     portaria (login LOGIN_PORTARIA): no interfone é a unidade PORTARIA; os demais usuários são a ADMINISTRACAO."""
     __tablename__ = "admin_user"
@@ -168,7 +201,7 @@ class AdminUser(Base):
     senha_hash: Mapped[str] = mapped_column(String(100))
     nome: Mapped[str] = mapped_column(String(120))
     master: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
-    areas: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    areas: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
     criado_por: Mapped[str | None] = mapped_column(String(60))
     criado_ip: Mapped[str | None] = mapped_column(String(45))
     criado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -179,8 +212,14 @@ class AdminUser(Base):
     excluido_por: Mapped[str | None] = mapped_column(String(120))
     excluido_ip: Mapped[str | None] = mapped_column(String(45))
 
-    def pode(self, area: str) -> bool:
-        return self.master or area in (self.areas or [])
+    def pode(self, area: str, acao: str = ACAO_VER) -> bool:
+        return self.master or acao in (self.areas or {}).get(area, [])
+
+    def resumo_permissoes(self) -> str:
+        if self.master:
+            return "Mestre (todas)"
+        return " · ".join(f"{AREAS_ADMIN[a]}: {', '.join(ACOES_ADMIN[a][ac] for ac in acs if ac in ACOES_ADMIN[a])}"
+                         for a, acs in (self.areas or {}).items() if a in AREAS_ADMIN) or "nenhuma permissão liberada ainda"
 
     @property
     def teste(self) -> bool:
@@ -556,3 +595,12 @@ class FaleConoscoAnexo(Base):
     arquivo: Mapped[str] = mapped_column(String(255))       # caminho relativo em UPLOAD_DIR
     nome_original: Mapped[str] = mapped_column(String(255))
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+if __name__ == "__main__":  # auto-verificação mínima das permissões
+    u = AdminUser(login="x", nome="x", senha_hash="x", master=False, areas={"documentos": ["ver"], "ocorrencias": ["ver", "responder"]})
+    assert u.pode("documentos") and not u.pode("documentos", "criar") and u.pode("ocorrencias", "responder") and not u.pode("garagem")
+    assert AdminUser(login="m", nome="m", senha_hash="m", master=True, areas={}).pode("garagem", "corrigir")
+    assert permissoes_totais(["interfone", "inexistente"]) == {"interfone": ["ver"]}
+    assert normalizar_permissoes({"ocorrencias": ["responder"], "garagem": [], "x": ["ver"], "documentos": ["ver", "zzz"]}) == {"ocorrencias": ["ver", "responder"], "documentos": ["ver"]}
+    print("models ok")

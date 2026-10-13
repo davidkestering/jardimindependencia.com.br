@@ -16,8 +16,8 @@
       <td style="font-size:13px">{% if c.publicado_em %}<strong>{{ c.publicado_por or '—' }}</strong><br>{{ c.publicado_em|local }}<br>IP {{ c.publicado_ip or '?' }}{% else %}—{% endif %}</td>
       <td><a href="/admin/comunicados/{{ c.id }}">{{ c.titulo }}</a>{% set d = documento_de(c) %}{% if d %}<br><a href="/admin/comunicados/{{ c.id }}/documento" style="font-size:13px">📎 {{ d.nome_original }}</a>{% endif %}</td>
       <td><span class="vis vis-{{ c.visibilidade }}">{{ rot[c.visibilidade] }}</span></td>
-      <td><a class="btn sec" href="/admin/comunicados/{{ c.id }}/preview" style="padding:5px 10px;font-size:13px">Pré-visualizar</a> {% for v in visibilidades if v != c.visibilidade %}<form class="inline" method="post" action="/admin/comunicados/{{ c.id }}/visibilidade"><input type="hidden" name="visibilidade" value="{{ v }}"><button class="btn sec" type="submit">{{ 'Tornar ' ~ rot[v]|lower if v != 'rascunho' else 'Voltar a rascunho' }}</button></form> {% endfor %}
-        <form class="inline" method="post" action="/admin/comunicados/{{ c.id }}/excluir" data-confirm="Excluir o comunicado?"><button class="btn sec" type="submit">Excluir</button></form></td>
+      <td><a class="btn sec" href="/admin/comunicados/{{ c.id }}/preview" style="padding:5px 10px;font-size:13px">Pré-visualizar</a> {% for v in visibilidades if v != c.visibilidade and pode(sessao, 'comunicados', 'publicar') %}<form class="inline" method="post" action="/admin/comunicados/{{ c.id }}/visibilidade"><input type="hidden" name="visibilidade" value="{{ v }}"><button class="btn sec" type="submit">{{ 'Tornar ' ~ rot[v]|lower if v != 'rascunho' else 'Voltar a rascunho' }}</button></form> {% endfor %}
+        {% if pode(sessao, 'comunicados', 'excluir') %}<form class="inline" method="post" action="/admin/comunicados/{{ c.id }}/excluir" data-confirm="Excluir o comunicado?"><button class="btn sec" type="submit">Excluir</button></form>{% endif %}</td>
     </tr>{% else %}<tr><td colspan="5">Nenhum comunicado.</td></tr>{% endfor %}
   </table></div>
   {% if excluidos %}<details style="margin-top:24px"><summary style="cursor:pointer;font-weight:600">Histórico: {{ excluidos|length }} comunicado(s) excluído(s)</summary>
@@ -28,14 +28,14 @@
       <td style="font-size:13px">{{ c.autor }}<br>{{ c.criado_em|local }}</td><td>{{ c.titulo }}</td><td>{{ rot[c.visibilidade] }}</td>
       <td><a class="btn sec" href="/admin/comunicados/{{ c.id }}/preview" style="padding:4px 9px;font-size:12px">Ver texto</a></td></tr>{% endfor %}
   </table></div></details>{% endif %}
-  <h2 style="margin-top:36px">Novo comunicado</h2>
+  {% if pode(sessao, 'comunicados', 'criar') %}<h2 style="margin-top:36px">Novo comunicado</h2>
   <form class="card" method="post" action="/admin/comunicados" enctype="multipart/form-data">
     <label>Título<input name="titulo" required maxlength="200"></label>
     <label>Texto<textarea name="texto" rows="10" required maxlength="20000"></textarea></label>
     <label>Documento (opcional)<input type="file" name="arquivo" accept=".pdf,.docx"></label>
     <p style="font-size:13px;color:#6b5a4c;margin-top:-6px">PDF ou Word (.docx), até {{ max_mb }} MB. O arquivo passa por antivírus e é recusado se tiver conteúdo ativo (JavaScript, macro, objeto embutido). Quando houver documento, o texto funciona como resumo.</p>
-    <label>Visibilidade<select name="visibilidade">{% for v in visibilidades %}<option value="{{ v }}">{{ rot[v] }}</option>{% endfor %}</select></label>
+    {% if pode(sessao, 'comunicados', 'publicar') %}<label>Visibilidade<select name="visibilidade">{% for v in visibilidades %}<option value="{{ v }}">{{ rot[v] }}</option>{% endfor %}</select></label>{% else %}<p style="font-size:13px;color:#6b5a4c">Fica como rascunho: a publicação depende de quem tem essa permissão.</p>{% endif %}
     <button class="btn" type="submit">Salvar</button>
-  </form>
+  </form>{% endif %}
 </div></section>
 {% endblock %}

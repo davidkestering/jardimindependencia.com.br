@@ -35,7 +35,7 @@ def unidade_da_sessao(sessao: dict | None, db: Session) -> uuid.UUID | None:
         return m.unidade_id if m and m.status == "aprovado" else None
     if sessao["t"] == "admin":
         a = db.get(AdminUser, uuid.UUID(sessao["id"]))
-        return unidade_do_admin(db, a).id if a and not a.excluido_em else None  # usuário desativado não conecta
+        return unidade_do_admin(db, a).id if a and not a.excluido_em and a.pode("interfone") else None  # desativado ou sem a área não conecta
     return None
 
 

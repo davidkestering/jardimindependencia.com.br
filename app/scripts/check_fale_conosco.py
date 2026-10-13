@@ -19,7 +19,7 @@ import routers.admin as ra
 from config import UPLOAD_DIR
 from db import SessionLocal
 from main import app
-from models import BLOCO_TESTE, AdminUser, FaleConosco, FaleConoscoAnexo, Morador, Unidade
+from models import BLOCO_TESTE, AdminUser, FaleConosco, FaleConoscoAnexo, Morador, Unidade, permissoes_totais
 from termo import TERMO, TERMO_FALE_CONOSCO
 from unidades_teste import unidades
 
@@ -89,7 +89,7 @@ try:
         for u, nome, cpf, email in ((u1, "Ana Fale", A, "ana@example.com"), (u2, "Bia Fale", B, "bia@example.com")):
             db.add(Morador(unidade_id=u.id, nome=nome, cpf=cpf, nascimento=auth.parse_data("1980-05-10"), email=email, telefone="91999990000", status="aprovado", termo_texto=TERMO))
         for login, areas in ((ADM, ["fale-conosco"]), (SEM, ["interfone"])):
-            db.add(AdminUser(login=login, nome="Teste fale", senha_hash=auth.hash_senha(uuid.uuid4().hex), areas=areas, criado_por="teste"))
+            db.add(AdminUser(login=login, nome="Teste fale", senha_hash=auth.hash_senha(uuid.uuid4().hex), areas=permissoes_totais(areas), criado_por="teste"))
         db.commit()
         ida, idb = [db.scalar(select(Morador.id).where(Morador.cpf == c)) for c in (A, B)]
         adm, sem = [cliente("admin", db.scalar(select(AdminUser.id).where(AdminUser.login == login))) for login in (ADM, SEM)]

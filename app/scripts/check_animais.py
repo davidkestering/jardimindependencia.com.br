@@ -17,7 +17,7 @@ import auth
 from config import UPLOAD_DIR
 from db import SessionLocal
 from main import app
-from models import BLOCO_TESTE, AdminUser, Animal, Morador, Unidade
+from models import BLOCO_TESTE, AdminUser, Animal, Morador, Unidade, permissoes_totais
 from termo import TERMO
 from unidades_teste import unidades
 
@@ -72,7 +72,7 @@ try:
         for u, nome, cpf in ((u1, "Ana Animais", A), (u2, "Bia Animais", B)):
             db.add(Morador(unidade_id=u.id, nome=nome, cpf=cpf, nascimento=auth.parse_data("1980-05-10"), email="a@example.com", telefone="91999990000", status="aprovado", termo_texto=TERMO))
         for login, areas in ((ADM, ["garagem", "animais"]), (SEM, ["interfone"])):
-            db.add(AdminUser(login=login, nome="Teste animais", senha_hash=auth.hash_senha(uuid.uuid4().hex), areas=areas, criado_por="teste"))
+            db.add(AdminUser(login=login, nome="Teste animais", senha_hash=auth.hash_senha(uuid.uuid4().hex), areas=permissoes_totais(areas), criado_por="teste"))
         db.commit()
         ida, idb = [db.scalar(select(Morador.id).where(Morador.cpf == c)) for c in (A, B)]
         adm, sem = [cliente("admin", db.scalar(select(AdminUser.id).where(AdminUser.login == login))) for login in (ADM, SEM)]

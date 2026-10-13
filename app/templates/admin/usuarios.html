@@ -1,19 +1,16 @@
 {% extends "base.html" %}
 {% block titulo %}Usuários · Administração{% endblock %}
-{% block head %}<style>.areas{display:flex;flex-wrap:wrap;gap:6px 14px}.areas label{display:flex;gap:6px;align-items:center;font-weight:400;font-size:13px}.areas input{width:auto}</style>{% endblock %}
 {% block conteudo %}
 <section><div class="container">
   {% include "admin/_menu.html" %}
   <h1>Usuários da administração</h1>
-  <p style="max-width:60ch">Usuários <strong>mestres</strong> acessam tudo e gerenciam esta lista. Os demais acessam somente as áreas marcadas.</p>
+  <p style="max-width:66ch">Usuários <strong>mestres</strong> acessam tudo e gerenciam esta lista. Os demais só fazem, em cada área, as ações liberadas em <em>Permissões</em>.</p>
   <div style="overflow-x:auto"><table>
-    <tr><th>Nome</th><th>Login</th><th>Criado por · quando · IP</th><th>Áreas liberadas</th><th>Ações</th></tr>
+    <tr><th>Nome</th><th>Login</th><th>Criado por · quando · IP</th><th>Permissões</th><th>Ações</th></tr>
     {% for u in usuarios %}<tr>
       <td>{{ u.nome }}</td><td>{{ u.login }}</td>
       <td style="font-size:13px"><strong>{{ u.criado_por or '—' }}</strong><br>{{ u.criado_em|local if u.criado_em else '—' }}<br>IP {{ u.criado_ip or '?' }}{% if u.alterado_em %}<br><em>alterado por {{ u.alterado_por }} · {{ u.alterado_em|local }} · IP {{ u.alterado_ip or '?' }}</em>{% endif %}</td>
-      <td>{% if u.master %}<strong>Mestre</strong> (todas){% else %}
-        <form method="post" action="/admin/usuarios/{{ u.id }}/areas"><div class="areas">{% for k, rot in areas.items() %}<label><input type="checkbox" name="area_{{ k }}" value="1" {% if k in u.areas %}checked{% endif %}>{{ rot }}</label>{% endfor %}</div>
-        <button class="btn sec" type="submit" style="margin-top:6px;padding:5px 10px;font-size:13px">Salvar áreas</button></form>{% endif %}</td>
+      <td style="font-size:13px;max-width:40ch">{% if u.master %}<strong>Mestre</strong> (todas){% else %}{{ u.resumo_permissoes() }}<br><a class="btn sec" href="/admin/usuarios/{{ u.id }}" style="margin-top:6px;padding:5px 10px;font-size:13px">Permissões</a>{% endif %}</td>
       <td>{% if not u.master %}
         <form class="inline" method="post" action="/admin/usuarios/{{ u.id }}/senha"><input name="senha" type="password" placeholder="Nova senha" minlength="8" required style="width:130px;padding:5px 8px"> <button class="btn sec" type="submit">Redefinir</button></form>
         <form class="inline" method="post" action="/admin/usuarios/{{ u.id }}/excluir" data-confirm="Desativar o usuário {{ u.login }}? Ele perde o acesso e fica no histórico."><button class="btn sec" type="submit">Desativar</button></form>{% endif %}</td>
@@ -28,9 +25,8 @@
       <label>Login (nome.sobrenome)<input name="login" required pattern="[a-z]+(\.[a-z]+)+" title="Só letras minúsculas separadas por ponto, ex.: maria.silva" placeholder="maria.silva"></label>
       <label>Senha (mínimo 8)<input name="senha" type="password" required minlength="8"></label>
     </div>
-    <p style="margin:0 0 6px;font-weight:600">Áreas liberadas</p>
-    <div class="areas" style="margin-bottom:12px">{% for k, rot in areas.items() %}<label><input type="checkbox" name="area_{{ k }}" value="1">{{ rot }}</label>{% endfor %}</div>
-    <button class="btn" type="submit">Criar usuário</button>
+    <p style="font-size:13px;color:#6b5a4c">O usuário nasce sem permissão: depois de criar, a página dele abre para liberar as ações de cada área.</p>
+    <button class="btn" type="submit">Criar usuário e definir permissões</button>
   </form>
 </div></section>
 {% endblock %}

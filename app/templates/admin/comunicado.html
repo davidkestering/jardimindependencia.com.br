@@ -9,7 +9,7 @@
   {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
   {% if ok %}<p class="aviso ok" style="max-width:560px">✓ {{ ok }}</p>{% endif %}
   <p>Visibilidade atual: <strong>{{ rot[c.visibilidade] }}</strong> · criado por {{ c.autor }} em {{ c.criado_em|local }} (IP {{ c.criado_ip or '?' }}){% if c.publicado_em %} · publicado por {{ c.publicado_por or '—' }} em {{ c.publicado_em|local }} (IP {{ c.publicado_ip or '?' }}){% endif %}</p>
-  <form class="card" method="post" action="/admin/comunicados/{{ c.id }}" enctype="multipart/form-data">
+  {% if pode(sessao, 'comunicados', 'alterar') %}<form class="card" method="post" action="/admin/comunicados/{{ c.id }}" enctype="multipart/form-data">
     <label>Título<input name="titulo" required maxlength="200" value="{{ c.titulo }}"></label>
     <label>Texto<textarea name="texto" rows="14" required maxlength="20000">{{ c.texto }}</textarea></label>
     {% set d = documento_de(c) %}{% if d %}<p>Documento atual: <a href="/admin/comunicados/{{ c.id }}/documento">📎 {{ d.nome_original }}</a></p>
@@ -17,9 +17,9 @@
     <label>{{ 'Substituir documento' if d else 'Documento (opcional)' }}<input type="file" name="arquivo" accept=".pdf,.docx"></label>
     <p style="font-size:13px;color:#6b5a4c;margin-top:-6px">PDF ou Word (.docx), até {{ max_mb }} MB. Passa por antivírus e é recusado se tiver conteúdo ativo.</p>
     <button class="btn" type="submit">Salvar alterações</button> <a class="btn sec" href="/admin/comunicados/{{ c.id }}/preview">Pré-visualizar</a>
-  </form>
+  </form>{% else %}<p><a class="btn sec" href="/admin/comunicados/{{ c.id }}/preview">Pré-visualizar</a></p>{% endif %}
   {% set rot = {'rascunho': 'Rascunho', 'condominos': 'Só condôminos', 'publico': 'Público'} %}
-  <h2 style="margin-top:28px;font-size:22px">Publicação</h2>
-  <p style="display:flex;gap:8px;flex-wrap:wrap">{% for v in visibilidades if v != c.visibilidade %}<form class="inline" method="post" action="/admin/comunicados/{{ c.id }}/visibilidade" style="display:inline"><input type="hidden" name="visibilidade" value="{{ v }}"><button class="btn{% if v == 'rascunho' %} sec{% endif %}" type="submit">{{ 'Publicar: ' ~ rot[v]|lower if v != 'rascunho' else 'Voltar a rascunho' }}</button></form>{% endfor %}</p>
+  {% if pode(sessao, 'comunicados', 'publicar') %}<h2 style="margin-top:28px;font-size:22px">Publicação</h2>
+  <p style="display:flex;gap:8px;flex-wrap:wrap">{% for v in visibilidades if v != c.visibilidade %}<form class="inline" method="post" action="/admin/comunicados/{{ c.id }}/visibilidade" style="display:inline"><input type="hidden" name="visibilidade" value="{{ v }}"><button class="btn{% if v == 'rascunho' %} sec{% endif %}" type="submit">{{ 'Publicar: ' ~ rot[v]|lower if v != 'rascunho' else 'Voltar a rascunho' }}</button></form>{% endfor %}</p>{% endif %}
 </div></section>
 {% endblock %}

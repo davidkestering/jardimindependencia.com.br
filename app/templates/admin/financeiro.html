@@ -8,7 +8,7 @@
   <p style="max-width:60ch">Unidades registradas aqui votam nas assembleias, mas o voto fica registrado sem ser computado. Ao regularizar, encerre o registro.</p>
   {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
 
-  <h2 style="font-size:22px">Registrar unidade inadimplente</h2>
+  {% if pode(sessao, 'financeiro', 'criar') %}<h2 style="font-size:22px">Registrar unidade inadimplente</h2>
   <form class="card" method="post" action="/admin/financeiro">
     <div class="duas">
       <label>Bloco<select name="bloco" id="bloco" required>{% for b in mapa %}<option value="{{ b }}">{{ b }}</option>{% endfor %}</select></label>
@@ -16,14 +16,14 @@
     </div>
     <label>Observação (obrigatória)<textarea name="observacao" rows="3" required maxlength="2000" placeholder="Ex.: taxas de condomínio de 06/2026 a 08/2026 em aberto"></textarea></label>
     <button class="btn" type="submit">Registrar</button>
-  </form>
+  </form>{% endif %}
 
   <h2 style="font-size:22px;margin-top:36px">Unidades inadimplentes ({{ ativas|length }})</h2>
   <div style="overflow-x:auto"><table>
     <tr><th>Unidade</th><th>Observação</th><th>Registrado por · quando · IP</th><th>Ações</th></tr>
     {% for i in ativas %}<tr>
       <td>{{ i.unidade.rotulo }}</td><td class="obs">{{ i.observacao }}</td><td style="font-size:13px"><strong>{{ i.registrado_por }}</strong><br>{{ i.registrado_em|local }}<br>IP {{ i.registrado_ip or '?' }}</td>
-      <td><form class="inline" method="post" action="/admin/financeiro/{{ i.id }}/encerrar" data-confirm="Encerrar a inadimplência de {{ i.unidade.rotulo }}?"><button class="btn" type="submit">Regularizada</button></form></td>
+      <td>{% if pode(sessao, 'financeiro', 'encerrar') %}<form class="inline" method="post" action="/admin/financeiro/{{ i.id }}/encerrar" data-confirm="Encerrar a inadimplência de {{ i.unidade.rotulo }}?"><button class="btn" type="submit">Regularizada</button></form>{% endif %}</td>
     </tr>{% else %}<tr><td colspan="4">Nenhuma unidade inadimplente.</td></tr>{% endfor %}
   </table></div>
 

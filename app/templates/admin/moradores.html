@@ -23,7 +23,7 @@
       <td>{% if l.id %}<a class="btn sec" href="/admin/moradores/{{ l.id }}">Ver</a>{% endif %}</td></tr>
     {% else %}<tr><td colspan="10">Ninguém encontrado.</td></tr>{% endfor %}
   </table></div>
-  <h2 style="margin-top:36px">Cadastrar morador</h2>
+  {% if pode(sessao, 'moradores', 'criar') %}<h2 style="margin-top:36px">Cadastrar morador</h2>
   <form class="card" method="post" action="/admin/moradores">
     <label>Nome completo<input name="nome" required maxlength="120"></label>
     <div class="duas">
@@ -35,7 +35,7 @@
       <label>Telefone<input name="telefone" type="tel" required></label>
     </div>
     <button class="btn" type="submit">Cadastrar (já aprovado)</button>
-  </form>
+  </form>{% endif %}
   <script>
     const mapa = {{ mapa_form|tojson }};
     function liga(bId, aId, vazio) {

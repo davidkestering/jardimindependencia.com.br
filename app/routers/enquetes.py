@@ -14,7 +14,7 @@ from db import get_db
 from financeiro import unidade_inadimplente
 from mail import ip_de, registrar
 from models import AdminUser, Enquete, EnqueteOpcao, EnqueteVoto, Unidade
-from routers.admin import admin_dep, exigir_proprio
+from routers.admin import admin_dep, exige, exigir_proprio
 from routers.morador import morador_atual
 from routers.votacao import MSG_INADIMPLENTE, agora, lista_votos, parse_dt
 
@@ -59,7 +59,7 @@ def admin_lista(request: Request, admin: AdminUser = Depends(admin_dep), db: Ses
 
 @router.post("/admin/enquetes")
 def admin_criar(request: Request, pergunta: str = Form(...), descricao: str = Form(""), opcoes: str = Form(...),
-                abre_em: str = Form(...), fecha_em: str = Form(...), admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+                abre_em: str = Form(...), fecha_em: str = Form(...), admin: AdminUser = Depends(exige("enquetes", "criar")), db: Session = Depends(get_db)):
     ops = [o.strip()[:200] for o in opcoes.splitlines() if o.strip()]
     if not pergunta.strip() or len(ops) < 2:
         raise HTTPException(400, "Informe a pergunta e ao menos duas opções, uma por linha")
@@ -86,7 +86,7 @@ def admin_detalhe(request: Request, eid: uuid.UUID, admin: AdminUser = Depends(a
 
 
 @router.post("/admin/enquetes/{eid}/excluir")
-def admin_excluir(request: Request, eid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+def admin_excluir(request: Request, eid: uuid.UUID, admin: AdminUser = Depends(exige("enquetes", "excluir")), db: Session = Depends(get_db)):
     e = carregar(db, eid)
     if not e.excluido_em:  # exclusão lógica; votos ficam
         exigir_proprio(admin, e.criado_por)

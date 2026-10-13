@@ -18,7 +18,7 @@ from config import SITE_URL, UPLOAD_DIR
 from db import SessionLocal, get_db
 from mail import FUSO, anotar, enviar, ip_de, registrar
 from models import AdminUser, Comunicado, Documento, Morador
-from routers.admin import ERRO_UPLOAD, MAX_TOTAL_MB, _gravar_em_blocos, admin_dep, exigir_proprio
+from routers.admin import ERRO_UPLOAD, MAX_TOTAL_MB, _gravar_em_blocos, admin_dep, exige, exigir_proprio, sem_permissao
 from routers.morador import morador_atual
 
 router = APIRouter()
@@ -163,8 +163,10 @@ def _mudar_visibilidade(request: Request, c: Comunicado, vis: str, admin: AdminU
 
 @router.post("/admin/comunicados")
 async def admin_criar(request: Request, titulo: str = Form(...), texto: str = Form(...), visibilidade: str = Form("rascunho"),
-                      arquivo: UploadFile | None = File(None), admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+                      arquivo: UploadFile | None = File(None), admin: AdminUser = Depends(exige("comunicados", "criar")), db: Session = Depends(get_db)):
     titulo, texto = _validar(titulo, texto)
+    if visibilidade != "rascunho" and not admin.pode("comunicados", "publicar"):  # quem só cria deixa em rascunho
+        raise sem_permissao("comunicados", "publicar")
     c = Comunicado(titulo=titulo, texto=texto, autor=admin.login, criado_ip=ip_de(request))
     if erro := await _anexar_documento(request, db, c, arquivo, admin):
         return _erro("/admin/comunicados", erro)
@@ -197,7 +199,7 @@ def admin_preview(request: Request, cid: uuid.UUID, admin: AdminUser = Depends(a
 
 @router.post("/admin/comunicados/{cid}")
 async def admin_salvar(request: Request, cid: uuid.UUID, titulo: str = Form(...), texto: str = Form(...), remover_documento: str = Form(""),
-                       arquivo: UploadFile | None = File(None), admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+                       arquivo: UploadFile | None = File(None), admin: AdminUser = Depends(exige("comunicados", "alterar")), db: Session = Depends(get_db)):
     c = db.get(Comunicado, cid) or (_ for _ in ()).throw(HTTPException(404))
     exigir_proprio(admin, c.autor)
     d0 = documento_de(c)
@@ -219,7 +221,7 @@ async def admin_salvar(request: Request, cid: uuid.UUID, titulo: str = Form(...)
 
 @router.post("/admin/comunicados/{cid}/visibilidade")
 def admin_visibilidade(request: Request, cid: uuid.UUID, visibilidade: str = Form(...),
-                       admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+                       admin: AdminUser = Depends(exige("comunicados", "publicar")), db: Session = Depends(get_db)):
     c = db.get(Comunicado, cid) or (_ for _ in ()).throw(HTTPException(404))
     exigir_proprio(admin, c.autor)
     _mudar_visibilidade(request, c, visibilidade, admin, db)
@@ -227,7 +229,7 @@ def admin_visibilidade(request: Request, cid: uuid.UUID, visibilidade: str = For
 
 
 @router.post("/admin/comunicados/{cid}/excluir")
-def admin_excluir(request: Request, cid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+def admin_excluir(request: Request, cid: uuid.UUID, admin: AdminUser = Depends(exige("comunicados", "excluir")), db: Session = Depends(get_db)):
     """Exclusão lógica: some do site e da área do condômino; fica no histórico da administração."""
     c = db.get(Comunicado, cid)
     if c and not c.excluido_em:

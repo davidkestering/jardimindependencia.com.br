@@ -26,6 +26,8 @@ from termo import TERMO_CONTATO, TERMO_FALE_CONOSCO  # noqa: E402
 templates.env.globals["termo_fale_conosco"] = TERMO_FALE_CONOSCO
 templates.env.globals["termo_contato"] = TERMO_CONTATO
 from mail import FUSO  # noqa: E402
+# permissão nos templates: pode(sessao, 'documentos', 'criar'); sem ação = visualizar
+templates.env.globals["pode"] = lambda s, area, acao="ver": bool(s) and bool(s.get("master") or acao in (s.get("areas") or {}).get(area, []))
 templates.env.filters["local"] = lambda dt: dt.astimezone(FUSO).strftime("%d/%m/%Y %H:%M") if dt else ""
 
 
@@ -91,7 +93,7 @@ async def sessao_no_template(request: Request, call_next):
             pend = db.scalar(select(func.count()).select_from(Morador).where(Morador.status == "pendente")) if a else 0
             aguard = sum(1 for o in db.scalars(select(Ocorrencia).where(Ocorrencia.status == "aberta")) if o.aguarda_admin) if a else 0
             fale = db.scalar(select(func.count()).select_from(FaleConosco).where(FaleConosco.lida_em.is_(None))) if a else 0
-            s = {**s, "login": a.login, "master": bool(a.master), "areas": list(a.areas or []), "pendentes": pend, "ocorrencias": aguard, "fale": fale} if a else None
+            s = {**s, "login": a.login, "master": bool(a.master), "areas": dict(a.areas or {}), "pendentes": pend, "ocorrencias": aguard, "fale": fale} if a else None
     elif s and s["t"] == "morador":  # menu mostra o apto administrado e os outros aptos aprovados do CPF
         with SessionLocal() as db:
             m = db.get(Morador, s["id"])

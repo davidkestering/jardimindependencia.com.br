@@ -1,17 +1,17 @@
 <p class="eyebrow" style="margin-bottom:4px">Administração</p>
 <nav class="submenu" aria-label="Administração">
   <a class="btn sec" href="/admin">Painel</a>
-  {% if sessao.master or 'moradores' in sessao.areas %}<a class="btn sec" href="/admin/moradores{% if sessao.pendentes %}?status=pendente{% endif %}">Moradores{% if sessao.pendentes %} ({{ sessao.pendentes }} pendente{{ 's' if sessao.pendentes > 1 }}){% endif %}</a>{% endif %}
-  {% if sessao.master or 'documentos' in sessao.areas %}<a class="btn sec" href="/admin/documentos">Documentos</a>{% endif %}
-  {% if sessao.master or 'comunicados' in sessao.areas %}<a class="btn sec" href="/admin/comunicados">Comunicados</a>{% endif %}
-  {% if sessao.master or 'fale-conosco' in sessao.areas %}<a class="btn sec" href="/admin/fale-conosco">Fale Conosco{% if sessao.fale %} ({{ sessao.fale }}){% endif %}</a>{% endif %}
-  {% if sessao.master or 'financeiro' in sessao.areas %}<a class="btn sec" href="/admin/financeiro">Inadimplência</a>{% endif %}
-  {% if sessao.master or 'garagem' in sessao.areas %}<a class="btn sec" href="/admin/garagem">Garagem e Veículos</a>{% endif %}
-  {% if sessao.master or 'animais' in sessao.areas %}<a class="btn sec" href="/admin/animais">Animais de Estimação</a>{% endif %}
-  {% if sessao.master or 'assembleias' in sessao.areas %}<a class="btn sec" href="/admin/assembleias">Assembleias</a>{% endif %}
-  {% if sessao.master or 'enquetes' in sessao.areas %}<a class="btn sec" href="/admin/enquetes">Enquetes</a>{% endif %}
-  {% if sessao.master or 'ocorrencias' in sessao.areas %}<a class="btn sec" href="/admin/ocorrencias">Ocorrências{% if sessao.ocorrencias %} ({{ sessao.ocorrencias }}){% endif %}</a>{% endif %}
-  {% if sessao.master or 'interfone' in sessao.areas %}<a class="btn sec" href="/admin/interfone">Interfone</a>{% endif %}
+  {% if pode(sessao, 'moradores') %}<a class="btn sec" href="/admin/moradores{% if sessao.pendentes %}?status=pendente{% endif %}">Moradores{% if sessao.pendentes %} ({{ sessao.pendentes }} pendente{{ 's' if sessao.pendentes > 1 }}){% endif %}</a>{% endif %}
+  {% if pode(sessao, 'documentos') %}<a class="btn sec" href="/admin/documentos">Documentos</a>{% endif %}
+  {% if pode(sessao, 'comunicados') %}<a class="btn sec" href="/admin/comunicados">Comunicados</a>{% endif %}
+  {% if pode(sessao, 'fale-conosco') %}<a class="btn sec" href="/admin/fale-conosco">Fale Conosco{% if sessao.fale %} ({{ sessao.fale }}){% endif %}</a>{% endif %}
+  {% if pode(sessao, 'financeiro') %}<a class="btn sec" href="/admin/financeiro">Inadimplência</a>{% endif %}
+  {% if pode(sessao, 'garagem') %}<a class="btn sec" href="/admin/garagem">Garagem e Veículos</a>{% endif %}
+  {% if pode(sessao, 'animais') %}<a class="btn sec" href="/admin/animais">Animais de Estimação</a>{% endif %}
+  {% if pode(sessao, 'assembleias') %}<a class="btn sec" href="/admin/assembleias">Assembleias</a>{% endif %}
+  {% if pode(sessao, 'enquetes') %}<a class="btn sec" href="/admin/enquetes">Enquetes</a>{% endif %}
+  {% if pode(sessao, 'ocorrencias') %}<a class="btn sec" href="/admin/ocorrencias">Ocorrências{% if sessao.ocorrencias %} ({{ sessao.ocorrencias }}){% endif %}</a>{% endif %}
+  {% if pode(sessao, 'interfone') %}<a class="btn sec" href="/admin/interfone">Interfone</a>{% endif %}
   {% if sessao.master %}<a class="btn sec" href="/admin/usuarios">Usuários</a>
   <a class="btn sec" href="/admin/historico">Histórico</a>{% endif %}
   <a class="btn sec" href="/admin/localizacao">Localização</a>

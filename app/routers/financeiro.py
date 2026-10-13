@@ -11,7 +11,7 @@ import auth
 from db import get_db
 from mail import ip_de, registrar
 from models import AdminUser, Inadimplencia, Unidade
-from routers.admin import admin_dep, exigir_proprio
+from routers.admin import admin_dep, exige, exigir_proprio
 
 router = APIRouter()
 
@@ -38,7 +38,7 @@ def admin_lista(request: Request, erro: str = "", admin: AdminUser = Depends(adm
 
 @router.post("/admin/financeiro")
 def admin_registrar(request: Request, bloco: str = Form(...), apto: str = Form(...), observacao: str = Form(...),
-                    admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+                    admin: AdminUser = Depends(exige("financeiro", "criar")), db: Session = Depends(get_db)):
     observacao = observacao.strip()[:2000]
     u = db.scalar(select(Unidade).where(Unidade.bloco == bloco, Unidade.apto == auth.so_digitos(apto).zfill(3)[-3:], Unidade.em_uso))
     if not u:
@@ -56,7 +56,7 @@ def admin_registrar(request: Request, bloco: str = Form(...), apto: str = Form(.
 
 
 @router.post("/admin/financeiro/{iid}/encerrar")
-def admin_encerrar(request: Request, iid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+def admin_encerrar(request: Request, iid: uuid.UUID, admin: AdminUser = Depends(exige("financeiro", "encerrar")), db: Session = Depends(get_db)):
     i = db.get(Inadimplencia, iid)
     if not i or i.encerrado_em:
         raise HTTPException(404)

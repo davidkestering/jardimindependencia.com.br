@@ -17,7 +17,7 @@ from db import get_db
 from garagens import ULTIMA, limpar_placa, normalizar_placa
 from mail import ip_de, registrar
 from models import AdminUser, GaragemUtilizada, Morador, Unidade, Veiculo
-from routers.admin import admin_dep, exigir_proprio
+from routers.admin import admin_dep, exige, exigir_proprio
 from routers.admin import render as render_admin
 from routers.morador import morador_atual, render
 
@@ -246,7 +246,7 @@ def admin_pagina(request: Request, mostrar: str = "", bloco: str = "", q: str = 
 
 
 @router.post("/admin/garagem/corrigir")
-def admin_corrigir(request: Request, unidade: str = Form(""), garagem: str = Form(""), admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+def admin_corrigir(request: Request, unidade: str = Form(""), garagem: str = Form(""), admin: AdminUser = Depends(exige("garagem", "corrigir")), db: Session = Depends(get_db)):
     """Corrige a garagem real de um apartamento. Se o número já é de outro apartamento, os dois trocam entre si. Os veículos
     que estavam na garagem própria acompanham o novo número, e os apartamentos afetados passam a ver o aviso do ajuste."""
     exigir_proprio(admin, None)  # conta de teste das lojas só consulta

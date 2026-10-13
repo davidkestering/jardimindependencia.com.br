@@ -12,7 +12,7 @@ from db import get_db
 from mail import anotar, ip_de, registrar
 from financeiro import unidade_inadimplente
 from models import AdminUser, Assembleia, Documento, Morador, Opcao, Pauta, Unidade, Voto
-from routers.admin import admin_dep, exigir_proprio
+from routers.admin import admin_dep, exige, exigir_proprio
 from routers.morador import morador_atual
 
 router = APIRouter()
@@ -77,7 +77,7 @@ def admin_lista(request: Request, admin: AdminUser = Depends(admin_dep), db: Ses
 
 @router.post("/admin/assembleias")
 def admin_criar(request: Request, titulo: str = Form(...), abre_em: str = Form(...), fecha_em: str = Form(...),
-                admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+                admin: AdminUser = Depends(exige("assembleias", "criar")), db: Session = Depends(get_db)):
     a = Assembleia(titulo=titulo.strip()[:200], abre_em=parse_dt(abre_em), fecha_em=parse_dt(fecha_em), criado_por=admin.login, criado_ip=ip_de(request))
     if a.fecha_em <= a.abre_em:
         raise HTTPException(400, "Fechamento deve ser depois da abertura")
@@ -101,7 +101,7 @@ def admin_detalhe(request: Request, aid: uuid.UUID, erro: str = "", ok: str = ""
 
 @router.post("/admin/assembleias/{aid}/pautas")
 def admin_pauta(request: Request, aid: uuid.UUID, texto: str = Form(...), opcoes: str = Form(...),
-                admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+                admin: AdminUser = Depends(exige("assembleias", "criar")), db: Session = Depends(get_db)):
     a = carregar(db, aid)
     exigir_proprio(admin, a.criado_por)
     ops = [o.strip()[:200] for o in opcoes.splitlines() if o.strip()]
@@ -116,7 +116,7 @@ def admin_pauta(request: Request, aid: uuid.UUID, texto: str = Form(...), opcoes
 
 
 @router.post("/admin/assembleias/{aid}/pautas/{pid}/excluir")
-def admin_pauta_excluir(request: Request, aid: uuid.UUID, pid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+def admin_pauta_excluir(request: Request, aid: uuid.UUID, pid: uuid.UUID, admin: AdminUser = Depends(exige("assembleias", "excluir")), db: Session = Depends(get_db)):
     """Exclusão lógica: a pauta some da assembleia, mas ela e os votos ficam no banco."""
     p = db.get(Pauta, pid)
     if p and p.assembleia_id == aid and not p.excluido_em:
@@ -128,7 +128,7 @@ def admin_pauta_excluir(request: Request, aid: uuid.UUID, pid: uuid.UUID, admin:
 
 
 @router.post("/admin/assembleias/{aid}/excluir")
-def admin_excluir(request: Request, aid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+def admin_excluir(request: Request, aid: uuid.UUID, admin: AdminUser = Depends(exige("assembleias", "excluir")), db: Session = Depends(get_db)):
     """Exclusão lógica: some para os condôminos; pautas, votos e documentos ficam no histórico."""
     a = db.get(Assembleia, aid)
     if a and not a.excluido_em:

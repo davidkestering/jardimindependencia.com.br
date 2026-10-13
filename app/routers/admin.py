@@ -20,7 +20,7 @@ from config import UPLOAD_DIR
 from db import get_db
 from config import SITE_URL
 from mail import anotar, FUSO, ip_de, notificar, registrar
-from models import AREAS_ADMIN, AdminUser, Assembleia, CategoriaDocumento, Documento, Historico, Morador, Residente, Unidade
+from models import ACOES_ADMIN, AREAS_ADMIN, AdminUser, normalizar_permissoes, Assembleia, CategoriaDocumento, Documento, Historico, Morador, Residente, Unidade
 from antivirus import escanear
 from routers.arquivos import servir_documento
 from routers.morador import msg_ocupado, ocupante, validar_contato
@@ -66,6 +66,19 @@ def admin_dep(request: Request, sessao: dict = Depends(auth.exigir("admin")), db
     if area in AREAS_ADMIN and not a.pode(area):
         raise HTTPException(403, "Área não liberada para o seu usuário")
     return a
+
+
+def sem_permissao(area: str, acao: str) -> HTTPException:
+    return HTTPException(403, f"Seu usuário não tem a permissão '{ACOES_ADMIN[area][acao]}' em {AREAS_ADMIN[area]}")
+
+
+def exige(area: str, acao: str):
+    """Dependência das rotas de escrita: além da área (admin_dep), exige a ação liberada no usuário (ACOES_ADMIN)."""
+    def dep(admin: AdminUser = Depends(admin_dep)) -> AdminUser:
+        if not admin.pode(area, acao):
+            raise sem_permissao(area, acao)
+        return admin
+    return dep
 
 
 # Tentativas de login que falharam, nas duas áreas (routers/morador.py e o login daqui). O segundo padrão é o nome que essas
@@ -177,7 +190,7 @@ def moradores(request: Request, status: str = "", q: str = "", bloco: str = "", 
 @router.post("/moradores")
 def morador_criar(request: Request, nome: str = Form(...), cpf: str = Form(...), nascimento: str = Form(...),
                   bloco: str = Form(...), apto: str = Form(...), email: str = Form(...), telefone: str = Form(...),
-                  admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+                  admin: AdminUser = Depends(exige("moradores", "criar")), db: Session = Depends(get_db)):
     cpf_d, nasc = auth.so_digitos(cpf), auth.parse_data(nascimento)
     apto = "" if bloco in ("PORTARIA", "ADMINISTRACAO") else auth.so_digitos(apto).zfill(3)[-3:]
     u = db.scalar(select(Unidade).where(Unidade.bloco == bloco, Unidade.apto == apto, Unidade.visivel))
@@ -211,6 +224,9 @@ def morador_status(request: Request, mid: uuid.UUID, status: str = Form(...), ad
     m = db.get(Morador, mid) or (_ for _ in ()).throw(HTTPException(404))
     if status not in TRANSICOES.get(m.status, ()):
         raise HTTPException(400, f"Não é possível passar de {m.status} para {status}")
+    acao = "encerrar" if m.status == "aprovado" else "aprovar"  # aprovado -> negado é encerrar o acesso; pendente -> aprovado|negado é decidir
+    if not admin.pode("moradores", acao):
+        raise sem_permissao("moradores", acao)
     aviso = "encerrado" if (m.status, status) == ("aprovado", "negado") else status
     m.status, m.decidido_em, m.decidido_por, m.decidido_ip = status, datetime.now(timezone.utc), admin.login, ip_de(request)
     db.commit()
@@ -439,7 +455,7 @@ def _competencia(texto: str) -> date | None:
 @router.post("/documentos")
 async def documento_enviar(request: Request, titulo: str = Form(""), categoria: str = Form(...), publico: str = Form(""),
                            assembleia_id: str = Form(""), voltar: str = Form(""), competencia: str = Form(""),
-                           arquivos: list[UploadFile] = File(...), admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+                           arquivos: list[UploadFile] = File(...), admin: AdminUser = Depends(exige("documentos", "criar")), db: Session = Depends(get_db)):
     """Vários arquivos num envio só, até MAX_TOTAL_MB no total. Sem assembleia = documento avulso.
     `voltar`: página de origem (a página da assembleia envia daqui e volta para lá). `competencia`: data de assinatura/referência."""
     destino_ok = voltar if voltar.startswith("/admin/") else "/admin/documentos"
@@ -448,6 +464,8 @@ async def documento_enviar(request: Request, titulo: str = Form(""), categoria: 
         sep = "&" if "?" in destino_ok else "?"
         return RedirectResponse(f"{destino_ok}{sep}erro={msg}", status_code=303)
     arquivos = [a for a in arquivos if a.filename]
+    if publico and not admin.pode("documentos", "publicar"):
+        raise sem_permissao("documentos", "publicar")
     if not arquivos:
         return falha("Selecione ao menos um arquivo")
     comp = _competencia(competencia)
@@ -494,7 +512,7 @@ async def documento_enviar(request: Request, titulo: str = Form(""), categoria: 
 
 
 @router.post("/documentos/{did}/publico")
-def documento_publico(request: Request, did: uuid.UUID, publico: str = Form(""), voltar: str = Form(""), admin: AdminUser = Depends(admin_dep),
+def documento_publico(request: Request, did: uuid.UUID, publico: str = Form(""), voltar: str = Form(""), admin: AdminUser = Depends(exige("documentos", "publicar")),
                       db: Session = Depends(get_db)):
     d = db.get(Documento, did) or (_ for _ in ()).throw(HTTPException(404))
     exigir_proprio(admin, d.enviado_por)
@@ -508,7 +526,7 @@ def documento_publico(request: Request, did: uuid.UUID, publico: str = Form(""),
 
 @router.post("/documentos/{did}/competencia")
 def documento_competencia(request: Request, did: uuid.UUID, competencia: str = Form(""), justificativa: str = Form(""), voltar: str = Form(""),
-                          admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+                          admin: AdminUser = Depends(exige("documentos", "alterar")), db: Session = Depends(get_db)):
     """Corrige a data de competência (assinatura/referência) de um documento. Exige justificativa; fica no histórico com a data anterior."""
     d = db.get(Documento, did) or (_ for _ in ()).throw(HTTPException(404))
     exigir_proprio(admin, d.enviado_por)
@@ -526,7 +544,7 @@ def documento_competencia(request: Request, did: uuid.UUID, competencia: str = F
 
 @router.post("/documentos/{did}/categoria")
 def documento_categoria(request: Request, did: uuid.UUID, categoria: str = Form(""), justificativa: str = Form(""), voltar: str = Form(""),
-                        admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+                        admin: AdminUser = Depends(exige("documentos", "alterar")), db: Session = Depends(get_db)):
     """Muda a categoria de um documento. Exige justificativa; fica no histórico com a categoria anterior."""
     d = db.get(Documento, did) or (_ for _ in ()).throw(HTTPException(404))
     exigir_proprio(admin, d.enviado_por)
@@ -543,7 +561,7 @@ def documento_categoria(request: Request, did: uuid.UUID, categoria: str = Form(
 
 
 @router.post("/documentos/{did}/excluir")
-def documento_excluir(request: Request, did: uuid.UUID, justificativa: str = Form(""), voltar: str = Form(""), admin: AdminUser = Depends(admin_dep),
+def documento_excluir(request: Request, did: uuid.UUID, justificativa: str = Form(""), voltar: str = Form(""), admin: AdminUser = Depends(exige("documentos", "excluir")),
                       db: Session = Depends(get_db)):
     """Exclusão lógica com justificativa obrigatória: o arquivo e o registro ficam; sai da área do condômino e passa a aparecer
     na lista da administração com o filtro «Situação: excluídos»."""
@@ -566,10 +584,8 @@ def documento_baixar(request: Request, did: str, admin: AdminUser = Depends(admi
 
 
 @router.post("/categorias")
-def categoria_criar(request: Request, nome: str = Form(...), voltar: str = Form(""), admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
-    """Nova categoria de documento (modal nas telas de envio). Precisa da área documentos: /admin/categorias não está em AREAS_ADMIN."""
-    if not admin.pode("documentos"):
-        raise HTTPException(403, "Área não liberada para o seu usuário")
+def categoria_criar(request: Request, nome: str = Form(...), voltar: str = Form(""), admin: AdminUser = Depends(exige("documentos", "criar")), db: Session = Depends(get_db)):
+    """Nova categoria de documento (modal nas telas de envio). /admin/categorias não está em AREAS_ADMIN: a permissão vem do exige()."""
     destino = voltar if voltar.startswith("/admin/") else "/admin/documentos"
     via_fetch = "application/json" in request.headers.get("accept", "")
     nome = " ".join(nome.split())[:80]
@@ -594,11 +610,12 @@ def categoria_criar(request: Request, nome: str = Form(...), voltar: str = Form(
 def usuarios(request: Request, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     todos = db.scalars(select(AdminUser).order_by(AdminUser.master.desc(), AdminUser.nome)).all()
     return render(request, "admin/usuarios.html", usuarios=[u for u in todos if not u.excluido_em],
-                  desativados=[u for u in todos if u.excluido_em], areas=AREAS_ADMIN)
+                  desativados=[u for u in todos if u.excluido_em])
 
 
-def _areas_do_form(form) -> list[str]:
-    return [a for a in AREAS_ADMIN if form.get(f"area_{a}")]
+def _permissoes_do_form(form) -> dict[str, list[str]]:
+    """Checkboxes p_<area>_<acao> da matriz; "ver" entra sozinho em toda área com alguma ação marcada."""
+    return normalizar_permissoes({a: [ac for ac in acoes if form.get(f"p_{a}_{ac}")] for a, acoes in ACOES_ADMIN.items()})
 
 
 @router.post("/usuarios")
@@ -609,11 +626,11 @@ async def usuario_criar(request: Request, admin: AdminUser = Depends(admin_dep),
         raise HTTPException(400, "Login no formato nome.sobrenome (só letras minúsculas), nome e senha com 8+ caracteres são obrigatórios")
     if db.scalar(select(AdminUser).where(AdminUser.login == login)):
         raise HTTPException(400, "Já existe um usuário com este login (ativo ou desativado)")
-    db.add(AdminUser(login=login, nome=nome, senha_hash=auth.hash_senha(senha), master=False, areas=_areas_do_form(form),
-                     criado_por=admin.login, criado_ip=ip_de(request)))
+    u = AdminUser(login=login, nome=nome, senha_hash=auth.hash_senha(senha), master=False, areas={}, criado_por=admin.login, criado_ip=ip_de(request))
+    db.add(u)
     db.commit()
-    registrar("Usuário da administração criado", request, por=admin.login, login=login, nome=nome, areas=", ".join(_areas_do_form(form)))
-    return RedirectResponse("/admin/usuarios", status_code=303)
+    registrar("Usuário da administração criado", request, por=admin.login, login=login, nome=nome, permissoes="nenhuma (liberar na página do usuário)")
+    return RedirectResponse(f"/admin/usuarios/{u.id}", status_code=303)  # nasce sem permissão: o mestre libera na matriz
 
 
 def _usuario_editavel(db: Session, uid: uuid.UUID) -> AdminUser:
@@ -623,14 +640,20 @@ def _usuario_editavel(db: Session, uid: uuid.UUID) -> AdminUser:
     return u
 
 
+@router.get("/usuarios/{uid}")
+def usuario_permissoes(request: Request, uid: uuid.UUID, ok: str = "", admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
+    """Matriz área × ações de um usuário comum (mestre não é editável)."""
+    return render(request, "admin/usuario.html", u=_usuario_editavel(db, uid), areas=AREAS_ADMIN, acoes=ACOES_ADMIN, ok=ok)
+
+
 @router.post("/usuarios/{uid}/areas")
 async def usuario_areas(request: Request, uid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     u = _usuario_editavel(db, uid)
-    u.areas = _areas_do_form(await request.form())
+    u.areas = _permissoes_do_form(await request.form())
     u.alterado_por, u.alterado_ip, u.alterado_em = admin.login, ip_de(request), datetime.now(timezone.utc)
     db.commit()
-    registrar("Áreas de usuário alteradas", request, por=admin.login, login=u.login, areas=", ".join(u.areas))
-    return RedirectResponse("/admin/usuarios", status_code=303)
+    registrar("Permissões de usuário alteradas", request, por=admin.login, login=u.login, permissoes=u.resumo_permissoes())
+    return RedirectResponse(f"/admin/usuarios/{u.id}?ok=1", status_code=303)
 
 
 @router.post("/usuarios/{uid}/senha")

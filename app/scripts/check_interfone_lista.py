@@ -68,9 +68,9 @@ try:
     with SessionLocal() as db:
         por = db.scalar(select(AdminUser).where(AdminUser.login == LOGIN_PORTARIA))
         if not por:  # a conta real ainda não existe: usa uma de teste, apagada no fim
-            por = AdminUser(login=LOGIN_PORTARIA, nome="Portaria teste", senha_hash=auth.hash_senha("senha-de-teste"), areas=["interfone"], criado_por="teste")
+            por = AdminUser(login=LOGIN_PORTARIA, nome="Portaria teste", senha_hash=auth.hash_senha("senha-de-teste"), areas={"interfone": ["ver"]}, criado_por="teste")
             db.add(por); db.commit()
-        assert por.portaria and not adm.portaria and por.areas == ["interfone"] and not por.master
+        assert por.portaria and not adm.portaria and por.areas == {"interfone": ["ver"]} and not por.master
         ids = {b: db.scalar(select(Unidade.id).where(Unidade.bloco == b)) for b in ("PORTARIA", "ADMINISTRACAO")}
         assert unidade_da_sessao({"t": "admin", "id": str(por.id)}, db) == ids["PORTARIA"]
         assert unidade_da_sessao({"t": "admin", "id": str(adm.id)}, db) == ids["ADMINISTRACAO"]

@@ -35,12 +35,12 @@
     {% else %}<tr><td colspan="6">Nenhum veículo {% if q or bloco %}com este filtro{% else %}cadastrado{% endif %}.</td></tr>{% endfor %}
   </table></div>
 
-  <h2 style="font-size:22px;margin-top:36px">Corrigir a garagem de um apartamento</h2>
+  {% if pode(sessao, 'garagem', 'corrigir') %}<h2 style="font-size:22px;margin-top:36px">Corrigir a garagem de um apartamento</h2>
   <p style="max-width:70ch">Informe o número real da garagem do apartamento. Se o número já for de outro apartamento, os dois trocam de garagem entre si. Os veículos que estavam na garagem do apartamento acompanham o novo número, e o condômino vê o aviso do ajuste na área dele.</p>
   <form class="card" method="post" action="/admin/garagem/corrigir" data-confirm="Corrigir a garagem deste apartamento? Se o número já pertencer a outro apartamento, os dois trocam de garagem entre si.">
     <label>Apartamento<select name="unidade" required><option value="">Bloco (BL), apto (AP) e garagem atual (GG)</option>{% for x in lista %}<option value="{{ x.id }}">BL {{ x.bloco }} AP {{ x.apto }} GG {{ '%03d' % x.garagem }}</option>{% endfor %}</select></label>
     <label>Número real da garagem (1 a {{ ultima }})<input name="garagem" type="number" min="1" max="{{ ultima }}" inputmode="numeric" required></label>
     <button class="btn" type="submit">Corrigir vínculo</button>
-  </form>
+  </form>{% endif %}
 </div></section>
 {% endblock %}

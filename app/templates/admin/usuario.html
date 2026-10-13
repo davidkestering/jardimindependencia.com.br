@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block titulo %}Permissões de {{ u.nome }} · Administração{% endblock %}
+{% block head %}<style>
+.matriz td,.matriz th{vertical-align:middle}.matriz td:first-child{font-weight:600;white-space:nowrap}
+.matriz label{display:flex;gap:6px;align-items:center;font-weight:400;font-size:13px;white-space:nowrap}.matriz input{width:auto;margin:0}
+.matriz .ver{color:#6b5a4c}
+</style>{% endblock %}
+{% block conteudo %}
+<section><div class="container">
+  {% include "admin/_menu.html" %}
+  <p class="eyebrow"><a href="/admin/usuarios">Usuários</a> · permissões</p>
+  <h1>{{ u.nome }} <small style="font-weight:400;font-size:16px;color:#6b5a4c">({{ u.login }})</small></h1>
+  <p style="font-size:13px;color:#6b5a4c">Criado por <strong>{{ u.criado_por or '—' }}</strong> em {{ u.criado_em|local if u.criado_em else '—' }} (IP {{ u.criado_ip or '?' }}){% if u.alterado_em %} · alterado por {{ u.alterado_por }} em {{ u.alterado_em|local }} (IP {{ u.alterado_ip or '?' }}){% endif %}</p>
+  {% if ok %}<p class="aviso ok" style="max-width:560px">✓ Permissões salvas.</p>{% endif %}
+  <p style="max-width:70ch">Marque, em cada área, o que este usuário pode fazer. <strong>Visualizar</strong> inclui listar, abrir e baixar; ela é ligada sozinha quando qualquer outra ação da área é marcada. Área sem nada marcado some do menu.</p>
+  <form method="post" action="/admin/usuarios/{{ u.id }}/areas">
+  <div style="overflow-x:auto"><table class="matriz">
+    <tr><th>Área</th><th>Ações liberadas</th></tr>
+    {% for k, rot in areas.items() %}<tr>
+      <td>{{ rot }}</td>
+      <td style="display:flex;flex-wrap:wrap;gap:6px 18px">{% for ac, rot_ac in acoes[k].items() %}<label{% if ac == 'ver' %} class="ver"{% endif %}><input type="checkbox" name="p_{{ k }}_{{ ac }}" value="1"{% if ac in u.areas.get(k, []) %} checked{% endif %}>{{ rot_ac }}</label>{% endfor %}</td>
+    </tr>{% endfor %}
+  </table></div>
+  <p style="display:flex;gap:8px;margin-top:14px"><button class="btn" type="submit">Salvar permissões</button><a class="btn sec" href="/admin/usuarios">Voltar</a></p>
+  </form>
+</div></section>
+{% endblock %}

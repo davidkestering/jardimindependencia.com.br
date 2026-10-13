@@ -4,13 +4,13 @@
 <section><div class="container">
   {% include "admin/_menu.html" %}
   <h1>Painel</h1>
-  <p>{{ admin.nome }} · {% if admin.master %}administrador mestre{% else %}acesso a: {% for a in admin.areas %}{{ a }}{% if not loop.last %}, {% endif %}{% else %}nenhuma área liberada ainda{% endfor %}{% endif %}</p>
+  <p>{{ admin.nome }} · {% if admin.master %}administrador mestre{% else %}{{ admin.resumo_permissoes() }}{% endif %}</p>
   <div class="grade">
-    <div class="item"><h3>{{ contagem.get('pendente', 0) }}</h3><p>cadastros aguardando aprovação</p>{% if contagem.get('pendente') and (sessao.master or 'moradores' in sessao.areas) %}<p><a href="/admin/moradores?status=pendente">Revisar</a></p>{% endif %}</div>
+    <div class="item"><h3>{{ contagem.get('pendente', 0) }}</h3><p>cadastros aguardando aprovação</p>{% if contagem.get('pendente') and (pode(sessao, 'moradores')) %}<p><a href="/admin/moradores?status=pendente">Revisar</a></p>{% endif %}</div>
     <div class="item"><h3>{{ contagem.get('aprovado', 0) }}</h3><p>moradores com acesso</p></div>
     <div class="item"><h3>{{ aptos }}</h3><p>apartamentos{% if areas %} · mais {{ areas }} área(s): Portaria e Administração{% endif %}</p></div>
-    <div class="item"><h3>{{ documentos }}</h3><p>documentos ativos</p>{% if sessao.master or 'documentos' in sessao.areas %}<p><a href="/admin/documentos">Abrir</a></p>{% endif %}</div>
-    <div class="item"><h3>{{ excluidos }}</h3><p>documentos excluídos (ficam só na administração)</p>{% if excluidos and (sessao.master or 'documentos' in sessao.areas) %}<p><a href="/admin/documentos?situacao=excluidos">Ver</a></p>{% endif %}</div>
+    <div class="item"><h3>{{ documentos }}</h3><p>documentos ativos</p>{% if pode(sessao, 'documentos') %}<p><a href="/admin/documentos">Abrir</a></p>{% endif %}</div>
+    <div class="item"><h3>{{ excluidos }}</h3><p>documentos excluídos (ficam só na administração)</p>{% if excluidos and (pode(sessao, 'documentos')) %}<p><a href="/admin/documentos?situacao=excluidos">Ver</a></p>{% endif %}</div>
   </div>
   <h2 style="margin-top:36px">Trocar minha senha</h2>
   <form class="card" method="post" action="/admin/senha">
