@@ -7,7 +7,8 @@ from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
+from routers.arquivos import resposta_arquivo
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
@@ -142,7 +143,7 @@ def _servir_documento(request: Request, c: Comunicado | None, permitido: bool):
     if not str(caminho).startswith(str(Path(UPLOAD_DIR).resolve())) or not caminho.is_file():
         raise HTTPException(404)
     anotar("Comunicado: documento baixado", request, comunicado=c.titulo, arquivo=d.nome_original)
-    return FileResponse(caminho, filename=d.nome_original)
+    return resposta_arquivo(caminho, d.nome_original)
 
 
 def _mudar_visibilidade(request: Request, c: Comunicado, vis: str, admin: AdminUser, db: Session) -> None:

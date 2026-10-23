@@ -12,7 +12,7 @@
   {% if pode(sessao, 'comunicados', 'alterar') %}<form class="card" method="post" action="/admin/comunicados/{{ c.id }}" enctype="multipart/form-data">
     <label>Título<input name="titulo" required maxlength="200" value="{{ c.titulo }}"></label>
     <label>Texto<textarea name="texto" rows="14" required maxlength="20000">{{ c.texto }}</textarea></label>
-    {% set d = documento_de(c) %}{% if d %}<p>Documento atual: <a href="/admin/comunicados/{{ c.id }}/documento">📎 {{ d.nome_original }}</a></p>
+    {% set d = documento_de(c) %}{% if d %}<p>Documento atual: <a href="/admin/comunicados/{{ c.id }}/documento" target="_blank" rel="noopener">📎 {{ d.nome_original }}</a></p>
     <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="remover_documento" value="1" style="width:auto"> Remover o documento</label>{% endif %}
     <label>{{ 'Substituir documento' if d else 'Documento (opcional)' }}<input type="file" name="arquivo" accept=".pdf,.docx"></label>
     <p style="font-size:13px;color:#6b5a4c;margin-top:-6px">PDF ou Word (.docx), até {{ max_mb }} MB. Passa por antivírus e é recusado se tiver conteúdo ativo.</p>

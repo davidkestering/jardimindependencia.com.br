@@ -177,7 +177,7 @@ try:
     assert f"/morador/comunicados/{did}/documento" in enviados[n_env][2]
     docs = mc.get("/morador/documentos?categoria=Comunicados").text; assert TD in docs and "edital.docx" in docs and f"/morador/documentos/{doc1}" in docs
     assert mc.get(f"/morador/documentos/{doc1}").content == DOCX  # pela tela de Documentos também
-    pg = mc.get(f"/morador/comunicados/{did}").text; assert "Baixar documento: edital.docx" in pg and f"/morador/comunicados/{did}/documento" in pg
+    pg = mc.get(f"/morador/comunicados/{did}").text; assert "Abrir documento: edital.docx" in pg and f"/morador/comunicados/{did}/documento" in pg
     assert "📎 edital.docx" in mc.get("/morador/comunicados").text
     assert mc.get(f"/morador/comunicados/{did}/documento").content == DOCX and pub.get(f"/comunicados/{did}/documento").status_code == 404
     _h = mail._gravar_historico; baixados = []; mail._gravar_historico = lambda tipo, login, ip, acao, dados: baixados.append((acao, dados.get("arquivo")))
@@ -208,7 +208,7 @@ try:
     with SessionLocal() as db:
         c3 = db.get(Comunicado, did); assert c3.documento_id is None
         d2 = db.get(Documento, doc2); assert d2.excluido_em and "Removido" in d2.excluido_motivo and Path(UPLOAD_DIR, d2.arquivo).is_file()
-    assert pub.get(f"/comunicados/{did}/documento").status_code == 404 and "Baixar documento" not in pub.get(f"/comunicados/{did}").text
+    assert pub.get(f"/comunicados/{did}/documento").status_code == 404 and "Abrir documento" not in pub.get(f"/comunicados/{did}").text
     assert TD not in mc.get("/morador/documentos?categoria=Comunicados").text
     # excluir o comunicado exclui o documento junto; voltar a rascunho torna o documento privado
     assert "Comunicado salvo" in criar("final.pdf", PDF, "publico")

@@ -26,7 +26,7 @@
     <div class="eyebrow">{{ d.categoria }}{% if d.assembleia %} · {{ d.assembleia.titulo }}{% endif %}</div>
     <h3>{{ d.titulo }}</h3>
     <dl><dt>Competência</dt><dd>{{ d.competencia.strftime('%d/%m/%Y') }}</dd><dt>Cadastro</dt><dd>{{ d.criado_em|local }}</dd><dt>Arquivo</dt><dd>{{ d.nome_original }}</dd></dl>
-    <p><a class="btn sec" href="/morador/documentos/{{ d.id }}">Abrir</a></p>
+    <p><a class="btn sec" href="/morador/documentos/{{ d.id }}" target="_blank" rel="noopener">Abrir</a></p>
   </article>{% endfor %}</div>
   {% if paginas > 1 %}<nav class="paginas" aria-label="Páginas">{% for n in range(1, paginas + 1) %}{% if n == pagina %}<strong>{{ n }}</strong>{% else %}<a class="btn sec" href="/morador/documentos?{{ filtro|urlencode }}{% if filtro %}&{% endif %}pagina={{ n }}">{{ n }}</a>{% endif %}{% endfor %}</nav>{% endif %}
   {% endif %}

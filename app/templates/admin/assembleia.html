@@ -11,7 +11,7 @@
   <h2 style="margin-top:24px;font-size:22px">Documentos da assembleia</h2>
   {% if erro %}<p class="aviso" style="max-width:560px">{{ erro }}</p>{% endif %}
   {% if ok %}<p class="aviso ok" style="max-width:560px">✓ {{ ok }}</p>{% endif %}
-  {% if documentos %}<ul>{% for d in documentos %}<li><a href="/admin/documentos/{{ d.id }}">{{ d.titulo }}</a> <small>({{ d.categoria }}{% if not d.publico %} · não publicado{% endif %})</small>
+  {% if documentos %}<ul>{% for d in documentos %}<li><a href="/admin/documentos/{{ d.id }}" target="_blank" rel="noopener">{{ d.titulo }}</a> <small>({{ d.categoria }}{% if not d.publico %} · não publicado{% endif %})</small>
     {% if pode(sessao, 'documentos', 'publicar') %}<form method="post" action="/admin/documentos/{{ d.id }}/publico" style="display:inline"><input type="hidden" name="publico" value="{{ '0' if d.publico else '1' }}"><button class="btn sec" type="submit" style="padding:3px 9px;font-size:12px">{{ 'Tornar privado' if d.publico else 'Publicar' }}</button></form>{% endif %}
     {% if pode(sessao, 'documentos', 'excluir') %}<form method="post" action="/admin/documentos/{{ d.id }}/excluir" style="display:inline" data-confirm="Excluir este documento?"><input type="hidden" name="voltar" value="/admin/assembleias/{{ a.id }}"><button class="btn sec" type="submit" style="padding:3px 9px;font-size:12px">Excluir</button></form>{% endif %}</li>{% endfor %}</ul>
   {% else %}<p>Nenhum documento nesta assembleia.</p>{% endif %}

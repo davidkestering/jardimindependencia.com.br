@@ -22,4 +22,11 @@ def servir_documento(request: Request, db: Session, doc_id: str, apenas_publicos
     if not str(caminho).startswith(str(Path(UPLOAD_DIR).resolve())) or not caminho.is_file():
         raise HTTPException(404)
     anotar("Documento baixado", request, documento=d.titulo, arquivo=d.nome_original, categoria=d.categoria, assembleia=d.assembleia.titulo if d.assembleia else "—")
-    return FileResponse(caminho, filename=d.nome_original)
+    return resposta_arquivo(caminho, d.nome_original)
+
+
+def resposta_arquivo(caminho: Path, nome_original: str) -> FileResponse:
+    """PDF abre no visualizador nativo do navegador (páginas, zoom, download); os demais tipos continuam baixando."""
+    if caminho.suffix.lower() == ".pdf":
+        return FileResponse(caminho, filename=nome_original, media_type="application/pdf", content_disposition_type="inline")
+    return FileResponse(caminho, filename=nome_original)
