@@ -214,8 +214,54 @@ def morador_criar(request: Request, nome: str = Form(...), cpf: str = Form(...),
 def morador_ver(request: Request, mid: uuid.UUID, admin: AdminUser = Depends(admin_dep), db: Session = Depends(get_db)):
     m = db.get(Morador, mid) or (_ for _ in ()).throw(HTTPException(404))
     residentes = db.scalars(select(Residente).where(Residente.unidade_id == m.unidade_id).order_by(Residente.nome)).all()
+    alteracoes = db.scalars(select(Historico).where(Historico.acao == ACAO_ALTERADO, Historico.detalhe["morador_id"].astext == str(m.id))
+                            .order_by(Historico.quando.desc())).all()
     return render(request, "admin/morador.html", m=m, acoes=sorted(TRANSICOES.get(m.status, ())), residentes=residentes,
-                  origem=ORIGEM.get(m.origem, m.origem))
+                  origem=ORIGEM.get(m.origem, m.origem), alteracoes=alteracoes, min_justificativa=MIN_JUSTIFICATIVA)
+
+
+CAMPOS_ALTERAVEIS = {"nome": "Nome", "cpf": "CPF", "nascimento": "Nascimento", "email": "E-mail", "telefone": "Telefone"}
+ACAO_ALTERADO = "Cadastro ALTERADO pelo admin"
+MIN_JUSTIFICATIVA = 10
+
+
+@router.post("/moradores/{mid}/alterar")
+def morador_alterar(request: Request, mid: uuid.UUID, nome: str = Form(...), cpf: str = Form(...), nascimento: str = Form(...),
+                    email: str = Form(...), telefone: str = Form(...), justificativa: str = Form(...),
+                    admin: AdminUser = Depends(exige("moradores", "alterar")), db: Session = Depends(get_db)):
+    """Corrige dados do cadastro (ex.: data de nascimento digitada errada). Justificativa obrigatória; antes/depois vão ao histórico."""
+    m = db.get(Morador, mid) or (_ for _ in ()).throw(HTTPException(404))
+    if m.status not in TRANSICOES:
+        raise HTTPException(400, "Registro encerrado: fica como histórico e não pode ser alterado")
+    exigir_proprio(admin, m.decidido_por if m.origem == "admin" else None)
+    justificativa = justificativa.strip()[:500]
+    if len(justificativa) < MIN_JUSTIFICATIVA:
+        raise HTTPException(400, f"Informe a justificativa da alteração (mínimo de {MIN_JUSTIFICATIVA} caracteres)")
+    cpf_d, nasc = auth.so_digitos(cpf), auth.parse_data(nascimento)
+    if not auth.cpf_valido(cpf_d):
+        raise HTTPException(400, "CPF inválido")
+    if not nasc or nasc > date.today():
+        raise HTTPException(400, "Data de nascimento inválida")
+    if not nome.strip():
+        raise HTTPException(400, "Nome inválido")
+    if erro := validar_contato(email, telefone):
+        raise HTTPException(400, erro)
+    novos = dict(nome=nome.strip()[:120], cpf=cpf_d, nascimento=nasc, email=email.strip()[:160], telefone=telefone.strip()[:20])
+    mudou = {k: (getattr(m, k), v) for k, v in novos.items() if getattr(m, k) != v}
+    if not mudou:
+        raise HTTPException(400, "Nenhum dado foi alterado")
+    email_antigo = m.email
+    for k, (_, v) in mudou.items():
+        setattr(m, k, v)
+    db.commit()
+    fmt = lambda v: v.strftime("%d/%m/%Y") if isinstance(v, date) else v  # noqa: E731
+    registrar(ACAO_ALTERADO, request, admin=admin.login, morador_id=m.id, nome=m.nome, cpf=m.cpf_fmt, unidade=m.unidade.rotulo,
+              alteracoes="; ".join(f"{CAMPOS_ALTERAVEIS[k]}: {fmt(a)} → {fmt(b)}" for k, (a, b) in mudou.items()), justificativa=justificativa)
+    if not admin.teste:  # avisa o e-mail anterior, sem expor os valores: se não foi pedido pelo condômino, ele fica sabendo
+        notificar(email_antigo, f"[{CONDOMINIO_CURTO}] Cadastro atualizado",
+                  f"A administração corrigiu dados do seu cadastro de {m.unidade.rotulo}: {', '.join(CAMPOS_ALTERAVEIS[k] for k in mudou)}.\n"
+                  "O acesso continua sendo com CPF e data de nascimento. Se você não pediu essa alteração, procure a administração.")
+    return RedirectResponse(f"/admin/moradores/{m.id}", status_code=303)
 
 
 @router.post("/moradores/{mid}/status")

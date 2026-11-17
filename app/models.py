@@ -124,7 +124,7 @@ AREAS_ADMIN = {"moradores": "Moradores e cadastros", "documentos": "Documentos",
 # Só o que existe de fato nas rotas: Fale Conosco, Animais e Interfone são só leitura/uso.
 ACAO_VER = "ver"
 ACOES_ADMIN = {
-    "moradores": {"ver": "Visualizar", "criar": "Cadastrar", "aprovar": "Aprovar ou negar cadastro", "encerrar": "Encerrar acesso (habilitar novo registro)"},
+    "moradores": {"ver": "Visualizar", "criar": "Cadastrar", "aprovar": "Aprovar ou negar cadastro", "alterar": "Alterar dados do cadastro (com justificativa)", "encerrar": "Encerrar acesso (habilitar novo registro)"},
     "documentos": {"ver": "Visualizar e baixar", "criar": "Enviar documento e criar categoria", "alterar": "Alterar competência e categoria",
                    "publicar": "Publicar ou tornar privado", "excluir": "Excluir"},
     "comunicados": {"ver": "Visualizar", "criar": "Criar", "alterar": "Alterar", "publicar": "Publicar ou voltar a rascunho", "excluir": "Excluir"},
